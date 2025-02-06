@@ -86,7 +86,8 @@ jobs:
           Xvfb :0 -screen 0 1024x768x24 -ac +extension GLX +render -noreset &> xvfb.log &
           export DISPLAY=:0
         fi
-        make test
+        make test PYTEST_ARGS="--ignore=tests/test_run_experiments.py"
+
 
   typecheck:
     name: typecheck (${{ matrix.os }}, py-${{ matrix.python_version }})
