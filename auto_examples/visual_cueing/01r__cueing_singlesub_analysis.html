@@ -7,7 +7,7 @@
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Cueing Single Subject Analysis &mdash; EEG Notebooks 0.0.0 documentation</title>
-      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=03e43079" />
       <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
       <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css?v=76b2166b" />
       <link rel="stylesheet" type="text/css" href="../../_static/theme_override.css?v=0d929ddc" />
@@ -454,20 +454,20 @@ to download the full example code.</p>
 <section id="setup">
 <h2>Setup<a class="headerlink" href="#setup" title="Permalink to this heading"></a></h2>
 <div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Some standard pythonic imports</span>
-<span class="kn">import</span> <span class="nn">os</span><span class="o">,</span><span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span><span class="c1">#,sys,glob,pandas as pd</span>
-<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">OrderedDict</span>
-<span class="kn">import</span> <span class="nn">warnings</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span><span class="o">,</span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span><span class="c1">#,sys,glob,pandas as pd</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">OrderedDict</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
 <span class="n">warnings</span><span class="o">.</span><span class="n">filterwarnings</span><span class="p">(</span><span class="s1">&#39;ignore&#39;</span><span class="p">)</span>
-<span class="kn">from</span> <span class="nn">matplotlib</span> <span class="kn">import</span> <span class="n">pyplot</span> <span class="k">as</span> <span class="n">plt</span>
-<span class="kn">import</span> <span class="nn">matplotlib.patches</span> <span class="k">as</span> <span class="nn">patches</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">matplotlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">pyplot</span> <span class="k">as</span> <span class="n">plt</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.patches</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">patches</span>
 
 <span class="c1"># MNE functions</span>
-<span class="kn">from</span> <span class="nn">mne</span> <span class="kn">import</span> <span class="n">Epochs</span><span class="p">,</span><span class="n">find_events</span><span class="c1">#, concatenate_raws</span>
-<span class="kn">from</span> <span class="nn">mne.time_frequency</span> <span class="kn">import</span> <span class="n">tfr_morlet</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mne</span><span class="w"> </span><span class="kn">import</span> <span class="n">Epochs</span><span class="p">,</span><span class="n">find_events</span><span class="c1">#, concatenate_raws</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mne.time_frequency</span><span class="w"> </span><span class="kn">import</span> <span class="n">tfr_morlet</span>
 
 <span class="c1"># EEG-Notebooks functions</span>
-<span class="kn">from</span> <span class="nn">eegnb.analysis.analysis_utils</span> <span class="kn">import</span> <span class="n">load_data</span><span class="p">,</span><span class="n">plot_conditions</span>
-<span class="kn">from</span> <span class="nn">eegnb.datasets</span> <span class="kn">import</span> <span class="n">fetch_dataset</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">eegnb.analysis.analysis_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_data</span><span class="p">,</span><span class="n">plot_conditions</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">eegnb.datasets</span><span class="w"> </span><span class="kn">import</span> <span class="n">fetch_dataset</span>
 </pre></div>
 </div>
 </section>
@@ -496,23 +496,21 @@ to download the full example code.</p>
 </div>
 <div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Downloading...
 From (original): https://drive.google.com/uc?id=1ABOVJ9S0BeJOsqdGFnexaTFZ-ZcsIXfQ
-From (redirected): https://drive.google.com/uc?id=1ABOVJ9S0BeJOsqdGFnexaTFZ-ZcsIXfQ&amp;confirm=t&amp;uuid=e94dacd6-b8d5-4426-a83a-de66f6d0d7ac
+From (redirected): https://drive.google.com/uc?id=1ABOVJ9S0BeJOsqdGFnexaTFZ-ZcsIXfQ&amp;confirm=t&amp;uuid=1b388a7f-e47d-40b4-ac86-954f67989d26
 To: /home/runner/.eegnb/data/downloaded_data.zip
 
   0%|          | 0.00/102M [00:00&lt;?, ?B/s]
-  5%|▍         | 4.72M/102M [00:00&lt;00:03, 28.2MB/s]
-  9%|▉         | 8.91M/102M [00:00&lt;00:03, 28.5MB/s]
- 17%|█▋        | 17.3M/102M [00:00&lt;00:02, 37.5MB/s]
- 25%|██▌       | 25.7M/102M [00:00&lt;00:01, 40.9MB/s]
- 34%|███▎      | 34.1M/102M [00:00&lt;00:01, 42.1MB/s]
- 42%|████▏     | 42.5M/102M [00:01&lt;00:01, 32.4MB/s]
- 50%|█████     | 50.9M/102M [00:01&lt;00:01, 30.8MB/s]
- 58%|█████▊    | 59.2M/102M [00:01&lt;00:01, 36.3MB/s]
- 67%|██████▋   | 67.6M/102M [00:01&lt;00:01, 32.7MB/s]
- 75%|███████▍  | 76.0M/102M [00:02&lt;00:00, 36.8MB/s]
- 83%|████████▎ | 84.4M/102M [00:02&lt;00:00, 42.6MB/s]
- 99%|█████████▉| 101M/102M [00:02&lt;00:00, 64.5MB/s]
-100%|██████████| 102M/102M [00:02&lt;00:00, 40.0MB/s]
+  8%|▊         | 8.39M/102M [00:00&lt;00:01, 75.7MB/s]
+ 16%|█▌        | 16.3M/102M [00:00&lt;00:01, 75.4MB/s]
+ 26%|██▋       | 26.7M/102M [00:00&lt;00:00, 87.9MB/s]
+ 37%|███▋      | 37.2M/102M [00:00&lt;00:00, 65.0MB/s]
+ 44%|████▍     | 44.6M/102M [00:00&lt;00:00, 65.8MB/s]
+ 51%|█████     | 51.9M/102M [00:00&lt;00:00, 52.3MB/s]
+ 67%|██████▋   | 67.6M/102M [00:00&lt;00:00, 74.6MB/s]
+ 75%|███████▌  | 76.5M/102M [00:01&lt;00:00, 71.6MB/s]
+ 90%|█████████ | 91.8M/102M [00:01&lt;00:00, 70.1MB/s]
+100%|█████████▉| 101M/102M [00:01&lt;00:00, 71.5MB/s]
+100%|██████████| 102M/102M [00:01&lt;00:00, 70.1MB/s]
 
 
 Loading these files:
@@ -765,7 +763,7 @@ No baseline correction applied
 <li><img src="../../_images/sphx_glr_01r__cueing_singlesub_analysis_010.png" srcset="../../_images/sphx_glr_01r__cueing_singlesub_analysis_010.png" alt="302 - Power Average Contra to Cue" class = "sphx-glr-multi-img"/></li>
 <li><img src="../../_images/sphx_glr_01r__cueing_singlesub_analysis_011.png" srcset="../../_images/sphx_glr_01r__cueing_singlesub_analysis_011.png" alt="Power Difference Ipsi-Contra" class = "sphx-glr-multi-img"/></li>
 </ul>
-<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>&lt;matplotlib.patches.Rectangle object at 0x7f214c894a90&gt;
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>&lt;matplotlib.patches.Rectangle object at 0x7fb2be958220&gt;
 </pre></div>
 </div>
 </section>
@@ -797,7 +795,7 @@ Event IDs: [ 1  2 11 12 21 22]
 sample drop %:  89.67136150234741
 </pre></div>
 </div>
-<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 14.132 seconds)</p>
+<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 13.125 seconds)</p>
 <div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-auto-examples-visual-cueing-01r-cueing-singlesub-analysis-py">
 <div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
 <p><a class="reference download internal" download="" href="../../_downloads/bffc7389ff14934d31aa05a911f58bf0/01r__cueing_singlesub_analysis.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">01r__cueing_singlesub_analysis.ipynb</span></code></a></p>
