@@ -468,19 +468,42 @@
 <p>If you don’t already have a Python installation, grab the latest <cite>miniconda</cite> version for your operating system from here (<a class="reference external" href="https://docs.conda.io/en/latest/miniconda.html">https://docs.conda.io/en/latest/miniconda.html</a>).</p>
 <p>Use the following commands to download the repo, create and activate a conda or virtualenv virtual environment:</p>
 <div class="sphinx-tabs docutils container">
-<div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-0-0-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-0-0-0" name="0-0" role="tab" tabindex="0">Conda</button><button aria-controls="panel-0-0-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-0-0-1" name="0-1" role="tab" tabindex="-1">Virtualenv</button></div><div aria-labelledby="tab-0-0-0" class="sphinx-tabs-panel" id="panel-0-0-0" name="0-0" role="tabpanel" tabindex="0"><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>conda<span class="w"> </span>env<span class="w"> </span>create<span class="w"> </span>-f<span class="w"> </span>environment.yml<span class="w"> </span>-n<span class="w"> </span><span class="s2">&quot;eeg-expy&quot;</span>
+<div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-0-0-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-0-0-0" name="0-0" role="tab" tabindex="0">Conda</button><button aria-controls="panel-0-0-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-0-0-1" name="0-1" role="tab" tabindex="-1">Virtualenv</button></div><div aria-labelledby="tab-0-0-0" class="sphinx-tabs-panel" id="panel-0-0-0" name="0-0" role="tabpanel" tabindex="0"><div class="sphinx-tabs docutils container">
+<div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-1-1-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-1-1-0" name="1-0" role="tab" tabindex="0">Windows, Linux or MacOS intel</button><button aria-controls="panel-1-1-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-1-1-1" name="1-1" role="tab" tabindex="-1">MacOS arm64(M1, M2, etc.)</button></div><blockquote>
+<div><p>Available environment suffixes:</p>
+<ul class="simple">
+<li><p><cite>-full</cite>: Install all dependencies</p></li>
+<li><p><cite>-docsbuild</cite>: Documentation build dependencies</p></li>
+<li><p><cite>-stimpres</cite>: Stimulus presentation dependencies</p></li>
+<li><p><cite>-streaming</cite>: Data streaming dependencies</p></li>
+<li><p><cite>-streamstim</cite>: Combined streaming and stimulus dependencies</p></li>
+</ul>
+</div></blockquote>
+<div aria-labelledby="tab-1-1-0" class="sphinx-tabs-panel" id="panel-1-1-0" name="1-0" role="tabpanel" tabindex="0"><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>conda<span class="w"> </span>env<span class="w"> </span>create<span class="w"> </span>-f<span class="w"> </span>environments/environment-full.yml<span class="w"> </span>-n<span class="w"> </span><span class="s2">&quot;eeg-expy&quot;</span>
 
 conda<span class="w"> </span>activate<span class="w"> </span><span class="s2">&quot;eeg-expy&quot;</span>
 
 git<span class="w"> </span>clone<span class="w"> </span>https://github.com/NeuroTechX/eeg-expy
 
 <span class="nb">cd</span><span class="w"> </span>eeg-expy
-
-pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>.
 </pre></div>
 </div>
+</div><div aria-labelledby="tab-1-1-1" class="sphinx-tabs-panel" hidden="true" id="panel-1-1-1" name="1-1" role="tabpanel" tabindex="0"><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># for audio to be supported, osx-64 runtime is currently required, drop the &#39;--platform osx-64&#39; parameter if audio is not needed, to use native runtime.</span>
+conda<span class="w"> </span>env<span class="w"> </span>create<span class="w"> </span>--platform<span class="w"> </span>osx-64<span class="w"> </span>-f<span class="w"> </span>environments/environment-full.yml<span class="w"> </span>-n<span class="w"> </span><span class="s2">&quot;eeg-expy-audio&quot;</span>
+
+<span class="c1"># activate the environment</span>
+conda<span class="w"> </span>activate<span class="w"> </span><span class="s2">&quot;eeg-expy-audio&quot;</span>
+
+<span class="c1"># clone the repo</span>
+git<span class="w"> </span>clone<span class="w"> </span>https://github.com/NeuroTechX/eeg-expy
+
+<span class="c1"># navigate to the repo</span>
+<span class="nb">cd</span><span class="w"> </span>eeg-expy
+</pre></div>
+</div>
+</div></div>
 </div><div aria-labelledby="tab-0-0-1" class="sphinx-tabs-panel" hidden="true" id="panel-0-0-1" name="0-1" role="tabpanel" tabindex="0"><div class="sphinx-tabs docutils container">
-<div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-1-1-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-1-1-0" name="1-0" role="tab" tabindex="0">Windows</button><button aria-controls="panel-1-1-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-1-1-1" name="1-1" role="tab" tabindex="-1">Linux or MacOS</button></div><div aria-labelledby="tab-1-1-0" class="sphinx-tabs-panel" id="panel-1-1-0" name="1-0" role="tabpanel" tabindex="0"><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>mkdir<span class="w"> </span>eegnb_dir
+<div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-2-2-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-2-2-0" name="2-0" role="tab" tabindex="0">Windows</button><button aria-controls="panel-2-2-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-2-2-1" name="2-1" role="tab" tabindex="-1">Linux or MacOS</button></div><div aria-labelledby="tab-2-2-0" class="sphinx-tabs-panel" id="panel-2-2-0" name="2-0" role="tabpanel" tabindex="0"><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>mkdir<span class="w"> </span>eegnb_dir
 
 python3<span class="w"> </span>-m<span class="w"> </span>venv<span class="w"> </span>eegnb-env
 
@@ -493,7 +516,7 @@ eegnb-env<span class="se">\S</span>cripts<span class="se">\a</span>ctivate.bat
 pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>.
 </pre></div>
 </div>
-</div><div aria-labelledby="tab-1-1-1" class="sphinx-tabs-panel" hidden="true" id="panel-1-1-1" name="1-1" role="tabpanel" tabindex="0"><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>mkdir<span class="w"> </span>eegnb_dir
+</div><div aria-labelledby="tab-2-2-1" class="sphinx-tabs-panel" hidden="true" id="panel-2-2-1" name="2-1" role="tabpanel" tabindex="0"><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>mkdir<span class="w"> </span>eegnb_dir
 
 python3<span class="w"> </span>-m<span class="w"> </span>venv<span class="w"> </span>eegnb-env
 
