@@ -470,7 +470,7 @@
 <div class="sphinx-tabs docutils container">
 <div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-0-0-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-0-0-0" name="0-0" role="tab" tabindex="0">Conda</button><button aria-controls="panel-0-0-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-0-0-1" name="0-1" role="tab" tabindex="-1">Virtualenv</button></div><div aria-labelledby="tab-0-0-0" class="sphinx-tabs-panel" id="panel-0-0-0" name="0-0" role="tabpanel" tabindex="0"><div class="sphinx-tabs docutils container">
 <div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-1-1-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-1-1-0" name="1-0" role="tab" tabindex="0">Windows, Linux or MacOS intel</button><button aria-controls="panel-1-1-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-1-1-1" name="1-1" role="tab" tabindex="-1">MacOS arm64(M1, M2, etc.)</button></div><blockquote>
-<div><p>Available environment suffixes:</p>
+<div><p>Available environment options:</p>
 <ul class="simple">
 <li><p><cite>-full</cite>: Install all dependencies</p></li>
 <li><p><cite>-docsbuild</cite>: Documentation build dependencies</p></li>
@@ -479,20 +479,21 @@
 <li><p><cite>-streamstim</cite>: Combined streaming and stimulus dependencies</p></li>
 </ul>
 </div></blockquote>
-<div aria-labelledby="tab-1-1-0" class="sphinx-tabs-panel" id="panel-1-1-0" name="1-0" role="tabpanel" tabindex="0"><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>conda<span class="w"> </span>env<span class="w"> </span>create<span class="w"> </span>-f<span class="w"> </span>environments/environment-full.yml<span class="w"> </span>-n<span class="w"> </span><span class="s2">&quot;eeg-expy&quot;</span>
+<div aria-labelledby="tab-1-1-0" class="sphinx-tabs-panel" id="panel-1-1-0" name="1-0" role="tabpanel" tabindex="0"><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>conda<span class="w"> </span>env<span class="w"> </span>create<span class="w"> </span>-f<span class="w"> </span>environments/environment-full.yml
 
-conda<span class="w"> </span>activate<span class="w"> </span><span class="s2">&quot;eeg-expy&quot;</span>
+conda<span class="w"> </span>activate<span class="w"> </span><span class="s2">&quot;eeg-expy-full&quot;</span>
 
 git<span class="w"> </span>clone<span class="w"> </span>https://github.com/NeuroTechX/eeg-expy
 
 <span class="nb">cd</span><span class="w"> </span>eeg-expy
 </pre></div>
 </div>
-</div><div aria-labelledby="tab-1-1-1" class="sphinx-tabs-panel" hidden="true" id="panel-1-1-1" name="1-1" role="tabpanel" tabindex="0"><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># for audio to be supported, osx-64 runtime is currently required, drop the &#39;--platform osx-64&#39; parameter if audio is not needed, to use native runtime.</span>
-conda<span class="w"> </span>env<span class="w"> </span>create<span class="w"> </span>--platform<span class="w"> </span>osx-64<span class="w"> </span>-f<span class="w"> </span>environments/environment-full.yml<span class="w"> </span>-n<span class="w"> </span><span class="s2">&quot;eeg-expy-audio&quot;</span>
+</div><div aria-labelledby="tab-1-1-1" class="sphinx-tabs-panel" hidden="true" id="panel-1-1-1" name="1-1" role="tabpanel" tabindex="0"><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># for audio to be supported, osx-64 runtime is currently required,</span>
+<span class="c1"># drop the &#39;--platform osx-64&#39; parameter if audio is not needed, to use the native runtime.</span>
+conda<span class="w"> </span>env<span class="w"> </span>create<span class="w"> </span>--platform<span class="w"> </span>osx-64<span class="w"> </span>-f<span class="w"> </span>environments/environment-full.yml
 
 <span class="c1"># activate the environment</span>
-conda<span class="w"> </span>activate<span class="w"> </span><span class="s2">&quot;eeg-expy-audio&quot;</span>
+conda<span class="w"> </span>activate<span class="w"> </span><span class="s2">&quot;eeg-expy-full&quot;</span>
 
 <span class="c1"># clone the repo</span>
 git<span class="w"> </span>clone<span class="w"> </span>https://github.com/NeuroTechX/eeg-expy
