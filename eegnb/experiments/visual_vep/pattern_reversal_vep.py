@@ -15,14 +15,14 @@ class VisualPatternReversalVEP(Experiment.BaseExperiment):
         exp_name = "Visual Pattern Reversal VEP"
         super().__init__(exp_name, duration, eeg, save_fn, n_trials, iti, soa, jitter, use_vr, window)
 
-        self.marker_names = [1, 2]
-
     @staticmethod
     def create_monitor_checkerboard(intensity_checks):
+        # Standard parameters for monitor-based pattern reversal VEP
+        # Using standard 1 degree check size at 30 pixels per degree
         return contrast_contrast(
-            visual_size=(9, 21),  # size in degrees
-            ppd=30,  # pixels per degree
-            frequency=(1, 1),  # spatial frequency of the checkerboard
+            visual_size=(18, 42),  # aspect ratio in degrees
+            ppd=72,  # pixels per degree
+            frequency=(0.5, 0.5),  # spatial frequency of the checkerboard (0.5 cpd = 1 degree check size)
             intensity_checks=intensity_checks,
             target_shape=(1, 1),
             alpha=0,
@@ -31,10 +31,13 @@ class VisualPatternReversalVEP(Experiment.BaseExperiment):
 
     @staticmethod
     def create_vr_checkerboard(intensity_checks):
+        # Optimized parameters for Oculus/Meta Quest 2 with PC link
+        # Quest 2 has approximately 20 pixels per degree and a ~90° FOV
+        # Using standard 1 degree check size (0.5 cpd)
         return contrast_contrast(
-            visual_size=(15, 15),  # size in degrees
-            ppd=30,  # pixels per degree
-            frequency=(1, 1),  # spatial frequency of the checkerboard
+            visual_size=(20, 20),  # size in degrees - covers a good portion of the FOV
+            ppd=20,  # pixels per degree for Quest 2
+            frequency=(0.5, 0.5),  # spatial frequency (0.5 cpd = 1 degree check size)
             intensity_checks=intensity_checks,
             target_shape=(1, 1),
             alpha=0,
@@ -71,9 +74,4 @@ class VisualPatternReversalVEP(Experiment.BaseExperiment):
         self.window.flip()
 
         # Pushing the sample to the EEG
-        if self.eeg:
-            if self.eeg.backend == "muselsl":
-                marker = [self.marker_names[checkerboard_frame]]
-            else:
-                marker = self.marker_names[checkerboard_frame]
-            self.eeg.push_sample(marker=marker, timestamp=time())
+        self.eeg.push_sample(marker=checkerboard_frame + 1, timestamp=time())
