@@ -64,6 +64,7 @@ class VisualPatternReversalVEP(Experiment.BaseExperiment):
         return [create_checkerboard_stim((1, -1)), create_checkerboard_stim((-1, 1))]
 
     def present_stimulus(self, idx: int):
+        self.window.color = (-1, -1, -1)
         # onset
         checkerboard_frame = idx % 2
         image = self.stim[checkerboard_frame]
