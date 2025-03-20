@@ -10,17 +10,17 @@ from stimupy.stimuli.checkerboards import contrast_contrast
 class VisualPatternReversalVEP(Experiment.BaseExperiment):
 
     def __init__(self, duration=120, eeg: Optional[EEG] = None, save_fn=None,
-                 n_trials=2000, iti=0, soa=0.5, jitter=0, use_vr=False, window=None):
+                 n_trials=2000, iti=0, soa=0.5, jitter=0, use_vr=False, use_fullscr=True):
 
         exp_name = "Visual Pattern Reversal VEP"
-        super().__init__(exp_name, duration, eeg, save_fn, n_trials, iti, soa, jitter, use_vr, window)
+        super().__init__(exp_name, duration, eeg, save_fn, n_trials, iti, soa, jitter, use_vr, use_fullscr)
 
     @staticmethod
     def create_monitor_checkerboard(intensity_checks):
         # Standard parameters for monitor-based pattern reversal VEP
         # Using standard 1 degree check size at 30 pixels per degree
         return contrast_contrast(
-            visual_size=(18, 42),  # aspect ratio in degrees
+            visual_size=(16, 16),  # aspect ratio in degrees
             ppd=72,  # pixels per degree
             frequency=(0.5, 0.5),  # spatial frequency of the checkerboard (0.5 cpd = 1 degree check size)
             intensity_checks=intensity_checks,
@@ -57,7 +57,7 @@ class VisualPatternReversalVEP(Experiment.BaseExperiment):
         if self.use_vr:
             size = self.window.size / 1.5
         else:
-            size = self.window.size
+            size = (self.window_size[1], self.window_size[1])
 
         def create_checkerboard_stim(intensity_checks):
             return visual.ImageStim(self.window,
@@ -67,8 +67,14 @@ class VisualPatternReversalVEP(Experiment.BaseExperiment):
         return [create_checkerboard_stim((1, -1)), create_checkerboard_stim((-1, 1))]
 
     def present_stimulus(self, idx: int):
-        self.window.color = (-1, -1, -1)
-        # onset
+        # surrounding needs to be dark
+        black_background = visual.Rect(self.window,
+                                       width=self.window.size[0],
+                                       height=self.window.size[1],
+                                       fillColor='black')
+        black_background.draw()
+
+        # draw checkerboard
         checkerboard_frame = idx % 2
         image = self.stim[checkerboard_frame]
         image.draw()
