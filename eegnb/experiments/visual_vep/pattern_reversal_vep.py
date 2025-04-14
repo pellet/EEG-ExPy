@@ -12,6 +12,7 @@ class VisualPatternReversalVEP(Experiment.BaseExperiment):
     def __init__(self, duration=120, eeg: Optional[EEG] = None, save_fn=None,
                  n_trials=2000, iti=0, soa=0.5, jitter=0, use_vr=False, use_fullscr=True):
 
+        self.black_background = None
         exp_name = "Visual Pattern Reversal VEP"
         super().__init__(exp_name, duration, eeg, save_fn, n_trials, iti, soa, jitter, use_vr, use_fullscr)
 
@@ -45,7 +46,6 @@ class VisualPatternReversalVEP(Experiment.BaseExperiment):
         )
 
     def load_stimulus(self):
-
         if self.use_vr:
             # Create VR checkerboard
             create_checkerboard = self.create_vr_checkerboard
@@ -59,6 +59,12 @@ class VisualPatternReversalVEP(Experiment.BaseExperiment):
         else:
             size = (self.window_size[1], self.window_size[1])
 
+        # surrounding needs to be dark
+        self.black_background = visual.Rect(self.window,
+                                            width=self.window.size[0],
+                                            height=self.window.size[1],
+                                            fillColor='black')
+
         def create_checkerboard_stim(intensity_checks):
             return visual.ImageStim(self.window,
                                     image=create_checkerboard(intensity_checks)['img'],
@@ -67,12 +73,7 @@ class VisualPatternReversalVEP(Experiment.BaseExperiment):
         return [create_checkerboard_stim((1, -1)), create_checkerboard_stim((-1, 1))]
 
     def present_stimulus(self, idx: int):
-        # surrounding needs to be dark
-        black_background = visual.Rect(self.window,
-                                       width=self.window.size[0],
-                                       height=self.window.size[1],
-                                       fillColor='black')
-        black_background.draw()
+        self.black_background.draw()
 
         # draw checkerboard
         checkerboard_frame = idx % 2
@@ -82,3 +83,7 @@ class VisualPatternReversalVEP(Experiment.BaseExperiment):
 
         # Pushing the sample to the EEG
         self.eeg.push_sample(marker=checkerboard_frame + 1, timestamp=time())
+
+    def present_iti(self):
+        self.black_background.draw()
+        self.window.flip()
