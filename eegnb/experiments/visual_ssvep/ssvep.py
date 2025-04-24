@@ -13,16 +13,19 @@ from psychopy import visual, core, event
 from eegnb.devices.eeg import EEG
 from eegnb import generate_save_fn
 from typing import Optional
+import logging
 
 
 class VisualSSVEP(Experiment.BaseExperiment):
 
-    def __init__(self, duration=120, eeg: Optional[EEG]=None, save_fn=None, n_trials = 2010, iti = 0.5, soa = 3.0, jitter = 0.2, use_vr=False, window=None):
-        
+    def __init__(self, duration=120, eeg: Optional[EEG]=None, save_fn=None, n_trials = 2010, iti = 0.5, soa = 3.0, jitter = 0.2, use_vr=False, use_fullscr=True, frame_rate=None):
+
         self.use_vr = use_vr
         exp_name = "Visual SSVEP"
+        self.frame_rate = frame_rate
+        logging.basicConfig(level=logging.INFO)
 
-        super().__init__(exp_name, duration, eeg, save_fn, n_trials, iti, soa, jitter, use_vr, window)
+        super().__init__(exp_name, duration, eeg, save_fn, n_trials, iti, soa, jitter, use_vr, use_fullscr)
 
     def load_stimulus(self):
 
@@ -70,14 +73,23 @@ class VisualSSVEP(Experiment.BaseExperiment):
         # Set up stimuli
 
         # Frame rate, in Hz
-        # GetActualFrameRate() crashes in psychxr due to 'EndFrame called before BeginFrame'
-        frame_rate = np.round(self.window.displayRefreshRate if self.use_vr else self.window.getActualFrameRate())
-        freqs = get_possible_ssvep_freqs(frame_rate, stim_type="reversal")
+        if self.frame_rate is None:
+            if self.use_vr:
+                self.frame_rate = self.window.displayRefreshRate
+            elif self.window.getActualFrameRate() is not None:
+                self.frame_rate = self.window.getActualFrameRate()
+            else:
+                logging.warning(
+                    "If Pro-motion is enabled on macOS, you should set the frame rate manually to 60hz for best/consistent results.")
+                self.frame_rate = 60
+
+        self.frame_rate = np.round(self.frame_rate, 0)
+        freqs = get_possible_ssvep_freqs(self.frame_rate, stim_type="reversal")
         self.stim_patterns = [
-        init_flicker_stim(frame_rate, 2, self.soa),
-        init_flicker_stim(frame_rate, 3, self.soa),
+        init_flicker_stim(self.frame_rate, 2, self.soa),
+        init_flicker_stim(self.frame_rate, 3, self.soa),
         ]
-        
+
         print(
             (
                 "Flickering frequencies (Hz): {}\n".format(
@@ -88,8 +100,8 @@ class VisualSSVEP(Experiment.BaseExperiment):
 
 
         return [
-            init_flicker_stim(frame_rate, 2, self.soa),
-            init_flicker_stim(frame_rate, 3, self.soa),
+            init_flicker_stim(self.frame_rate, 2, self.soa),
+            init_flicker_stim(self.frame_rate, 3, self.soa),
         ]
 
     def present_stimulus(self, idx: int):
