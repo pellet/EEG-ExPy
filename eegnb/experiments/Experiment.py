@@ -29,7 +29,7 @@ from eegnb import generate_save_fn
 class BaseExperiment:
 
     def __init__(self, exp_name, duration, eeg, save_fn, n_trials: int, iti: float, soa: float, jitter: float,
-                 use_vr=False):
+                 use_vr=False, use_fullscr = True):
         """ Initializer for the Base Experiment Class
 
         Args:
@@ -51,6 +51,9 @@ class BaseExperiment:
         self.soa = soa
         self.jitter = jitter
         self.use_vr = use_vr
+        self.use_fullscr = use_fullscr
+        self.window_size = [1600,800]
+
         if use_vr:
             self.rift: Rift = visual.Rift(monoscopic=True, headLocked=True)
             self.all_vr_controllers = ['Xbox', 'LeftTouch', 'RightTouch']
@@ -89,7 +92,7 @@ class BaseExperiment:
         # Setting up Graphics 
         self.window = (
             visual.Rift(monoscopic=True, headLocked=True) if self.use_vr
-            else visual.Window([1600, 900], monitor="testMonitor", units="deg", fullscr=False))
+            else visual.Window(self.window_size, monitor="testMonitor", units="deg", fullscr=self.use_fullscr))
         
         # Loading the stimulus from the specific experiment, throws an error if not overwritten in the specific experiment
         self.stim = self.load_stimulus()
