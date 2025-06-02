@@ -9,7 +9,7 @@ obj.run()
 """
 
 from abc import abstractmethod
-from typing import Callable, Union, List, Any
+from typing import Callable
 from psychopy import prefs
 from psychopy.visual.rift import Rift
 #change the pref libraty to PTB and set the latency mode to high precision
@@ -22,7 +22,6 @@ import random
 import numpy as np
 from pandas import DataFrame
 from psychopy import visual, event
-from psychopy.visual import rift
 
 from eegnb import generate_save_fn
 
@@ -39,7 +38,6 @@ class BaseExperiment:
             soa (float): Stimulus on arrival
             jitter (float): Random delay between stimulus
             use_vr (bool): Use VR for displaying stimulus
-            window (Window or Rift): Window and VR interface for display customization and vr controllers
         """
 
         self.exp_name = exp_name
