@@ -13,6 +13,7 @@ class VisualPatternReversalVEP(Experiment.BaseExperiment):
                  n_trials=2000, iti=0, soa=0.5, jitter=0, use_vr=False, use_fullscr=True):
 
         self.black_background = None
+        self.stim = None
         exp_name = "Visual Pattern Reversal VEP"
         super().__init__(exp_name, duration, eeg, save_fn, n_trials, iti, soa, jitter, use_vr, use_fullscr)
 
@@ -55,11 +56,12 @@ class VisualPatternReversalVEP(Experiment.BaseExperiment):
             create_checkerboard = self.create_monitor_checkerboard
 
         if self.use_vr:
+            # the window is large over the eye, checkerboard should only cover the central vision
             size = self.window.size / 1.5
         else:
             size = (self.window_size[1], self.window_size[1])
 
-        # surrounding needs to be dark
+        # the surrounding / periphery needs to be dark
         self.black_background = visual.Rect(self.window,
                                             width=self.window.size[0],
                                             height=self.window.size[1],
@@ -70,7 +72,7 @@ class VisualPatternReversalVEP(Experiment.BaseExperiment):
                                     image=create_checkerboard(intensity_checks)['img'],
                                     units='pix', size=size, color='white')
 
-        return [create_checkerboard_stim((1, -1)), create_checkerboard_stim((-1, 1))]
+        self.stim = [create_checkerboard_stim((1, -1)), create_checkerboard_stim((-1, 1))]
 
     def present_stimulus(self, idx: int):
         self.black_background.draw()
