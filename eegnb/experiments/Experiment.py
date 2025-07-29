@@ -53,7 +53,7 @@ class BaseExperiment:
         self.use_vr = use_vr
         if use_vr:
             # VR interface accessible by specific experiment classes for customizing and using controllers.
-            self.rift: Rift = visual.Rift(monoscopic=True, headLocked=True)
+            self.rift: Rift = visual.Rift(monoscopic=False, headLocked=True)
         self.use_fullscr = use_fullscr
         self.window_size = [1600,800]
 

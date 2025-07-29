@@ -61,10 +61,12 @@ class VisualPatternReversalVEP(Experiment.BaseExperiment):
             self.frame_rate = 60
 
         # Setting up the trial and parameter list
-        both_eyes_block_size = 50
-        n_repeats = self.n_trials // both_eyes_block_size
+        # Show stimulus in left eye for first half of block, right eye for second half
+        block_size = 50
+        n_repeats = self.n_trials // block_size
         left_eye = 0
         right_eye = 1
+        # First half of block (25 trials) = left eye, second half (25 trials) = right eye
         block = [left_eye] * 25 + [right_eye] * 25
         self.parameter = np.array(block * n_repeats)
         self.trials = DataFrame(dict(parameter=self.parameter))
@@ -100,12 +102,20 @@ class VisualPatternReversalVEP(Experiment.BaseExperiment):
     def present_stimulus(self, idx: int):
         self.black_background.draw()
         label = self.trials["parameter"].iloc[idx]
+        
+        # For VR, set which eye should see the stimulus
+        if self.use_vr:
+            # label 0 = left eye, label 1 = right eye
+            eye_buffer = 'left' if label == 0 else 'right'
+            self.window.setBuffer(eye_buffer, clear=True)
+        
+        self.black_background.draw()
         # draw checkerboard
         checkerboard_frame = idx % 2
         image = self.stim[checkerboard_frame]
         image.draw()
 
-        # Push sample
+        # Push sample with correct eye marker
         if self.eeg:
             timestamp = time()
             if self.eeg.backend == "muselsl":
