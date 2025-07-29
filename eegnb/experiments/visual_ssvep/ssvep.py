@@ -79,8 +79,8 @@ class VisualSSVEP(Experiment.BaseExperiment):
             elif self.window.getActualFrameRate() is not None:
                 self.frame_rate = self.window.getActualFrameRate()
             else:
-                logging.warning(
-                    "If Pro-motion is enabled on macOS, you should set the frame rate manually to 60hz for best/consistent results.")
+                logging.error(
+                    "Unable to obtain display refresh rate. If Pro-motion is enabled on macOS, you should set the display refresh rate to 60hz to reduce jitter.")
                 self.frame_rate = 60
 
         self.frame_rate = np.round(self.frame_rate, 0)

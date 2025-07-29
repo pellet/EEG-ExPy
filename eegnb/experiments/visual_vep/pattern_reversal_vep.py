@@ -1,20 +1,23 @@
 ﻿from time import time
+import numpy as np
+from pandas import DataFrame
 
 from psychopy import visual
 from typing import Optional, Any, List
 from eegnb.devices.eeg import EEG
 from eegnb.experiments import Experiment
 from stimupy.stimuli.checkerboards import contrast_contrast
+import logging
 
 
 class VisualPatternReversalVEP(Experiment.BaseExperiment):
 
-    def __init__(self, duration=120, eeg: Optional[EEG] = None, save_fn=None,
-                 n_trials=2000, iti=0, soa=0.5, jitter=0, use_vr=False, use_fullscr=True):
+    # 100 reversals per eye(200 in total) should provide good SNR
+    def __init__(self, duration=200, eeg: Optional[EEG] = None, save_fn=None,
+                 n_trials=400, iti=0, soa=0.5, jitter=0, use_vr=False, use_fullscr=True):
 
-        self.black_background = None
-        self.stim = None
         exp_name = "Visual Pattern Reversal VEP"
+        logging.basicConfig(level=logging.INFO)
         super().__init__(exp_name, duration, eeg, save_fn, n_trials, iti, soa, jitter, use_vr, use_fullscr)
 
     @staticmethod
@@ -47,6 +50,25 @@ class VisualPatternReversalVEP(Experiment.BaseExperiment):
         )
 
     def load_stimulus(self):
+        # Frame rate, in Hz
+        if self.use_vr:
+            self.frame_rate = self.window.displayRefreshRate
+        elif self.window.getActualFrameRate() is not None:
+            self.frame_rate = self.window.getActualFrameRate()
+        else:
+            logging.error(
+                "Unable to obtain display refresh rate. If Pro-motion is enabled on macOS, you should set the display refresh rate to 60hz to reduce jitter.")
+            self.frame_rate = 60
+
+        # Setting up the trial and parameter list
+        both_eyes_block_size = 50
+        n_repeats = self.n_trials // both_eyes_block_size
+        left_eye = 0
+        right_eye = 1
+        block = [left_eye] * 25 + [right_eye] * 25
+        self.parameter = np.array(block * n_repeats)
+        self.trials = DataFrame(dict(parameter=self.parameter))
+
         if self.use_vr:
             # Create VR checkerboard
             create_checkerboard = self.create_vr_checkerboard
@@ -73,18 +95,26 @@ class VisualPatternReversalVEP(Experiment.BaseExperiment):
                                     units='pix', size=size, color='white')
 
         self.stim = [create_checkerboard_stim((1, -1)), create_checkerboard_stim((-1, 1))]
+        return self.stim
 
     def present_stimulus(self, idx: int):
         self.black_background.draw()
-
+        label = self.trials["parameter"].iloc[idx]
         # draw checkerboard
         checkerboard_frame = idx % 2
         image = self.stim[checkerboard_frame]
         image.draw()
-        self.window.flip()
 
-        # Pushing the sample to the EEG
-        self.eeg.push_sample(marker=checkerboard_frame + 1, timestamp=time())
+        # Push sample
+        if self.eeg:
+            timestamp = time()
+            if self.eeg.backend == "muselsl":
+                marker = [self.markernames[label]]
+            else:
+                marker = self.markernames[label]
+            self.eeg.push_sample(marker=marker, timestamp=timestamp)
+
+        self.window.flip()
 
     def present_iti(self):
         self.black_background.draw()
