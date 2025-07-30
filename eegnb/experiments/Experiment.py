@@ -53,7 +53,7 @@ class BaseExperiment:
         self.use_vr = use_vr
         if use_vr:
             # VR interface accessible by specific experiment classes for customizing and using controllers.
-            self.rift: Rift = visual.Rift(monoscopic=True, headLocked=True)
+            self.rift: Rift = visual.Rift(monoscopic=False, headLocked=True)
         self.use_fullscr = use_fullscr
         self.window_size = [1600,800]
 
@@ -235,6 +235,18 @@ class BaseExperiment:
 
     def run(self, instructions=True):
         """ Do the present operation for a bunch of experiments """
+        self._run_trial_loop(instructions, self.__draw)
+
+    def _run_trial_loop(self, instructions=True, draw_method=None):
+        """ 
+        Core trial loop implementation that can be customized with different drawing methods.
+        
+        Args:
+            instructions: Whether to show instructions before starting
+            draw_method: Custom drawing method to use (defaults to self.__draw)
+        """
+        if draw_method is None:
+            draw_method = self.__draw
 
         def iti_with_jitter():
             return self.iti + np.random.rand() * self.jitter
@@ -269,7 +281,7 @@ class BaseExperiment:
                 current_trial += 1
                 trial_start_time = elapsed_time + iti_with_jitter()
                 trial_end_time = trial_start_time + self.soa
-                self.__draw(lambda: self.present_iti())
+                draw_method(lambda: self.present_iti())
 
             # Do not present stimulus after trial has ended(stimulus on arrival interval).
             elif elapsed_time > trial_start_time:
@@ -277,10 +289,10 @@ class BaseExperiment:
                 # if current trial number changed present new stimulus.
                 if current_trial > rendering_trial:
                     # Stimulus presentation overwritten by specific experiment
-                    self.__draw(lambda: self.present_stimulus(current_trial))
+                    draw_method(lambda: self.present_stimulus(current_trial))
                     rendering_trial = current_trial
             else:
-                self.__draw(lambda: self.present_iti())
+                draw_method(lambda: self.present_iti())
 
         # Clearing the screen for the next trial
         event.clearEvents()
