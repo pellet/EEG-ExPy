@@ -106,7 +106,8 @@ class BaseExperiment(ABC):
         # Setting up Graphics
         self.window = (
             self.rift if self.use_vr
-            else visual.Window(self.window_size, monitor="testMonitor", units="deg", fullscr=self.use_fullscr))
+            else visual.Window(self.window_size, monitor="testMonitor", units="deg", fullscr=self.use_fullscr, winType='glfw'  # Try 'glfw' instead of 'pyglet'
+))
         
         # Loading the stimulus from the specific experiment, throws an error if not overwritten in the specific experiment
         self.stim = self.load_stimulus()
