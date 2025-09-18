@@ -13,9 +13,6 @@ from typing import Callable
 from eegnb.devices.eeg import EEG
 from psychopy import prefs
 from psychopy.visual.rift import Rift
-#change the pref libraty to PTB and set the latency mode to high precision
-prefs.hardware['audioLib'] = 'PTB'
-prefs.hardware['audioLatencyMode'] = 3
 
 from time import time
 import random
@@ -139,7 +136,7 @@ class BaseExperiment(ABC):
                     f"No path for a save file was passed to the experiment. Saving data to {self.save_fn}"
                 )
         return True
-    
+
     def show_instructions(self):
         """ 
         Method that shows the instructions for the specific Experiment
@@ -258,14 +255,14 @@ class BaseExperiment(ABC):
         """
         if self.use_vr:
             self.rift.updateInputState()
-        
+
     def _run_trial_loop(self, start_time, duration):
         """
         Run the trial presentation loop
-        
+
         This method handles the common trial presentation logic used by both
         BaseExperiment.run() and BlockExperiment._run_block().
-        
+
         Args:
             start_time (float): Time when the trial loop started
             duration (float): Maximum duration of the trial loop in seconds
@@ -279,18 +276,18 @@ class BaseExperiment(ABC):
         current_trial = trial_end_time = -1
         trial_start_time = None
         rendering_trial = -1
-        
+
         # Clear/reset user input buffer
         self._clear_user_input()
-        
+
         # Run the trial loop
         while (time() - start_time) < duration:
             elapsed_time = time() - start_time
-            
+
             # Do not present stimulus until current trial begins(Adhere to inter-trial interval).
             if elapsed_time > trial_end_time:
                 current_trial += 1
-                
+
                 # Calculate timing for this trial
                 trial_start_time = elapsed_time + iti_with_jitter()
                 trial_end_time = trial_start_time + self.soa
@@ -326,7 +323,7 @@ class BaseExperiment(ABC):
 
         # Record experiment until a key is pressed or duration has expired.
         record_start_time = time()
-        
+
         # Run the trial loop
         self._run_trial_loop(record_start_time, self.record_duration)
 
