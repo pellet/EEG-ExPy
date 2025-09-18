@@ -13,9 +13,27 @@ The PR-VEP is particularly valuable for:
 * **Clinical diagnostics**: Detection of optic nerve disorders, multiple sclerosis, and other neurological conditions affecting vision
 * **Monocular assessment**: Independent evaluation of each eye's visual pathway
 * **Research applications**: Investigation of visual processing, binocular rivalry, and cortical plasticity
+* **Myelination studies**: Precise measurement of conduction velocity changes for remyelination research
 * **VR compatibility**: This implementation supports both traditional monitor-based and VR headset presentations
 
-The experiment alternates between presenting checkerboard patterns to the left and right eyes across multiple blocks, with the checkerboard pattern reversing at 2Hz (every 500ms) to elicit robust VEP responses.
+The experiment alternates between presenting checkerboard patterns to the left and right eyes across multiple blocks, with the checkerboard pattern reversing at a configurable rate to elicit robust VEP responses.
+
+**Optimizing Display Refresh Rate and Reversal Frequency**
+
+**Finding Your Monitor's Maximum Refresh Rate**
+
+To achieve optimal timing precision for VEP measurements, first determine your display's capabilities:
+
+**Windows:**
+1. Right-click desktop → Display Settings → Advanced Display Settings
+2. Note the refresh rate (e.g., 60Hz, 120Hz, 165Hz)
+3. Or use: ``dxdiag`` → Display tab → Current Display Mode
+
+**Linux:**
+```bash
+xrandr | grep '*'  # Shows current refresh rate
+xrandr --verbose   # Shows all available rates
+```
 
 **Experimental Setup**
 
