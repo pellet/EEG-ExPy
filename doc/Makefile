@@ -7,7 +7,7 @@
 
 
 # You can set these variables from the command line.
-SPHINXOPTS    =
+SPHINXOPTS    = -v
 SPHINXBUILD   = sphinx-build
 #SPHINXPROJ    = fooof
 SPHINXPROJ    = eeg-notebooks

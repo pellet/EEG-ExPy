@@ -1,14 +1,13 @@
-
-*********************************
-Pattern Reversal VEP
+********************************
+_
 *********************************
 
 Visual Pattern Reversal VEP
 ============================
 
-The pattern reversal visual evoked potential (PR-VEP) is a well-established clinical and research technique used to assess the function of the visual pathways. This experiment presents alternating checkerboard patterns to each eye separately, generating characteristic evoked potentials that reflect the integrity of the visual system from retina to visual cortex.
+The pattern reversal visual evoked potential (PRVEP) is a well-established clinical and research technique used to assess the function of the visual pathways. This experiment presents alternating checkerboard patterns to each eye separately, generating characteristic evoked potentials that reflect the integrity of the visual system from retina to visual cortex.
 
-The PR-VEP is particularly valuable for:
+The PRVEP is particularly valuable for:
 
 * **Clinical diagnostics**: Detection of optic nerve disorders, multiple sclerosis, and other neurological conditions affecting vision
 * **Monocular assessment**: Independent evaluation of each eye's visual pathway
@@ -50,9 +49,12 @@ When using VR headsets (tested with Meta Quest 2/3s), the experiment provides tr
 - **Total blocks**: 4 (alternating left/right eye)
 - **Display requirements**: 60Hz or higher refresh rate
 
+**Typical Durations**
+Pattern reversal experiments typically run for 50 seconds per block, with blocks alternating between eyes. With 4 blocks (2 per eye), this results in approximately 100 seconds of stimulation per eye, plus any inter-block breaks or setup time. Total experiment time is around 5-10 minutes depending on participant instructions and rests.
+
 **Electrode Placement**
 
-The PR-VEP is optimally recorded from occipital electrodes, particularly:
+The PRVEP is optimally recorded from occipital electrodes, particularly:
 
 * **Oz**: Primary recording site over the visual cortex
 * **O1, O2**: Additional occipital sites for lateralization studies
@@ -60,6 +62,13 @@ The PR-VEP is optimally recorded from occipital electrodes, particularly:
 
 For EEG devices with limited electrode coverage, place the primary electrode at Oz (back of the head, approximately 10% of the head circumference above the inion).
 
+Extra Electrode
+
+While PRVEPs can be measured with the Cyton, the Muse 2016/2 supports an additional electrode via the device’s microUSB port which can be placed on Oz or POz.
+
+For instructions on building and using an extra electrode with Muse, see: :doc:`../misc/using_an_extra_electrode_muse`
+For this experiment, the extra electrode can be placed at Oz or POz and secured with a band or cap.
+
 **Pattern Reversal VEP Experiment Notebook Examples**
 
-.. include:: ../auto_examples/visual_pattern_reversal_vep/index.rst
+.. include:: ../auto_examples/visual_block_pattern_reversal/index.rst

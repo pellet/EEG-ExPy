@@ -10,6 +10,9 @@ The N170 is an ERP specifically related to the perception of faces. This was val
 ### SSVEP
 The steady state visual evoked potential is a frequency response produced visual stimulation at specific frequencies. It was validated by Hubert in a 12 minute experiment (6 x 2 minute trials). Stimulation frequencies of 30hz and 20hz were used and an extra electrode at POz was added. Found clear peaks in the PSD at the stimulation frequencies. The peaks were most significant at the extra electrode, which is closest to the primary visual regions, but was detectable at all electrodes and found to have remarkably high accuracy when using a filter bank approach to isolate specific frequencies.
 
+### Pattern Reversal VEP (PRVEP)
+The pattern reversal VEP measures cortical responses to alternating checkerboard patterns. It supports monocular stimulation (left/right eye) and is suitable for both clinical-style assessments and research. Typical parameters include ~1° check size and ~2 Hz reversal rate in 50-second blocks. Record from occipital sites (Oz/O1/O2, POz). An optional extra occipital electrode (e.g., with Muse) can further improve SNR.
+
 ## Old experiments
 ### Go/No-Go
 An experiment designed to investigate the event-related potentials that can be detected during a Go-No-Go Task, which measures executive, inhibitory control and sustained attention. The subject is rapidly presented with a sequence of circles and squares and is asked to indicate, by pressing the spacebar, whether a shape is a circle.
