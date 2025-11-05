@@ -109,6 +109,7 @@ docutils
 mypy
 pytest
 pytest-cov
+pytest-mock
 nbval
 
 # Types
