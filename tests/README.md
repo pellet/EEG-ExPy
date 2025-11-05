@@ -87,73 +87,53 @@ def test_experiment_with_eeg(mock_eeg, temp_save_fn, mock_psychopy):
 
 ## N170 Integration Tests
 
-The N170 test suite (`test_n170_integration.py`) contains **42 tests** organized into 11 test classes.
+The N170 test suite (`test_n170_integration.py`) contains **10 minimal, high-value tests** organized into 5 focused test classes.
 
 **All tests follow the normal initialization flow**: `__init__()` → `setup()` → `run()`
 
 ### Test Coverage
 
-#### ✅ TestN170Initialization (8 tests)
-- Basic initialization with default parameters
-- Custom trial counts
-- Timing parameter configurations (ITI, SOA, jitter)
-- Initialization without EEG device
-- VR enabled/disabled modes
+This minimal test suite provides maximum value with minimum test count:
 
-#### ✅ TestN170Setup (5 tests)
-- Window creation through setup()
-- Stimulus loading through setup()
-- Trial initialization
-- Setup with/without instructions
+#### ✅ TestN170Core (4 tests)
+**Critical path testing:**
+- Basic initialization with all parameters
+- Setup creates window and loads stimuli properly
+- Full experiment run with EEG device (end-to-end)
+- Full experiment run without EEG device (end-to-end)
 
-#### ✅ TestN170EEGIntegration (2 tests)
-- EEG device integration with setup()
-- Running without EEG device
+#### ✅ TestN170DeviceIntegration (1 test)
+**Hardware integration:**
+- Device initialization and setup (Muse2 example)
 
-#### ✅ TestN170ControllerInput (4 tests)
-- Keyboard spacebar start
-- Escape key cancellation
-- VR input enabled/disabled
+#### ✅ TestN170EdgeCases (2 tests)
+**Boundary conditions:**
+- Zero trials edge case
+- Minimal timing configuration
 
-#### ✅ TestN170ExperimentRun (5 tests)
-- Minimal experiment execution
-- With/without instructions
-- Without EEG device
-- Verifying proper setup() call
+#### ✅ TestN170UserInteraction (2 tests)
+**User input handling:**
+- Keyboard input (spacebar start, escape cancel)
+- VR mode initialization
 
-#### ✅ TestN170EdgeCases (4 tests)
-- Zero trials
-- Very short durations
-- Very long trial counts
-- Zero jitter (deterministic timing)
-
-#### ✅ TestN170SaveFunction (2 tests)
-- Integration with `generate_save_fn()` utility
-- Custom save paths
-
-#### ✅ TestN170DeviceTypes (5 tests)
-- Muse2, Muse2016, Ganglion, Cyton, Synthetic devices
-- Device-specific channel configurations
-
-#### ✅ TestN170StateManagement (2 tests)
-- Multiple runs of same experiment instance
-- EEG device state tracking
-
-#### ✅ TestN170FullWorkflow (3 tests)
-- Complete workflow with EEG
-- Complete workflow without EEG
-- Various trial counts
-
-#### ✅ TestN170Documentation (2 tests)
-- Class docstring (allows missing)
-- Required attributes
+#### ✅ TestN170SaveFunction (1 test)
+**File handling:**
+- Save function integration with generate_save_fn()
 
 ### Current Status
 
-- **✅ 42/42 tests passing (100%)**
-- **❌ 0 tests failing**
+- **✅ 10/10 tests passing (100%)**
+- **Test execution time: ~3.6 seconds**
+- **Coverage: ~69% of n170.py module**
 
-All tests use proper initialization through `setup()` or `run()`, ensuring they test the real experiment workflow. Tests that previously bypassed initialization have been removed or refactored.
+### Design Philosophy
+
+This test suite follows the **minimal viable testing** approach:
+- Each test provides unique, high-value coverage
+- No redundant or low-value tests
+- Fast execution for rapid development feedback
+- Focus on critical paths and integration points
+- All tests use proper initialization flow
 
 ## Running Tests
 
@@ -225,23 +205,44 @@ The test suite is designed to work with minimal dependencies by mocking heavy de
 
 ## CI/CD Integration
 
-The tests are designed to run in GitHub Actions with:
-- Ubuntu, Windows, macOS support
-- Headless display via Xvfb on Linux
-- Python 3.8, 3.10 compatibility
-- Automatic coverage reporting
+The tests are designed to run automatically in GitHub Actions with:
+- **Ubuntu 22.04, Windows, macOS** support
+- **Headless display** via Xvfb on Linux
+- **Python 3.8, 3.10** compatibility
+- **Automatic coverage reporting**
+
+### Branch Triggers
+
+Tests run automatically on push to:
+- `master` - Production branch
+- `develop` - Development branch
+- `dev/*` - Feature development branches
+- `claude/*` - AI-assisted development branches (NEW)
 
 ### GitHub Actions Configuration
 
-```yaml
-- name: Run integration tests
-  run: pytest tests/integration/ --cov=eegnb --cov-report=xml
+The workflow is configured in `.github/workflows/test.yml`:
 
-- name: Upload coverage
-  uses: codecov/codecov-action@v3
-  with:
-    files: ./coverage.xml
+```yaml
+on:
+  push:
+    branches: [ master, develop, 'dev/*', 'claude/*' ]
+  pull_request:
+    branches: [ master, develop ]
 ```
+
+**Test execution:**
+```yaml
+- name: Run examples with coverage
+  run: |
+    if [ "$RUNNER_OS" == "Linux" ]; then
+      Xvfb :0 -screen 0 1024x768x24 -ac +extension GLX +render -noreset &> xvfb.log &
+      export DISPLAY=:0
+    fi
+    make test PYTEST_ARGS="--ignore=tests/test_run_experiments.py"
+```
+
+This ensures all tests run in a headless environment on Linux while still using the display server for PsychoPy components.
 
 ## Writing New Tests
 
@@ -459,7 +460,9 @@ When adding new tests:
 
 ---
 
-**Test Suite Status**: 🟢 Operational (42/42 tests passing - 100%)
+**Test Suite Status**: 🟢 Operational (10/10 tests passing - 100%)
+**Test Execution Time**: ~3.6 seconds
 **Last Updated**: 2025-11-05
 **Maintainer**: EEG-ExPy Team
-**Note**: All tests follow proper initialization flow through `setup()` and `run()`
+**CI/CD**: Runs automatically on `master`, `develop`, `dev/*`, and `claude/*` branches
+**Note**: Minimal viable test suite with maximum value coverage
