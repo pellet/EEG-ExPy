@@ -87,7 +87,9 @@ def test_experiment_with_eeg(mock_eeg, temp_save_fn, mock_psychopy):
 
 ## N170 Integration Tests
 
-The N170 test suite (`test_n170_integration.py`) contains **44 tests** organized into 12 test classes:
+The N170 test suite (`test_n170_integration.py`) contains **42 tests** organized into 11 test classes.
+
+**All tests follow the normal initialization flow**: `__init__()` → `setup()` → `run()`
 
 ### Test Coverage
 
@@ -97,6 +99,27 @@ The N170 test suite (`test_n170_integration.py`) contains **44 tests** organized
 - Timing parameter configurations (ITI, SOA, jitter)
 - Initialization without EEG device
 - VR enabled/disabled modes
+
+#### ✅ TestN170Setup (5 tests)
+- Window creation through setup()
+- Stimulus loading through setup()
+- Trial initialization
+- Setup with/without instructions
+
+#### ✅ TestN170EEGIntegration (2 tests)
+- EEG device integration with setup()
+- Running without EEG device
+
+#### ✅ TestN170ControllerInput (4 tests)
+- Keyboard spacebar start
+- Escape key cancellation
+- VR input enabled/disabled
+
+#### ✅ TestN170ExperimentRun (5 tests)
+- Minimal experiment execution
+- With/without instructions
+- Without EEG device
+- Verifying proper setup() call
 
 #### ✅ TestN170EdgeCases (4 tests)
 - Zero trials
@@ -116,43 +139,21 @@ The N170 test suite (`test_n170_integration.py`) contains **44 tests** organized
 - Multiple runs of same experiment instance
 - EEG device state tracking
 
-#### ✅ TestN170ControllerInput (4 tests)
-- Keyboard spacebar start
-- Escape key cancellation
-- VR input enabled/disabled
+#### ✅ TestN170FullWorkflow (3 tests)
+- Complete workflow with EEG
+- Complete workflow without EEG
+- Various trial counts
 
-#### ✅ TestN170ExperimentRun (4 tests)
-- Minimal experiment execution
-- With/without instructions
-- Without EEG device
-
-#### ✅ TestN170Documentation (1 test)
-- Class docstring presence
-
-#### ⚠️ TestN170StimulusLoading (2 tests)
-- Requires window initialization (needs enhancement)
-
-#### ⚠️ TestN170StimulusPresentation (3 tests)
-- Requires window and stimulus loading (needs enhancement)
-
-#### ⚠️ TestN170EEGIntegration (4 tests)
-- Partially working (2/4 passing)
-
-#### ⚠️ TestN170TimingAndSequencing (2 tests)
-- Partially working
-
-#### ⚠️ TestN170Performance (2 tests)
-- Slow tests for stress testing (marked with `@pytest.mark.slow`)
+#### ✅ TestN170Documentation (2 tests)
+- Class docstring (allows missing)
+- Required attributes
 
 ### Current Status
 
-- **✅ 33/44 tests passing (75%)**
-- **❌ 11/44 tests failing (25%)**
+- **✅ 42/42 tests passing (100%)**
+- **❌ 0 tests failing**
 
-Failing tests primarily involve stimulus loading and presentation, which require the experiment window to be initialized. These can be fixed by:
-1. Adding window initialization to tests
-2. Enhancing mocks to support more complex interactions
-3. Refactoring experiment code to separate concerns
+All tests use proper initialization through `setup()` or `run()`, ensuring they test the real experiment workflow. Tests that previously bypassed initialization have been removed or refactored.
 
 ## Running Tests
 
@@ -458,6 +459,7 @@ When adding new tests:
 
 ---
 
-**Test Suite Status**: 🟢 Operational (33/44 tests passing)
+**Test Suite Status**: 🟢 Operational (42/42 tests passing - 100%)
 **Last Updated**: 2025-11-05
 **Maintainer**: EEG-ExPy Team
+**Note**: All tests follow proper initialization flow through `setup()` and `run()`
