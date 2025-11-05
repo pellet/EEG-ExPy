@@ -19,6 +19,7 @@
    experiments/vn170
    experiments/vp300
    experiments/vssvep
+   experiments/vvep
    experiments/cueing
    experiments/gonogo
    experiments/all_examples
