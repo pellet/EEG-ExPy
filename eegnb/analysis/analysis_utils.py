@@ -270,9 +270,14 @@ def plot_conditions(
 
     # get individual plot axis
     plot_axes = []
-    for axis_y in range(midaxis):
+    # Handle the case when midaxis=1, matplotlib returns 1D array
+    if midaxis == 1:
         for axis_x in range(2):
-            plot_axes.append(axes[axis_x, axis_y])
+            plot_axes.append(axes[axis_x])
+    else:
+        for axis_y in range(midaxis):
+            for axis_x in range(2):
+                plot_axes.append(axes[axis_x, axis_y])
     axes = plot_axes
 
     for ch in range(channel_count):
