@@ -1,0 +1,11 @@
+{
+  "tools": {
+    "gh": {
+      "version": "2.62.0",
+      "path": "~/.local/bin/gh",
+      "description": "GitHub CLI for workflow monitoring",
+      "required": false,
+      "setup_command": "See .claude/hooks/SessionStart"
+    }
+  }
+}
