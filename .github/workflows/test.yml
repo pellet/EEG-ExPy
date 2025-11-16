@@ -2,7 +2,7 @@ name: Test
 
 on:
   push:
-    branches: [ master, develop, 'dev/*' ]
+    branches: [ master, develop, 'dev/*', 'claude/*' ]
   pull_request:
     branches: [ master, develop ]
 
@@ -24,7 +24,7 @@ jobs:
             python_version: '3.10'
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - name: Install APT dependencies
       if: "startsWith(runner.os, 'Linux')"
       run: |
@@ -84,7 +84,7 @@ jobs:
         python_version: [3.9]
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - name: Install conda
       uses: conda-incubator/setup-miniconda@v3
       with:
