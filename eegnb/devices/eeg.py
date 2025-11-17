@@ -6,9 +6,8 @@
 """
 
 import sys
-import time
 import logging
-from time import sleep
+from time import sleep, time
 from datetime import datetime
 from multiprocessing import Process
 
@@ -151,9 +150,9 @@ class EEG:
         self.recording = Process(target=record, args=(duration, self.save_fn))
         self.recording.start()
 
-        time.sleep(5)
+        sleep(5)
         self.stream_started = True
-        self.push_sample([99], timestamp=time.time())
+        self.push_sample([99], timestamp=time())
 
     def _stop_muse(self):
         pass
@@ -448,7 +447,7 @@ class EEG:
 
     def _start_kf(self): #:, duration):
 
-        kf_start_timestamp = int(time.time()*1e6)
+        kf_start_timestamp = int(time()*1e6)
 
         # Send first data packet 
         self.kf_evnum = 0
@@ -469,7 +468,7 @@ class EEG:
    
         # Send trigger
         self.kf_evnum+=1
-        kf_trigger_timestamp = int(time.time()*1e6)
+        kf_trigger_timestamp = int(time()*1e6)
         data_to_send = {
                          "id": self.kf_evnum, #event_id,
                          "timestamp": kf_trigger_timestamp, # timestamp
@@ -488,7 +487,7 @@ class EEG:
     def _stop_kf(self):
 
         self.kf_evnum+=1
-        kf_stop_timestamp = int(time.time()*1e6)
+        kf_stop_timestamp = int(time()*1e6)
         data_to_send = {
                         "id": 3, #self.kf_evnum,
                         "timestamp": kf_stop_timestamp,
