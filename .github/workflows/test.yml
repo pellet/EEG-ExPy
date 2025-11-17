@@ -16,7 +16,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: ['ubuntu-22.04', windows-latest, macOS-latest]
+        os: ['ubuntu-22.04', windows-latest, macOS-13]
         python_version: ['3.8']
         include:
           # PsychoPy currently restricted to <= 3.10
@@ -30,7 +30,7 @@ jobs:
       run: |
         make install-deps-apt
     - name: Install conda (macOS with osx-64)
-      if: matrix.os == 'macOS-latest'
+      if: matrix.os == 'macOS-13'
       uses: conda-incubator/setup-miniconda@v3
       with:
         auto-activate-base: false
@@ -45,7 +45,7 @@ jobs:
         CONDA_SUBDIR: osx-64
 
     - name: Install conda (Linux/Windows)
-      if: matrix.os != 'macOS-latest'
+      if: matrix.os != 'macOS-13'
       uses: conda-incubator/setup-miniconda@v3
       with:
         environment-file: environments/eeg-expy-full.yml
