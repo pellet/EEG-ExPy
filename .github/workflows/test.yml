@@ -29,31 +29,29 @@ jobs:
       if: "startsWith(runner.os, 'Linux')"
       run: |
         make install-deps-apt
-    - name: Install conda (macOS with osx-64)
-      if: matrix.os == 'macOS-latest'
+    - name: Install conda
       uses: conda-incubator/setup-miniconda@v3
       with:
+        environment-file: environments/eeg-expy-full.yml
         auto-activate-base: false
         python-version: ${{ matrix.python_version }}
         activate-environment: eeg-expy-full
         channels: conda-forge
         miniconda-version: "latest"
-        # Force osx-64 platform for audio support
-        conda-build-version: "*"
-        environment-file: environments/eeg-expy-full.yml
-      env:
-        CONDA_SUBDIR: osx-64
 
-    - name: Install conda (Linux/Windows)
-      if: matrix.os != 'macOS-latest'
-      uses: conda-incubator/setup-miniconda@v3
-      with:
-        environment-file: environments/eeg-expy-full.yml
-        auto-activate-base: false
-        python-version: ${{ matrix.python_version }}
-        activate-environment: eeg-expy-full
-        channels: conda-forge
-        miniconda-version: "latest"
+    - name: Recreate environment with osx-64 platform (macOS only)
+      if: matrix.os == 'macOS-latest'
+      run: |
+        # Remove the osx-arm64 environment
+        conda deactivate
+        conda env remove -n eeg-expy-full --yes
+        
+        # Create osx-64 platform with audio support
+        conda create -v --platform osx-64 -n eeg-expy-full python=${PYTHON_VERSION}
+        conda activate eeg-expy-full
+        conda env update -f environments/eeg-expy-full.yml
+      env:
+        PYTHON_VERSION: ${{ matrix.python_version }}
 
 
     - name: Run eegnb install test
