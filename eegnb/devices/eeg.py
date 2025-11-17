@@ -27,8 +27,7 @@ from eegnb.devices.utils import (
     EEG_CHANNELS,
 )
 
-import socket, json, logging, struct
-from time import time
+import socket, json, struct
 
 
 logger = logging.getLogger(__name__)
@@ -449,7 +448,7 @@ class EEG:
 
     def _start_kf(self): #:, duration):
 
-        kf_start_timestamp = int(time()*1e6)
+        kf_start_timestamp = int(time.time()*1e6)
 
         # Send first data packet 
         self.kf_evnum = 0
@@ -470,7 +469,7 @@ class EEG:
    
         # Send trigger
         self.kf_evnum+=1
-        kf_trigger_timestamp = int(time()*1e6)
+        kf_trigger_timestamp = int(time.time()*1e6)
         data_to_send = {
                          "id": self.kf_evnum, #event_id,
                          "timestamp": kf_trigger_timestamp, # timestamp
@@ -487,9 +486,9 @@ class EEG:
     
     
     def _stop_kf(self):
-        
+
         self.kf_evnum+=1
-        kf_stop_timestamp = int(time()*1e6)
+        kf_stop_timestamp = int(time.time()*1e6)
         data_to_send = {
                         "id": 3, #self.kf_evnum,
                         "timestamp": kf_stop_timestamp,
