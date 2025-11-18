@@ -45,7 +45,7 @@ jobs:
         # Remove the osx-arm64 environment
         conda deactivate
         conda env remove -n eeg-expy-full --yes
-        
+
         # Create osx-64 platform with audio support
         conda create -v --platform osx-64 -n eeg-expy-full python=${PYTHON_VERSION}
         conda activate eeg-expy-full
@@ -53,6 +53,10 @@ jobs:
       env:
         PYTHON_VERSION: ${{ matrix.python_version }}
 
+    - name: Fix numpy DLL issues (Windows only)
+      if: matrix.os == 'windows-latest'
+      run: |
+        conda install --force-reinstall numpy
 
     - name: Run eegnb install test
       run: |
