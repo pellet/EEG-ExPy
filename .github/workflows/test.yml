@@ -58,6 +58,17 @@ jobs:
       run: |
         conda install --force-reinstall numpy
 
+    - name: Debug numpy dependencies (Windows only)
+      if: matrix.os == 'windows-latest'
+      run: |
+        pip install pipdeptree
+        echo "=== Installed numpy version ==="
+        python -c "import numpy; print(f'numpy {numpy.__version__} from {numpy.__file__}')" || echo "numpy import failed"
+        echo "=== Packages depending on numpy ==="
+        pipdeptree -r -p numpy
+        echo "=== PsychoPy dependencies ==="
+        pipdeptree -p psychopy | head -50
+
     - name: Run eegnb install test
       run: |
         if [ "$RUNNER_OS" == "Linux" ]; then
