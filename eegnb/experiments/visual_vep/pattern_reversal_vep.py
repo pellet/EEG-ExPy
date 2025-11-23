@@ -1,4 +1,4 @@
-"""eeg-notebooks/eegnb/experiments/visual_vep/pattern_reversal_vep.py
+"""EEG-ExPy/eegnb/experiments/visual_vep/pattern_reversal_vep.py
 
 Pattern Reversal Visual Evoked Potential (PR-VEP) Experiment
 =============================================================

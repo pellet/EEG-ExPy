@@ -36,7 +36,7 @@ Pattern Reversal VEP is used to:
 Standard Parameters
 ~~~~~~~~~~~~~~~~~~~
 
-The implementation in eeg-notebooks follows international clinical standards (ISCEV):
+The implementation in EEG-ExPy follows international clinical standards (ISCEV):
 
 - **Check size**: 1 degree of visual angle (0.5 cycles per degree)
 - **Reversal rate**: 2 Hz (pattern reverses twice per second)
