@@ -12,7 +12,7 @@ a checkerboard pattern that reverses (swaps black and white squares) at regular 
 
 This implementation supports both:
 - Standard monitor-based presentation with monocular viewing (one eye at a time)
-- VR-based presentation with stereoscopic viewing (Meta Quest 2)
+- VR-based presentation with stereoscopic viewing (Meta Quest)
 
 The experiment runs in blocks, alternating between left and right eye stimulation to allow
 for monocular visual evoked potential measurements.
@@ -39,7 +39,7 @@ from eegnb.devices.eeg import EEG
 from eegnb.experiments.BlockExperiment import BlockExperiment
 from stimupy.stimuli.checkerboards import contrast_contrast
 
-# Pixels per degree for Oculus/Meta Quest 2 with PC link
+# Pixels per degree for Oculus/Meta Quest with PC link
 QUEST_PPD = 20
 
 
@@ -79,7 +79,7 @@ class VisualPatternReversalVEP(BlockExperiment):
             block_duration_seconds (int): Duration of each block in seconds. Default: 50.
             block_trial_size (int): Number of trials (pattern reversals) per block. Default: 100.
             n_blocks (int): Total number of blocks to run. Default: 4 (alternates between eyes).
-            use_vr (bool): If True, uses VR headset (Meta Quest 2) for stereoscopic presentation.
+            use_vr (bool): If True, uses VR headset (Meta Quest) for stereoscopic presentation.
                 If False, uses standard monitor with monocular viewing. Default: False.
             use_fullscr (bool): If True, runs in fullscreen mode. Default: True.
 
@@ -159,9 +159,9 @@ class VisualPatternReversalVEP(BlockExperiment):
 
     @staticmethod
     def create_vr_checkerboard(intensity_checks):
-        """Create a checkerboard stimulus optimized for VR presentation (Meta Quest 2).
+        """Create a checkerboard stimulus optimized for VR presentation (Meta Quest).
 
-        Parameters are adjusted for the Meta Quest 2's display characteristics:
+        Parameters are adjusted for the Meta Quest's display characteristics:
         - Resolution: ~20 pixels per degree
         - Field of view: ~90 degrees
         - Check size: 1 degree (standard for VEP)
@@ -181,12 +181,12 @@ class VisualPatternReversalVEP(BlockExperiment):
             - Larger field of view
             - More immersive experience reducing distractions
         """
-        # Optimized parameters for Oculus/Meta Quest 2 with PC link
-        # Quest 2 has approximately 20 pixels per degree and a ~90° FOV
+        # Optimized parameters for Oculus/Meta Quest with PC link
+        # Meta Quest has approximately 20 pixels per degree and a ~90° FOV
         # Using standard 1 degree check size (0.5 cpd)
         return contrast_contrast(
             visual_size=(20, 20),  # Size in degrees - covers central field while fitting in FOV
-            ppd=QUEST_PPD,  # Pixels per degree for Quest 2
+            ppd=QUEST_PPD,  # Pixels per degree for Meta Quest
             frequency=(0.5, 0.5),  # Spatial frequency: 0.5 cpd = 1 degree check size (standard)
             intensity_checks=intensity_checks,  # Contrast pattern for checkerboard squares
             target_shape=(0, 0),  # No target (full field checkerboard)

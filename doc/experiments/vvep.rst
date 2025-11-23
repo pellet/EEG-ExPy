@@ -49,7 +49,7 @@ The implementation in EEG-ExPy follows international clinical standards (ISCEV):
 Experiment Design
 ~~~~~~~~~~~~~~~~~
 
-This implementation supports both standard monitor-based and VR-based (Meta Quest 2) presentation:
+This implementation supports both standard monitor-based and VR-based (Meta Quest) presentation:
 
 **Monitor Mode**:
 - Participants manually close one eye
@@ -59,7 +59,7 @@ This implementation supports both standard monitor-based and VR-based (Meta Ques
 **VR Mode**:
 - Stereoscopic presentation with precise monocular control
 - Non-stimulated eye sees black screen
-- Optimized parameters for Quest 2 display characteristics
+- Optimized parameters for Meta Quest display characteristics
 - Immersive experience reduces distractions
 
 The experiment runs in blocks, alternating between left and right eye stimulation to enable monocular VEP measurements and assess each visual pathway independently.
