@@ -125,7 +125,7 @@ class BaseExperiment(ABC):
         
         # Show Instruction Screen if not skipped by the user
         if instructions:
-            return self.show_instructions()
+            self.show_instructions()
 
         # Checking for EEG to setup the EEG stream
         if self.eeg:
