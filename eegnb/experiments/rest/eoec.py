@@ -27,19 +27,18 @@ class RestEyesOpenCloseAlternating(Experiment.BaseExperiment):
     Resting-state experiment with alternating eyes-open / eyes-closed blocks, 
     and minimal visual and auditory cues to assist with task instructions.
     """
-
     def __init__(
         self,
         duration: Optional[float] = None,
         eeg: Optional[EEG] = None,
+        devices: Optional[list] = None,
         save_fn: Optional[str] = None,
         block_duration: float = 60.0,
         n_cycles: int = 5,
         serial_port: Optional[str] = None,
         use_verbal_cues: bool = False,
         open_audio: Optional[str] = None,
-        close_audio: Optional[str] = None
-        ):
+        close_audio: Optional[str] = None):
 
         exp_name = "Rest Eyes Open/Closed Alternating"
         if duration is None:
@@ -59,6 +58,7 @@ class RestEyesOpenCloseAlternating(Experiment.BaseExperiment):
             duration,
             eeg,
             save_fn,
+            devices=devices,
             n_trials=2 * n_cycles,
             iti=0,
             soa=block_duration,
