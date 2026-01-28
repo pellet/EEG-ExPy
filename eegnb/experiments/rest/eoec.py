@@ -113,18 +113,24 @@ class RestEyesOpenCloseAlternating(Experiment.BaseExperiment):
             timestamp = time()
             self.trials.at[idx, "timestamp"] = timestamp
             self.outlet.push_sample([self.markernames[label]], timestamp)
+            
             if self.eeg:
-                marker = (
-                    [self.markernames[label]]
-                    if self.eeg.backend == "muselsl"
-                    else self.markernames[label]
-                )
-                self.eeg.push_sample(marker=marker, timestamp=timestamp)
+              if self.eeg.backend == "muselsl":
+                  marker = [self.markernames[label]]
+              else:
+                  marker = self.markernames[label]
+              self.eeg.push_sample(marker=marker, timestamp=timestamp)
+            
+            if self.devices:
+              marker = self.markernames[label]
+              self.send_triggers(marker)
+
             if self.serial:
                 try:
                     self.serial.write(bytes([self.markernames[label]]))
                 except Exception:  # pragma: no cover
                     pass
+
             if label == 0:
                 self.open_sound.play()
             else:
