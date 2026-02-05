@@ -27,7 +27,7 @@ from eegnb import generate_save_fn
 class BaseExperiment(ABC):
 
     def __init__(self, exp_name, duration, eeg, save_fn, n_trials: int, iti: float, soa: float, jitter: float,
-                 use_vr=False, use_fullscr = True, screen_num=0, stereoscopic = False):
+                 use_vr=False, use_fullscr = True, screen_num=0, stereoscopic = False, devices = list):
         """ Initializer for the Base Experiment Class
 
         Args:
@@ -50,6 +50,7 @@ class BaseExperiment(ABC):
         Press spacebar to continue. \n""".format(self.exp_name)
         self.duration = duration
         self.eeg: EEG = eeg
+        self.devices = devices
         self.save_fn = save_fn
         self.n_trials = n_trials
         self.iti = iti
@@ -72,8 +73,7 @@ class BaseExperiment(ABC):
         self.use_fullscr = use_fullscr
         self.window_size = [1600,800]
 
-        # Initializing the record duration and the marker names
-        self.record_duration = np.float32(self.duration)
+        # Initializing the marker names
         self.markernames = [1, 2]
 
         # Setting up the trial and parameter list
@@ -316,21 +316,18 @@ class BaseExperiment(ABC):
         # Setup the experiment
         self.setup(instructions)
 
-        print("Wait for the EEG-stream to start...")
-
         # Start EEG Stream, wait for signal to settle, and then pull timestamp for start point
         if self.eeg:
             if self.eeg.backend not in ['serialport']:
                 print("Wait for the EEG-stream to start...")
-                self.eeg.start(self.save_fn, duration=self.record_duration + 5)
-
-        print("EEG Stream started")
+                self.eeg.start(self.save_fn, duration=self.duration + 5)
+                print("EEG Stream started")
 
         # Record experiment until a key is pressed or duration has expired.
         record_start_time = time()
-        
+
         # Run the trial loop
-        self._run_trial_loop(record_start_time, self.record_duration)
+        self._run_trial_loop(record_start_time, self.duration)
 
         # Clearing the screen for the next trial
         event.clearEvents()
@@ -341,6 +338,15 @@ class BaseExperiment(ABC):
 
         # Closing the window
         self.window.close()
+
+
+
+    def send_triggers(self, marker):
+        """Send timing triggers to recording device[s]"""
+        for dev in self.devices:
+            timestamp = time()
+            dev.push_sample(marker=marker, timestamp=timestamp)
+
 
     @property
     def name(self) -> str:
