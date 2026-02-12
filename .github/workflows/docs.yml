@@ -9,24 +9,24 @@ on:
 jobs:
   build:
     runs-on: ubuntu-22.04
+    defaults:
+      run:
+        shell: bash -l {0}
     steps:
     - name: Checkout repo
       uses: actions/checkout@v3
       with:
         fetch-depth: 0   
         
-    - name: Set up Python
-      uses: actions/setup-python@v4
+    - name: Install conda
+      uses: conda-incubator/setup-miniconda@v3
       with:
+        environment-file: environments/eeg-expy-docsbuild.yml
+        auto-activate-base: false
         python-version: 3.8
-        
-    - name: Install dependencies
-      run: |
-        make install-deps-apt
-        python -m pip install --upgrade pip wheel
-        python -m pip install attrdict
-
-        make install-deps-wxpython
+        activate-environment: eeg-expy-full
+        channels: conda-forge
+        miniconda-version: "latest"
         
     - name: Build project
       run: |
