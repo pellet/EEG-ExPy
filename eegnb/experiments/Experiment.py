@@ -125,6 +125,7 @@ class BaseExperiment(ABC):
         
         # Show Instruction Screen if not skipped by the user
         if instructions:
+            self.instruction_text = self.instruction_text % self.duration
             if not self.show_instructions():
                 return False
 
@@ -143,15 +144,16 @@ class BaseExperiment(ABC):
                 )
         return True
 
-    def show_instructions(self):
-        """ 
+    def show_instructions(self, text_color=None):
+        """
         Method that shows the instructions for the specific Experiment
         In the usual case it is not overwritten, the instruction text can be overwritten by the specific experiment
-        No parameters accepted, can be skipped through passing a False while running the Experiment
-        """
 
-        # Splitting instruction text into lines
-        self.instruction_text = self.instruction_text % self.duration
+        Args:
+            text_color: PsychoPy colour for instruction text. Defaults to black [-1,-1,-1].
+        """
+        if text_color is None:
+            text_color = [-1, -1, -1]
 
         # Disabling the cursor during display of instructions
         self.window.mouseVisible = False
@@ -162,7 +164,7 @@ class BaseExperiment(ABC):
         # Waiting for the user to press the spacebar or controller button or trigger to start the experiment
         while not self._user_input('start'):
             # Displaying the instructions on the screen
-            text = visual.TextStim(win=self.window, text=self.instruction_text, color=[-1, -1, -1])
+            text = visual.TextStim(win=self.window, text=self.instruction_text, color=text_color)
             self._draw(lambda: self.__draw_instructions(text))
 
             # Enabling the cursor again
@@ -286,11 +288,14 @@ class BaseExperiment(ABC):
         # Run the trial loop
         while (time() - start_time) < duration:
             elapsed_time = time() - start_time
-            
-            # Do not present stimulus until current trial begins(Adhere to inter-trial interval).
-            if elapsed_time > trial_end_time:
+
+            # Advance to next trial only after the previous stimulus has been shown.
+            # Checking rendering_trial guards against the case where elapsed_time jumps
+            # past trial_end_time in a single frame (e.g. short SOA relative to frame
+            # duration), which would otherwise skip present_stimulus entirely.
+            if elapsed_time > trial_end_time and current_trial == rendering_trial:
                 current_trial += 1
-                
+
                 # Calculate timing for this trial
                 trial_start_time = elapsed_time + iti_with_jitter()
                 trial_end_time = trial_start_time + self.soa
