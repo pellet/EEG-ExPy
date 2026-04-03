@@ -100,21 +100,6 @@ class VisualPatternReversalVEP(BlockExperiment):
             create_checkerboard = self.create_monitor_checkerboard
             size = (self.window_size[1], self.window_size[1])
 
-        # Optode sync patch: small white/black square in the bottom-left corner.
-        # Alternates polarity with each checkerboard reversal so a photodiode
-        # taped to this corner produces a TTL pulse on every stimulus onset.
-        # Monitor path only — VR uses compositor timestamps instead.
-        if not self.use_vr:
-            patch_size = 50  # pixels
-            x = -self.window.size[0] / 2 + patch_size / 2
-            y = -self.window.size[1] / 2 + patch_size / 2
-            self.optode_patch = visual.Rect(
-                self.window, width=patch_size, height=patch_size,
-                pos=(x, y), units='pix', fillColor='white'
-            )
-        else:
-            self.optode_patch = None
-
         # The surrounding / periphery needs to be dark when not using vr.
         # Also used for covering eye which is not being stimulated.
         self.black_background = visual.Rect(self.window,
@@ -137,8 +122,8 @@ class VisualPatternReversalVEP(BlockExperiment):
         # Create fixation stimuli
         def create_fixation_stim(pos):
             fixation = visual.GratingStim(
-                win=self.window, 
-                pos=pos, 
+                win=self.window,
+                pos=pos,
                 sf=400 if self.use_vr else 0.2,
                 color=[1, 0, 0]
             )
@@ -168,14 +153,53 @@ class VisualPatternReversalVEP(BlockExperiment):
             left_pix_x_pos = self.left_eye_x_pos * (window_width / 2)
             right_pix_x_pos = self.right_eye_x_pos * (window_width / 2)
 
-            return {
+            stim = {
                 'left': create_eye_stimuli(self.left_eye_x_pos, left_pix_x_pos),
                 'right': create_eye_stimuli(self.right_eye_x_pos, right_pix_x_pos)
             }
         else:
-            return {
+            stim = {
                 'monoscopic': create_eye_stimuli(0, 0)
             }
+
+        # ── Pre-render composite frames into FBOs (BufferImageStim) ──────────
+        # Each frame that present_stimulus() would assemble from multiple draw
+        # calls is rendered once here and captured as a single GPU texture.
+        # During the trial loop, present_stimulus() draws one pre-baked texture
+        # instead of 4-5 separate stimuli — reducing per-frame Python overhead
+        # and frame timing variance.
+        #
+        # VR path: stereo buffer management (setBuffer per eye) makes FBO
+        # capture complex — kept as individual draw calls for now since the
+        # compositor timestamps handle timing. TODO: pre-render per-eye FBOs.
+        self.prerendered_frames = None
+
+        if not self.use_vr:
+            optode_patch_size = 50  # pixels
+            optode_x = -self.window.size[0] / 2 + optode_patch_size / 2
+            optode_y = -self.window.size[1] / 2 + optode_patch_size / 2
+            optode_patch = visual.Rect(
+                self.window, width=optode_patch_size, height=optode_patch_size,
+                pos=(optode_x, optode_y), units='pix', fillColor='white'
+            )
+
+            display = stim['monoscopic']
+            frames = []
+            for checkerboard_idx in range(2):
+                # Draw all layers for this frame
+                self.black_background.draw()
+                display['checkerboards'][checkerboard_idx].draw()
+                display['fixation'].draw()
+                optode_patch.fillColor = 'white' if checkerboard_idx == 0 else 'black'
+                optode_patch.draw()
+                # Capture the composited back buffer as a single texture
+                frames.append(visual.BufferImageStim(self.window))
+                self.window.clearBuffer()
+
+            self.prerendered_frames = frames
+            print(f"Pre-rendered {len(frames)} composite frames as FBO textures")
+
+        return stim
 
     def _present_vr_block_instructions(self, open_eye, closed_eye):
         self.window.setBuffer(open_eye)
@@ -210,32 +234,27 @@ class VisualPatternReversalVEP(BlockExperiment):
         # Get the label of the trial
         trial_idx = self.current_block_index * self.block_trial_size + idx
         label = self.parameter[trial_idx]
+        checkerboard_frame = idx % 2
 
-        open_eye = 'left' if label == 0 else 'right'
-        closed_eye = 'left' if label == 1 else 'right'
+        if self.prerendered_frames is not None:
+            # Monitor path: single draw call from pre-baked FBO texture.
+            # Background, checkerboard, fixation, and optode patch are all
+            # composited into one texture — no per-frame Python overhead.
+            self.prerendered_frames[checkerboard_frame].draw()
+        else:
+            # VR path: draw individual stimuli per eye buffer.
+            # TODO: pre-render per-eye FBOs to match monitor path.
+            open_eye = 'left' if label == 0 else 'right'
+            closed_eye = 'left' if label == 1 else 'right'
 
-        # draw checkerboard and fixation
-        if self.use_vr:
             self.window.setBuffer(open_eye)
             self.grey_background.draw()
             display = self.stim['left' if label == 0 else 'right']
-        else:
-            self.black_background.draw()
-            display = self.stim['monoscopic']
-            
-        checkerboard_frame = idx % 2
-        display['checkerboards'][checkerboard_frame].draw()
-        display['fixation'].draw()
+            display['checkerboards'][checkerboard_frame].draw()
+            display['fixation'].draw()
 
-        if self.use_vr:
             self.window.setBuffer(closed_eye)
             self.black_background.draw()
-
-        # Alternate sync patch polarity with each reversal so the photodiode
-        # fires on every checkerboard flip, not just odd or even frames.
-        if self.optode_patch is not None:
-            self.optode_patch.fillColor = 'white' if checkerboard_frame == 0 else 'black'
-            self.optode_patch.draw()
 
         self.window.flip()
 
