@@ -1,4 +1,6 @@
 ﻿from time import time
+import csv
+import os
 import numpy as np
 
 from psychopy import visual
@@ -20,6 +22,18 @@ class VisualPatternReversalVEP(BlockExperiment):
         jitter=0
 
         super().__init__("Visual Pattern Reversal VEP", block_duration_seconds, eeg, save_fn, block_trial_size, n_blocks, iti, soa, jitter, use_vr, use_fullscr, stereoscopic=True)
+
+        # Per-trial timing sidecar: records software time, compositor predicted
+        # display time, and delta for each trial. Written alongside the EEG CSV.
+        if save_fn:
+            timing_path = save_fn.replace('.csv', '_timing.csv')
+        else:
+            timing_path = 'vep_timing.csv'
+        self._timing_file = open(timing_path, 'w', newline='')
+        self._timing_writer = csv.writer(self._timing_file)
+        self._timing_writer.writerow(
+            ['trial_idx', 'software_time', 'predicted_display_time', 'delta_ms', 'use_vr']
+        )
 
         self.instruction_text = f"""Welcome to the Visual Pattern Reversal VEP experiment!
         
@@ -203,9 +217,29 @@ class VisualPatternReversalVEP(BlockExperiment):
             self.black_background.draw()
         self.window.flip()
 
+        # Use compositor-reported predicted display time when available (VR path).
+        # Falls back to time() for monitor path — apply hardware lag offset in analysis.
+        software_time = time()
+        predicted_display_time = getattr(self, 'predicted_display_time', None)
+        if predicted_display_time is not None:
+            eeg_timestamp = predicted_display_time
+        else:
+            eeg_timestamp = software_time
+
         # Pushing the sample to the EEG
         marker = self.markernames[label]
-        self.eeg.push_sample(marker=marker, timestamp=time())
+        self.eeg.push_sample(marker=marker, timestamp=eeg_timestamp)
+
+        # Log per-trial timing metadata for post-hoc validation
+        trial_idx = self.current_block_index * self.block_trial_size + idx
+        delta_ms = (predicted_display_time - software_time) * 1000 if predicted_display_time else None
+        self._timing_writer.writerow(
+            [trial_idx, software_time, predicted_display_time, delta_ms, self.use_vr]
+        )
+
+    def __del__(self):
+        if hasattr(self, '_timing_file') and not self._timing_file.closed:
+            self._timing_file.close()
 
     def present_iti(self):
         if self.use_vr:

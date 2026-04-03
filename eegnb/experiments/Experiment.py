@@ -247,6 +247,11 @@ class BaseExperiment(ABC):
             tracking_state = self.window.getTrackingState()
             self.window.calcEyePoses(tracking_state.headPose.thePose)
             self.window.setDefaultView()
+            # Per-frame predicted photon time from the OpenXR compositor.
+            # More accurate than time() + fixed lag constant — varies per frame
+            # based on compositor load. Stored so present_stimulus() can use it
+            # as the EEG marker timestamp.
+            self.predicted_display_time = tracking_state.headPose.time
         present_stimulus()
 
     def _clear_user_input(self):
