@@ -17,10 +17,11 @@ from psychopy.visual.rift import Rift
 import gc
 from time import time
 import random
+import json
 
 import numpy as np
 from pandas import DataFrame
-from psychopy import visual, event
+from psychopy import visual, event, core
 
 from eegnb import generate_save_fn
 
@@ -316,6 +317,43 @@ class BaseExperiment(ABC):
 
         return True
 
+    def _enable_frame_tracking(self):
+        """Enable per-frame interval recording for dropped frame diagnostics."""
+        self.window.recordFrameIntervals = True
+        # Threshold for counting a frame as "dropped" — 50% over expected duration
+        expected_frame_dur = 1.0 / (self.window.displayRefreshRate if self.use_vr
+                                     else (self.window.getActualFrameRate() or 60))
+        self.window.refreshThreshold = expected_frame_dur * 1.5
+
+    def _report_frame_stats(self):
+        """Print frame timing summary and save intervals alongside recording."""
+        intervals = self.window.frameIntervals
+        if not intervals:
+            return
+
+        intervals_ms = [i * 1000 for i in intervals]
+        dropped = self.window.nDroppedFrames
+        total = len(intervals)
+        mean_ms = np.mean(intervals_ms)
+        std_ms = np.std(intervals_ms)
+        max_ms = max(intervals_ms)
+
+        print(f"\nFrame timing: {total} frames, {dropped} dropped ({dropped/total*100:.1f}%)")
+        print(f"  Mean: {mean_ms:.2f}ms  Std: {std_ms:.2f}ms  Max: {max_ms:.2f}ms")
+
+        if self.save_fn:
+            stats_path = self.save_fn.replace('.csv', '_frame_stats.json')
+            with open(stats_path, 'w') as f:
+                json.dump({
+                    'total_frames': total,
+                    'dropped_frames': dropped,
+                    'mean_ms': round(mean_ms, 3),
+                    'std_ms': round(std_ms, 3),
+                    'max_ms': round(max_ms, 3),
+                    'intervals_ms': [round(i, 3) for i in intervals_ms]
+                }, f, indent=2)
+            print(f"  Saved to {stats_path}")
+
     def run(self, instructions=True):
         """ Run the experiment """
 
@@ -329,16 +367,23 @@ class BaseExperiment(ABC):
                 self.eeg.start(self.save_fn, duration=self.duration + 5)
                 print("EEG Stream started")
 
+        self._enable_frame_tracking()
+
         # Record experiment until a key is pressed or duration has expired.
         record_start_time = time()
 
-        # Disable GC during the trial loop to prevent ~1-10ms pauses
-        # that cause dropped frames (visible as Quest Link hourglass).
+        # Elevate process priority and disable GC during the trial loop to
+        # prevent OS scheduling jitter and ~1-10ms GC pauses that cause
+        # dropped frames (visible as Quest Link hourglass).
+        core.rush(True)
         gc.disable()
         try:
             self._run_trial_loop(record_start_time, self.duration)
         finally:
             gc.enable()
+            core.rush(False)
+
+        self._report_frame_stats()
 
         # Clearing the screen for the next trial
         event.clearEvents()

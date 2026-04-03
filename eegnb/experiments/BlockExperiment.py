@@ -115,29 +115,36 @@ class BlockExperiment(BaseExperiment, ABC):
             self.eeg.start(self.save_fn)
             print("EEG Stream started")
         
+        self._enable_frame_tracking()
+
         # Run each block
         for block_index in range(self.n_blocks):
             self.current_block_index = block_index
             print(f"Starting block {block_index + 1} of {self.n_blocks}")
-            
+
             # Show block-specific instructions
             if not self._show_block_instructions(block_index):
                 break
 
-            # Disable GC during the trial loop to prevent ~1-10ms pauses
-            # that cause the Quest Link compositor to drop frames (hourglass).
-            # GC is re-enabled between blocks so instruction screens can
-            # allocate freely.
+            # Elevate process priority and disable GC during the trial loop
+            # to prevent OS scheduling jitter and ~1-10ms GC pauses that
+            # cause the Quest Link compositor to drop frames (hourglass).
+            # Both are restored between blocks so instruction screens run normally.
+            from psychopy import core
+            core.rush(True)
             gc.disable()
             try:
                 if not self._run_trial_loop(start_time=time(), duration=self.block_duration):
                     break
             finally:
                 gc.enable()
-        
+                core.rush(False)
+
+        self._report_frame_stats()
+
         # Stop EEG Stream after all blocks
         if self.eeg:
             self.eeg.stop()
-            
+
         # Close window at the end of all blocks
         self.window.close()
