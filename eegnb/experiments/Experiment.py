@@ -84,7 +84,7 @@ class BaseExperiment(ABC):
 
     @abstractmethod
     def load_stimulus(self):
-        """ 
+        """
         Method that loads the stimulus for the specific experiment, overwritten by the specific experiment
         Returns the stimulus object in the form of [{stim1},{stim2},...]
         Throws error if not overwritten in the specific experiment
@@ -102,6 +102,72 @@ class BaseExperiment(ABC):
         idx : Trial index for the current trial
         """
         raise NotImplementedError
+
+    # ── Pre-rendered frame support ───────────────────────────────────────────
+    # Subclasses that want FBO pre-rendering override compose_frame() and
+    # get_frame_key(). The base class renders each unique frame once during
+    # setup and caches the result as a BufferImageStim (GPU texture).
+    #
+    # During the trial loop, present_stimulus() calls draw_frame() which
+    # draws the cached texture in a single call instead of re-compositing
+    # multiple stimuli per frame.
+    #
+    # Experiments with multi-frame loops (SSVEP) or no visual component
+    # (auditory oddball) simply don't override compose_frame() and the
+    # prerender step is skipped — no behaviour change.
+
+    def compose_frame(self, idx: int):
+        """Draw all visual stimuli for trial idx to the back buffer.
+
+        Does NOT call flip() or push EEG markers — just draws.
+        Override in subclasses to enable FBO pre-rendering.
+        Default returns False (no composable frame for this experiment).
+        """
+        return False
+
+    def get_frame_key(self, idx: int):
+        """Return a hashable key identifying the unique visual state for trial idx.
+
+        Trials with the same key reuse the same pre-rendered texture.
+        Override in subclasses. Default returns idx (every trial unique = no benefit).
+        """
+        return idx
+
+    def _prerender_frames(self):
+        """Pre-render all unique visual states into BufferImageStim textures.
+
+        Called by setup() after load_stimulus(). Iterates trial indices,
+        calls compose_frame() for each unique get_frame_key(), and captures
+        the back buffer as a GPU texture. Skipped if compose_frame() returns
+        False (not implemented by subclass).
+        """
+        # Test if the subclass has implemented compose_frame
+        if self.compose_frame(0) is False:
+            self._prerendered = {}
+            return
+
+        self.window.clearBuffer()
+        self._prerendered = {}
+        for idx in range(self.n_trials):
+            key = self.get_frame_key(idx)
+            if key not in self._prerendered:
+                self.compose_frame(idx)
+                self._prerendered[key] = visual.BufferImageStim(self.window)
+                self.window.clearBuffer()
+
+        print(f"Pre-rendered {len(self._prerendered)} unique frame(s) as FBO textures")
+
+    def draw_frame(self, idx: int):
+        """Draw the frame for trial idx — pre-rendered texture if available,
+        otherwise falls back to compose_frame().
+
+        Call this from present_stimulus() instead of drawing individual stimuli.
+        """
+        key = self.get_frame_key(idx)
+        if key in self._prerendered:
+            self._prerendered[key].draw()
+        else:
+            self.compose_frame(idx)
 
     def present_iti(self):
         """
@@ -124,7 +190,10 @@ class BaseExperiment(ABC):
         
         # Loading the stimulus from the specific experiment, throws an error if not overwritten in the specific experiment
         self.stim = self.load_stimulus()
-        
+
+        # Pre-render composite frames if the subclass implements compose_frame()
+        self._prerender_frames()
+
         # Show Instruction Screen if not skipped by the user
         if instructions:
             if not self.show_instructions():

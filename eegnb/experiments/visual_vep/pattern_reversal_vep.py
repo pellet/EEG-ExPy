@@ -162,42 +162,15 @@ class VisualPatternReversalVEP(BlockExperiment):
                 'monoscopic': create_eye_stimuli(0, 0)
             }
 
-        # ── Pre-render composite frames into FBOs (BufferImageStim) ──────────
-        # Each frame that present_stimulus() would assemble from multiple draw
-        # calls is rendered once here and captured as a single GPU texture.
-        # During the trial loop, present_stimulus() draws one pre-baked texture
-        # instead of 4-5 separate stimuli — reducing per-frame Python overhead
-        # and frame timing variance.
-        #
-        # VR path: stereo buffer management (setBuffer per eye) makes FBO
-        # capture complex — kept as individual draw calls for now since the
-        # compositor timestamps handle timing. TODO: pre-render per-eye FBOs.
-        self.prerendered_frames = None
-
+        # Create optode sync patch for monitor path (not used in VR)
         if not self.use_vr:
             optode_patch_size = 50  # pixels
             optode_x = -self.window.size[0] / 2 + optode_patch_size / 2
             optode_y = -self.window.size[1] / 2 + optode_patch_size / 2
-            optode_patch = visual.Rect(
+            self.optode_patch = visual.Rect(
                 self.window, width=optode_patch_size, height=optode_patch_size,
                 pos=(optode_x, optode_y), units='pix', fillColor='white'
             )
-
-            display = stim['monoscopic']
-            frames = []
-            for checkerboard_idx in range(2):
-                # Draw all layers for this frame
-                self.black_background.draw()
-                display['checkerboards'][checkerboard_idx].draw()
-                display['fixation'].draw()
-                optode_patch.fillColor = 'white' if checkerboard_idx == 0 else 'black'
-                optode_patch.draw()
-                # Capture the composited back buffer as a single texture
-                frames.append(visual.BufferImageStim(self.window))
-                self.window.clearBuffer()
-
-            self.prerendered_frames = frames
-            print(f"Pre-rendered {len(frames)} composite frames as FBO textures")
 
         return stim
 
@@ -230,31 +203,49 @@ class VisualPatternReversalVEP(BlockExperiment):
             self.stim['monoscopic']['fixation'].draw()
         self.window.flip()
 
+    def get_frame_key(self, idx: int):
+        # Only two unique visual states: checkerboard phase 0 and 1.
+        # VR path also varies by eye (label), but FBO pre-rendering is
+        # skipped for VR (compose_frame returns False), so this only
+        # matters for the monitor path where label is irrelevant.
+        return idx % 2
+
+    def compose_frame(self, idx: int):
+        # VR path: stereo buffer management (setBuffer per eye) makes FBO
+        # capture complex — skip pre-rendering, draw live instead.
+        # TODO: pre-render per-eye FBOs.
+        if self.use_vr:
+            return False
+
+        checkerboard_frame = idx % 2
+        display = self.stim['monoscopic']
+
+        self.black_background.draw()
+        display['checkerboards'][checkerboard_frame].draw()
+        display['fixation'].draw()
+        self.optode_patch.fillColor = 'white' if checkerboard_frame == 0 else 'black'
+        self.optode_patch.draw()
+
     def present_stimulus(self, idx: int):
-        # Get the label of the trial
         trial_idx = self.current_block_index * self.block_trial_size + idx
         label = self.parameter[trial_idx]
-        checkerboard_frame = idx % 2
 
-        if self.prerendered_frames is not None:
-            # Monitor path: single draw call from pre-baked FBO texture.
-            # Background, checkerboard, fixation, and optode patch are all
-            # composited into one texture — no per-frame Python overhead.
-            self.prerendered_frames[checkerboard_frame].draw()
-        else:
+        if self.use_vr:
             # VR path: draw individual stimuli per eye buffer.
-            # TODO: pre-render per-eye FBOs to match monitor path.
             open_eye = 'left' if label == 0 else 'right'
             closed_eye = 'left' if label == 1 else 'right'
 
             self.window.setBuffer(open_eye)
             self.grey_background.draw()
             display = self.stim['left' if label == 0 else 'right']
-            display['checkerboards'][checkerboard_frame].draw()
+            display['checkerboards'][idx % 2].draw()
             display['fixation'].draw()
 
             self.window.setBuffer(closed_eye)
             self.black_background.draw()
+        else:
+            # Monitor path: single draw call from pre-baked FBO texture.
+            self.draw_frame(idx)
 
         self.window.flip()
 
@@ -272,7 +263,6 @@ class VisualPatternReversalVEP(BlockExperiment):
         self.eeg.push_sample(marker=marker, timestamp=eeg_timestamp)
 
         # Log per-trial timing metadata for post-hoc validation
-        trial_idx = self.current_block_index * self.block_trial_size + idx
         delta_ms = (predicted_display_time - software_time) * 1000 if predicted_display_time else None
         self._timing_writer.writerow(
             [trial_idx, software_time, predicted_display_time, delta_ms, self.use_vr]
