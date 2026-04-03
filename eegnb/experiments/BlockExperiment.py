@@ -7,6 +7,7 @@ and reuses it across blocks, while allowing block-specific instructions.
 
 Experiments that need block-based execution should inherit from this class instead of BaseExperiment.
 """
+import gc
 from abc import ABC
 from time import time
 
@@ -122,10 +123,17 @@ class BlockExperiment(BaseExperiment, ABC):
             # Show block-specific instructions
             if not self._show_block_instructions(block_index):
                 break
-            
-            # Run this block
-            if not self._run_trial_loop(start_time=time(), duration=self.block_duration):
-                break
+
+            # Disable GC during the trial loop to prevent ~1-10ms pauses
+            # that cause the Quest Link compositor to drop frames (hourglass).
+            # GC is re-enabled between blocks so instruction screens can
+            # allocate freely.
+            gc.disable()
+            try:
+                if not self._run_trial_loop(start_time=time(), duration=self.block_duration):
+                    break
+            finally:
+                gc.enable()
         
         # Stop EEG Stream after all blocks
         if self.eeg:

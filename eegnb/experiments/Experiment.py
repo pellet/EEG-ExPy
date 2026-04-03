@@ -14,6 +14,7 @@ from eegnb.devices.eeg import EEG
 from psychopy import prefs
 from psychopy.visual.rift import Rift
 
+import gc
 from time import time
 import random
 
@@ -331,8 +332,13 @@ class BaseExperiment(ABC):
         # Record experiment until a key is pressed or duration has expired.
         record_start_time = time()
 
-        # Run the trial loop
-        self._run_trial_loop(record_start_time, self.duration)
+        # Disable GC during the trial loop to prevent ~1-10ms pauses
+        # that cause dropped frames (visible as Quest Link hourglass).
+        gc.disable()
+        try:
+            self._run_trial_loop(record_start_time, self.duration)
+        finally:
+            gc.enable()
 
         # Clearing the screen for the next trial
         event.clearEvents()
