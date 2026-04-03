@@ -14,9 +14,11 @@ QUEST_PPD = 20
 class VisualPatternReversalVEP(BlockExperiment):
 
     def __init__(self, display_refresh_rate: int, eeg: Optional[EEG] = None, save_fn=None,
-                 block_duration_seconds=50, block_trial_size: int=100, n_blocks: int=4, use_vr=False, use_fullscr=True):
+                 block_duration_seconds=50, block_trial_size: int=100, n_blocks: int=4, use_vr=False, use_fullscr=True,
+                 use_optode=False):
 
         self.display_refresh_rate = display_refresh_rate
+        self.use_optode = use_optode
         soa=0.5
         iti=0
         jitter=0
@@ -99,6 +101,21 @@ class VisualPatternReversalVEP(BlockExperiment):
             # Create the Monitor checkerboard
             create_checkerboard = self.create_monitor_checkerboard
             size = (self.window_size[1], self.window_size[1])
+
+        # Optode sync patch: small white/black square in the bottom-left corner.
+        # Alternates polarity with each checkerboard reversal so a photodiode
+        # taped to this corner produces a TTL pulse on every stimulus onset.
+        # Only created for the monitor path — VR uses compositor timestamps instead.
+        if self.use_optode and not self.use_vr:
+            patch_size = 50  # pixels
+            x = -self.window.size[0] / 2 + patch_size / 2
+            y = -self.window.size[1] / 2 + patch_size / 2
+            self.optode_patch = visual.Rect(
+                self.window, width=patch_size, height=patch_size,
+                pos=(x, y), units='pix', fillColor='white'
+            )
+        else:
+            self.optode_patch = None
 
         # The surrounding / periphery needs to be dark when not using vr.
         # Also used for covering eye which is not being stimulated.
@@ -215,6 +232,13 @@ class VisualPatternReversalVEP(BlockExperiment):
         if self.use_vr:
             self.window.setBuffer(closed_eye)
             self.black_background.draw()
+
+        # Alternate sync patch polarity with each reversal so the photodiode
+        # fires on every checkerboard flip, not just odd or even frames.
+        if self.optode_patch is not None:
+            self.optode_patch.fillColor = 'white' if checkerboard_frame == 0 else 'black'
+            self.optode_patch.draw()
+
         self.window.flip()
 
         # Use compositor-reported predicted display time when available (VR path).
