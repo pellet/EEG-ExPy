@@ -12,11 +12,9 @@ QUEST_PPD = 20
 class VisualPatternReversalVEP(BlockExperiment):
 
     def __init__(self, display_refresh_rate: int, eeg: Optional[EEG] = None, save_fn=None,
-                 block_duration_seconds=50, block_trial_size: int=100, n_blocks: int=4, use_vr=False, use_fullscr=True,
-                 use_optode=False):
+                 block_duration_seconds=50, block_trial_size: int=100, n_blocks: int=4, use_vr=False, use_fullscr=True):
 
         self.display_refresh_rate = display_refresh_rate
-        self.use_optode = use_optode
         soa=0.5
         iti=0
         jitter=0
@@ -91,8 +89,8 @@ class VisualPatternReversalVEP(BlockExperiment):
         # Optode sync patch: small white/black square in the bottom-left corner.
         # Alternates polarity with each checkerboard reversal so a photodiode
         # taped to this corner produces a TTL pulse on every stimulus onset.
-        # Only created for the monitor path — VR uses compositor timestamps instead.
-        if self.use_optode and not self.use_vr:
+        # Monitor path only — VR uses compositor timestamps instead.
+        if not self.use_vr:
             patch_size = 50  # pixels
             x = -self.window.size[0] / 2 + patch_size / 2
             y = -self.window.size[1] / 2 + patch_size / 2
