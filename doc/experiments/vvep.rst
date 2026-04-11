@@ -331,45 +331,67 @@ before the timing stack has been fully validated, a reasonable plan B is:
    refresh rate, same presentation mode, same electrode montage, same
    analysis pipeline). Record the mean and spread of P100 latency and
    interocular latency difference for that population.
-2. **Stratify the baseline by head size.** P100 latency depends on head
-   size — in the published literature the effect is on the order of
-   0.1–0.2 ms per mm of head circumference or interaural distance, which
-   adds 5–10ms of variation across the adult range. That is the same order
-   of magnitude as the latency shifts of interest, so it should not be
-   averaged over. At baseline-collection time, measure each participant's
-   head circumference and/or preauricular-to-preauricular distance (the
-   interaural arc across Cz, which is what 10-20 cap sizes are labelled by),
-   and record it as session metadata. When comparing new measurements
-   against the baseline, use the bin whose head-size range contains the
-   new participant.
+2. **Fit a regression model of P100 latency on head size.** P100 latency
+   depends on head size — in the published literature the effect is on
+   the order of 0.1–0.2 ms per mm of head circumference or interaural
+   distance, which adds 5–10ms of variation across the adult range. That
+   is the same order of magnitude as the latency shifts of interest, so
+   it should not be averaged over.
 
-   A worked example of the table format, with bin edges chosen to match
-   commercial EEG cap sizes:
+   The historical clinical approach to this is a binned lookup table
+   (e.g. "head circumference 54–56cm: P100 98–108ms; 56–58cm: ..."). This
+   is easy to hand a technician but statistically wasteful: participants
+   sitting near a bin boundary get classified arbitrarily, within-bin
+   variance is discarded, and adding age/sex stratification explodes the
+   number of bins. **This spike branch replaces the table with a continuous
+   regression model.**
 
-   +-------------------------+---------------+---------------+
-   | Interaural arc          | P100 mean (ms)| P100 ±2SD (ms)|
-   | (preaur–preaur, Cz)     |               |               |
-   +=========================+===============+===============+
-   | < 340 mm                |  *tbd*        |  *tbd*        |
-   +-------------------------+---------------+---------------+
-   | 340–360 mm              |  *tbd*        |  *tbd*        |
-   +-------------------------+---------------+---------------+
-   | 360–380 mm              |  *tbd*        |  *tbd*        |
-   +-------------------------+---------------+---------------+
-   | 380–400 mm              |  *tbd*        |  *tbd*        |
-   +-------------------------+---------------+---------------+
-   | ≥ 400 mm                |  *tbd*        |  *tbd*        |
-   +-------------------------+---------------+---------------+
+   The model shape is a linear regression of P100 latency on head size,
+   age, and sex:
 
-   Populate the cells from your own baseline cohort. At least 5–10
-   participants per bin is a reasonable starting target.
+   .. code-block:: text
 
-   The table format is the historical clinical approach and is what this
-   MVP implementation supports. A continuous regression model fit on head
-   size (and optionally age and sex) is the more statistically principled
-   alternative and removes the bin-boundary arbitrariness entirely. That
-   approach is being explored on the ``spike/vep_normative_regression``
-   branch and is out of scope for the current MVP.
+      P100_latency_ms = β₀
+                      + β₁ · head_size_mm
+                      + β₂ · age_years
+                      + β₃ · sex
+                      + ε
+
+   fit on your own normative cohort. For each new participant, the model
+   gives a predicted P100 latency and a residual standard deviation,
+   which lets you express "is this measurement unusual?" as a z-score
+   rather than a bin lookup. See the module docstring in
+   ``eegnb/analysis/vep_norms.py`` (stubbed on this branch) for the
+   concrete API shape.
+
+   Measurement recipe at baseline-collection time:
+
+   - **Head circumference** (easiest, most common, most robust to
+     measurement technique)
+   - **Preauricular-to-preauricular distance** across Cz (the "interaural
+     arc" — this is what 10-20 cap sizes are labelled by, so it's likely
+     the number you're already measuring if you use a cap)
+   - **Nasion-to-inion distance** (closest proxy for visual pathway
+     length, but less commonly recorded)
+
+   Record at least one of these as session metadata; head circumference is
+   the safe default. Age and sex should also be recorded, and are
+   optional terms in the fit.
+
+   .. note::
+      The regression coefficients shown in ``fit_normative_model()`` on
+      this branch are placeholders. A proper fit needs a literature pass
+      for plausible priors and an in-lab baseline cohort large enough to
+      actually fit the model with reasonable CIs. Do not use the
+      placeholder numbers for any real analysis.
+
+   The functional form may also need revisiting. A strictly linear fit
+   is a fine first pass but there are physical reasons to expect mild
+   non-linearities: scalp volume scales roughly with the cube of head
+   radius, and conduction velocity varies along the visual pathway.
+   Before committing this out of the spike, it is worth fitting both
+   a linear and a log- or square-root-transformed model and comparing
+   residuals.
 3. **Compare new measurements against your own baseline**, not against
    published clinical norms. This sidesteps the entire question of
    whether your absolute latency matches literature values — any fixed
