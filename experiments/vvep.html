@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Running Experiments &mdash; EEG Notebooks 0.0.0 documentation</title>
+  <title>Visual Pattern Reversal VEP &mdash; EEG Notebooks 0.0.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
       <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
@@ -28,8 +28,8 @@
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Data Zipping" href="data_zipper.html" />
-    <link rel="prev" title="Initiating an EEG Stream" href="streaming.html" /> 
+    <link rel="next" title="Visual Cueing" href="cueing.html" />
+    <link rel="prev" title="SSVEP Decoding" href="../auto_examples/visual_ssvep/02r__ssvep_decoding.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -52,99 +52,99 @@
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
-<ul class="current">
-<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="installation.html#installing-the-python-library">Installing the Python library</a></li>
-<li class="toctree-l2"><a class="reference internal" href="installation.html#muse-requirements">MUSE Requirements</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="installation.html#muse-recordings-on-windows-bluemuse">MUSE recordings on windows: BlueMuse</a></li>
-<li class="toctree-l3"><a class="reference internal" href="installation.html#muse-recordings-on-mac-bled112-dongle">MUSE recordings on Mac: BLED112 Dongle</a></li>
-<li class="toctree-l3"><a class="reference internal" href="installation.html#muse-recordings-on-linux">MUSE recordings on Linux</a></li>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/installation.html">Installation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/installation.html#installing-the-python-library">Installing the Python library</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/installation.html#muse-requirements">MUSE Requirements</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/installation.html#muse-recordings-on-windows-bluemuse">MUSE recordings on windows: BlueMuse</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/installation.html#muse-recordings-on-mac-bled112-dongle">MUSE recordings on Mac: BLED112 Dongle</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/installation.html#muse-recordings-on-linux">MUSE recordings on Linux</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="installation.html#issues">Issues</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="installation.html#common-problems">Common Problems</a></li>
-<li class="toctree-l3"><a class="reference internal" href="installation.html#bug-reports">Bug reports</a></li>
-</ul>
-</li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="streaming.html">Initiating an EEG Stream</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="streaming.html#supported-devices">Supported Devices</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="streaming.html#interaxon-muse">Interaxon Muse</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="streaming.html#using-the-muse-on-windows">Using the Muse on Windows</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="streaming.html#openbci-ganglion">OpenBCI Ganglion</a></li>
-<li class="toctree-l3"><a class="reference internal" href="streaming.html#openbci-cyton">OpenBCI Cyton</a></li>
-<li class="toctree-l3"><a class="reference internal" href="streaming.html#openbci-cyton-daisy">OpenBCI Cyton + Daisy</a></li>
-<li class="toctree-l3"><a class="reference internal" href="streaming.html#neurosity-notion-versions-1-and-2">Neurosity Notion (versions 1 and 2)</a></li>
-<li class="toctree-l3"><a class="reference internal" href="streaming.html#neurosity-crown">Neurosity Crown</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="streaming.html#connecting-on-windows">Connecting on Windows</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="streaming.html#brainbit-eeg-headband">BrainBit EEG Headband</a></li>
-<li class="toctree-l3"><a class="reference internal" href="streaming.html#g-tec-unicorn">G.Tec Unicorn</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="streaming.html#initiating-a-muse-stream-in-windows-using-bluemuse">Initiating a Muse stream in Windows using Bluemuse</a></li>
-<li class="toctree-l2"><a class="reference internal" href="streaming.html#finding-the-usb-port-of-the-openbci-usb-dongle">Finding the USB port of the OpenBCI USB dongle</a></li>
-</ul>
-</li>
-<li class="toctree-l1 current"><a class="current reference internal" href="#">Running Experiments</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#command-line-interface">Command Line Interface</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#using-the-introprompt-flag">Using the introprompt flag</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#board-selection">Board Selection</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#experiment-selection">Experiment Selection</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#recording-duration">Recording Duration</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#subject-id">Subject ID</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#session-number">Session Number</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/installation.html#issues">Issues</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/installation.html#common-problems">Common Problems</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/installation.html#bug-reports">Bug reports</a></li>
 </ul>
 </li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="#using-jupyter-notebooks-or-a-custom-script">Using Jupyter Notebooks or a custom script</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#using-virtual-reality">Using virtual reality</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#head-mounted-display">Head mounted display</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#features-to-be-added-in-future-releases">Features to be added in future releases:</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/streaming.html">Initiating an EEG Stream</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/streaming.html#supported-devices">Supported Devices</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/streaming.html#interaxon-muse">Interaxon Muse</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../getting_started/streaming.html#using-the-muse-on-windows">Using the Muse on Windows</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="#prerequisites">Prerequisites:</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#id1"></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#steps-for-running-experiment-in-vr">Steps for running experiment in VR</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#other-experiments-can-have-vr-added-too">Other experiments can have VR added too.</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/streaming.html#openbci-ganglion">OpenBCI Ganglion</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/streaming.html#openbci-cyton">OpenBCI Cyton</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/streaming.html#openbci-cyton-daisy">OpenBCI Cyton + Daisy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/streaming.html#neurosity-notion-versions-1-and-2">Neurosity Notion (versions 1 and 2)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/streaming.html#neurosity-crown">Neurosity Crown</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../getting_started/streaming.html#connecting-on-windows">Connecting on Windows</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/streaming.html#brainbit-eeg-headband">BrainBit EEG Headband</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/streaming.html#g-tec-unicorn">G.Tec Unicorn</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/streaming.html#initiating-a-muse-stream-in-windows-using-bluemuse">Initiating a Muse stream in Windows using Bluemuse</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/streaming.html#finding-the-usb-port-of-the-openbci-usb-dongle">Finding the USB port of the OpenBCI USB dongle</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/running_experiments.html">Running Experiments</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/running_experiments.html#command-line-interface">Command Line Interface</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/running_experiments.html#using-the-introprompt-flag">Using the introprompt flag</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../getting_started/running_experiments.html#board-selection">Board Selection</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../getting_started/running_experiments.html#experiment-selection">Experiment Selection</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../getting_started/running_experiments.html#recording-duration">Recording Duration</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../getting_started/running_experiments.html#subject-id">Subject ID</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../getting_started/running_experiments.html#session-number">Session Number</a></li>
 </ul>
 </li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="data_zipper.html">Data Zipping</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="data_zipper.html#command-line-interface">Command Line Interface</a></li>
-<li class="toctree-l2"><a class="reference internal" href="data_zipper.html#using-the-introprompt-flag">Using the introprompt flag</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/running_experiments.html#using-jupyter-notebooks-or-a-custom-script">Using Jupyter Notebooks or a custom script</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/running_experiments.html#using-virtual-reality">Using virtual reality</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/running_experiments.html#head-mounted-display">Head mounted display</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../getting_started/running_experiments.html#features-to-be-added-in-future-releases">Features to be added in future releases:</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="analysis.html">Analyzing data</a></li>
-<li class="toctree-l1"><a class="reference internal" href="available_experiments.html">Available Experiments</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="available_experiments.html#visual-p300-with-oddball-paradigm">Visual P300 with Oddball paradigm</a></li>
-<li class="toctree-l2"><a class="reference internal" href="available_experiments.html#n170">N170</a></li>
-<li class="toctree-l2"><a class="reference internal" href="available_experiments.html#ssvep">SSVEP</a></li>
-<li class="toctree-l2"><a class="reference internal" href="available_experiments.html#old-experiments">Old experiments</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="available_experiments.html#go-no-go">Go/No-Go</a></li>
-<li class="toctree-l3"><a class="reference internal" href="available_experiments.html#ssaep">SSAEP</a></li>
-<li class="toctree-l3"><a class="reference internal" href="available_experiments.html#c1-and-p1">C1 and P1</a></li>
-<li class="toctree-l3"><a class="reference internal" href="available_experiments.html#auditory-p300">Auditory P300</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/running_experiments.html#prerequisites">Prerequisites:</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/running_experiments.html#id1"></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/running_experiments.html#steps-for-running-experiment-in-vr">Steps for running experiment in VR</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/running_experiments.html#other-experiments-can-have-vr-added-too">Other experiments can have VR added too.</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="available_experiments.html#unvalidated-experiments-and-other-phenomena">Unvalidated Experiments and other phenomena</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="available_experiments.html#n100-p200">N100 - P200</a></li>
-<li class="toctree-l3"><a class="reference internal" href="available_experiments.html#on-task-beta">On-task Beta</a></li>
-<li class="toctree-l3"><a class="reference internal" href="available_experiments.html#alpha-reset">Alpha reset</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/data_zipper.html">Data Zipping</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/data_zipper.html#command-line-interface">Command Line Interface</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/data_zipper.html#using-the-introprompt-flag">Using the introprompt flag</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/analysis.html">Analyzing data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/available_experiments.html">Available Experiments</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/available_experiments.html#visual-p300-with-oddball-paradigm">Visual P300 with Oddball paradigm</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/available_experiments.html#n170">N170</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/available_experiments.html#ssvep">SSVEP</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/available_experiments.html#old-experiments">Old experiments</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/available_experiments.html#go-no-go">Go/No-Go</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/available_experiments.html#ssaep">SSAEP</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/available_experiments.html#c1-and-p1">C1 and P1</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/available_experiments.html#auditory-p300">Auditory P300</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/available_experiments.html#unvalidated-experiments-and-other-phenomena">Unvalidated Experiments and other phenomena</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/available_experiments.html#n100-p200">N100 - P200</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/available_experiments.html#on-task-beta">On-task Beta</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/available_experiments.html#alpha-reset">Alpha reset</a></li>
 </ul>
 </li>
 </ul>
 </li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Experiments</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="../experiments/vn170.html">Visual N170</a><ul>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="vn170.html">Visual N170</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="../auto_examples/visual_n170/00x__n170_run_experiment.html">N170 run experiment</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../auto_examples/visual_n170/00x__n170_run_experiment.html#setup">Setup</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../auto_examples/visual_n170/00x__n170_run_experiment.html#run-experiment">Run experiment</a></li>
@@ -170,7 +170,7 @@
 </li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="../experiments/vp300.html">Visual P300</a><ul>
+<li class="toctree-l1"><a class="reference internal" href="vp300.html">Visual P300</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="../auto_examples/visual_p300/00x__p300_run_experiment.html">P300 run experiment</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../auto_examples/visual_p300/00x__p300_run_experiment.html#setup">Setup</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../auto_examples/visual_p300/00x__p300_run_experiment.html#initiate-eeg-device">Initiate EEG device</a></li>
@@ -195,7 +195,7 @@
 </li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="../experiments/vssvep.html">Visual SSVEP</a><ul>
+<li class="toctree-l1"><a class="reference internal" href="vssvep.html">Visual SSVEP</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="../auto_examples/visual_ssvep/00x__ssvep_run_experiment.html">SSVEP run experiment</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../auto_examples/visual_ssvep/00x__ssvep_run_experiment.html#setup">Setup</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../auto_examples/visual_ssvep/00x__ssvep_run_experiment.html#initiate-eeg-device">Initiate EEG device</a></li>
@@ -219,17 +219,17 @@
 </li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="../experiments/vvep.html">Visual Pattern Reversal VEP</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="../experiments/vvep.html#stimulus-parameters">Stimulus Parameters</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../experiments/vvep.html#monitor-vs-vr">Monitor vs VR</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../experiments/vvep.html#electrode-placement">Electrode Placement</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../experiments/vvep.html#timing-notes">Timing Notes</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../experiments/vvep.html#running-the-experiment">Running the Experiment</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../experiments/vvep.html#api-reference">API Reference</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../experiments/vvep.html#references">References</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Visual Pattern Reversal VEP</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#stimulus-parameters">Stimulus Parameters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#monitor-vs-vr">Monitor vs VR</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#electrode-placement">Electrode Placement</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#timing-notes">Timing Notes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#running-the-experiment">Running the Experiment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#api-reference">API Reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#references">References</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="../experiments/cueing.html">Visual Cueing</a><ul>
+<li class="toctree-l1"><a class="reference internal" href="cueing.html">Visual Cueing</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="../auto_examples/visual_cueing/01r__cueing_singlesub_analysis.html">Cueing Single Subject Analysis</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../auto_examples/visual_cueing/01r__cueing_singlesub_analysis.html#setup">Setup</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../auto_examples/visual_cueing/01r__cueing_singlesub_analysis.html#load-data">Load Data</a></li>
@@ -269,8 +269,8 @@
 </li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="../experiments/gonogo.html">Visual Go-No-Go</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../experiments/all_examples.html">All Notebook Examples</a><ul>
+<li class="toctree-l1"><a class="reference internal" href="gonogo.html">Visual Go-No-Go</a></li>
+<li class="toctree-l1"><a class="reference internal" href="all_examples.html">All Notebook Examples</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="../auto_examples/visual_cueing/01r__cueing_singlesub_analysis.html">Cueing Single Subject Analysis</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../auto_examples/visual_cueing/01r__cueing_singlesub_analysis.html#setup">Setup</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../auto_examples/visual_cueing/01r__cueing_singlesub_analysis.html#load-data">Load Data</a></li>
@@ -444,7 +444,7 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
-      <li class="breadcrumb-item active">Running Experiments</li>
+      <li class="breadcrumb-item active">Visual Pattern Reversal VEP</li>
       <li class="wy-breadcrumbs-aside">
       </li>
   </ul>
@@ -453,215 +453,123 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="running-experiments">
-<h1>Running Experiments<a class="headerlink" href="#running-experiments" title="Link to this heading"></a></h1>
-<p>After you have installed the library there are two methods for collecting data. The first is using the command line tool with the flags detailed below. This is the easiest and recommended for users without much programming experience. The other method involves calling the experiment presentations from within a jupyter notebook (or custom python script).</p>
-<section id="command-line-interface">
-<h2>Command Line Interface<a class="headerlink" href="#command-line-interface" title="Link to this heading"></a></h2>
-<p>To activate the command line tool, open a command/terminal prompt and enter <code class="docutils literal notranslate"><span class="pre">eegnb</span> <span class="pre">runexp</span></code> followed by the appropriate flags for your device, desired experiment, and more. The possible flags are</p>
+  <hr class="docutils" />
+<section id="visual-pattern-reversal-vep">
+<h1>Visual Pattern Reversal VEP<a class="headerlink" href="#visual-pattern-reversal-vep" title="Link to this heading"></a></h1>
+<p>The Pattern Reversal VEP (PR-VEP) is the most widely studied visual
+evoked potential paradigm. A checkerboard pattern swaps its black and
+white squares at a regular rate (typically 2 reversals per second) while
+the participant fixates a central dot. Each reversal elicits a
+stereotyped waveform whose most prominent feature is the <strong>P100</strong>, a
+positive deflection occurring ~100ms after the reversal at midline
+occipital electrodes. The other components are a small N75 before it
+and an N145 after it.</p>
+<p>In this notebook, we will attempt to detect the P100 with the Muse
+headband (plus an extra electrode at Oz) using monocular pattern
+reversal blocks, and run the analysis pipeline to pull out the per-eye
+P100 latency and the interocular latency difference.</p>
+<section id="stimulus-parameters">
+<h2>Stimulus Parameters<a class="headerlink" href="#stimulus-parameters" title="Link to this heading"></a></h2>
+<p>Parameters follow the ISCEV “large check” option <a class="reference internal" href="#odom2016" id="id1"><span>[Odom2016]</span></a>:</p>
 <ul class="simple">
-<li><p><em>-ed ; –eegdevice</em>: The device being used to record data. Each device has a specific string to be passed which can be seen on the <a class="reference external" href="https://neurotechx.github.io/EEG-ExPy/getting_started/streaming.html">Initiating an EEG Stream</a> under the <code class="docutils literal notranslate"><span class="pre">EEG.device</span></code> parameter for the respective device.</p></li>
-<li><p><em>-ex ; –experiment</em>: The experiment to be run</p></li>
-<li><p><em>-ma ; –macaddr</em>: The MAC address of device to use (applicable devices e.g ganglion)</p></li>
-<li><p><em>-rd ; –recdur</em>: Duration of recording (in seconds).</p></li>
-<li><p><em>-of ; –outfname</em>: Save file name (this will be automatically generated to match default file system if left blank).</p></li>
-<li><p><em>-ip ; –prompt</em>: Bypass the other flags to activate an interactive prompt.</p></li>
+<li><p><strong>Check size</strong>: 1° of visual angle (0.5 cpd)</p></li>
+<li><p><strong>Reversal rate</strong>: 2 reversals per second</p></li>
+<li><p><strong>Field size</strong>: 16° (monitor) / 20° (VR)</p></li>
+<li><p><strong>Contrast</strong>: High contrast black/white, mean luminance held constant</p></li>
+<li><p><strong>Fixation</strong>: Central red dot</p></li>
+<li><p><strong>Recording</strong>: Monocular, alternating left and right eye per block</p></li>
 </ul>
-<section id="using-the-introprompt-flag">
-<h3>Using the introprompt flag<a class="headerlink" href="#using-the-introprompt-flag" title="Link to this heading"></a></h3>
-<p>If using the <code class="docutils literal notranslate"><span class="pre">-ip</span></code> flag the user will be prompted to input the various session parameters. The prompts are detailed below.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">eegnb</span> <span class="n">runexp</span> <span class="o">-</span><span class="n">ip</span>
-</pre></div>
-</div>
-<section id="board-selection">
-<h4>Board Selection<a class="headerlink" href="#board-selection" title="Link to this heading"></a></h4>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Welcome</span> <span class="n">to</span> <span class="n">NeurotechX</span> <span class="n">EEG</span> <span class="n">Notebooks</span><span class="o">.</span> 
-<span class="n">Please</span> <span class="n">enter</span> <span class="n">the</span> <span class="n">integer</span> <span class="n">value</span> <span class="n">corresponding</span> <span class="n">to</span> <span class="n">your</span> <span class="n">EEG</span> <span class="n">device</span><span class="p">:</span> 
-<span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="kc">None</span> 
-<span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="n">Muse2016</span> 
-<span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="n">Muse2</span> 
-<span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="n">OpenBCI</span> <span class="n">Ganglion</span> 
-<span class="p">[</span><span class="mi">4</span><span class="p">]</span> <span class="n">OpenBCI</span> <span class="n">Cyton</span> 
-<span class="p">[</span><span class="mi">5</span><span class="p">]</span> <span class="n">OpenBCI</span> <span class="n">Cyton</span> <span class="o">+</span> <span class="n">Daisy</span> 
-<span class="p">[</span><span class="mi">6</span><span class="p">]</span> <span class="n">G</span><span class="o">.</span><span class="n">Tec</span> <span class="n">Unicorn</span> 
-<span class="p">[</span><span class="mi">7</span><span class="p">]</span> <span class="n">BrainBit</span> 
-<span class="p">[</span><span class="mi">8</span><span class="p">]</span> <span class="n">Notion</span> <span class="mi">1</span> 
-<span class="p">[</span><span class="mi">9</span><span class="p">]</span> <span class="n">Notion</span> <span class="mi">2</span> 
-<span class="p">[</span><span class="mi">10</span><span class="p">]</span> <span class="n">Synthetic</span> 
-
-<span class="n">Enter</span> <span class="n">Board</span> <span class="n">Selection</span><span class="p">:</span>
-</pre></div>
-</div>
-<p>Here you specify which of the supported boards you are using to collect data. EEG Notebooks supports a number of different consumer boards with various backends. This step ensures that the proper backend and device parameters are used. <strong>If you are using an OpenBCI board</strong> there will be an additional prompt asking for the desired connection method. Right now it is recommended to use the USB dongle over the wifi shield.</p>
+<p>Four blocks of 50 seconds by default, giving ~100 reversals per eye per
+block.</p>
 </section>
-<section id="experiment-selection">
-<h4>Experiment Selection<a class="headerlink" href="#experiment-selection" title="Link to this heading"></a></h4>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Please</span> <span class="n">select</span> <span class="n">which</span> <span class="n">experiment</span> <span class="n">you</span> <span class="n">would</span> <span class="n">like</span> <span class="n">to</span> <span class="n">run</span><span class="p">:</span> 
-<span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="n">Visual</span> <span class="n">N170</span>
-<span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="n">Visual</span> <span class="n">P300</span>
-<span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="n">Visual</span> <span class="n">SSVEP</span>
-<span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="n">visual</span><span class="o">-</span><span class="n">cue</span> <span class="p">(</span><span class="n">no</span> <span class="n">description</span><span class="p">)</span>
-<span class="p">[</span><span class="mi">4</span><span class="p">]</span> <span class="n">visual</span><span class="o">-</span><span class="n">codeprose</span> <span class="p">(</span><span class="n">no</span> <span class="n">description</span><span class="p">)</span>
-<span class="p">[</span><span class="mi">5</span><span class="p">]</span> <span class="n">Auditory</span> <span class="n">SSAEP</span> <span class="p">(</span><span class="n">orig</span><span class="p">)</span>
-<span class="p">[</span><span class="mi">6</span><span class="p">]</span> <span class="n">Auditory</span> <span class="n">SSAEP</span> <span class="p">(</span><span class="n">single</span> <span class="n">freq</span><span class="p">)</span>
-<span class="p">[</span><span class="mi">7</span><span class="p">]</span> <span class="n">Auditory</span> <span class="n">oddball</span> <span class="p">(</span><span class="n">orig</span><span class="p">)</span>
-<span class="p">[</span><span class="mi">8</span><span class="p">]</span> <span class="n">Auditory</span> <span class="n">oddball</span> <span class="p">(</span><span class="n">diaconescu</span><span class="p">)</span>
-
-<span class="n">Enter</span> <span class="n">Experiment</span> <span class="n">Selection</span><span class="p">:</span>
-</pre></div>
-</div>
-<p>This section allows you to select one of the above experiments to run. There are other experiments available, however, they have not yet been updated for the new API to be device agnostic. As they get updated, more experiments will populate this section.</p>
+<section id="monitor-vs-vr">
+<h2>Monitor vs VR<a class="headerlink" href="#monitor-vs-vr" title="Link to this heading"></a></h2>
+<p>The experiment supports both standard monitor presentation and Meta
+Quest (VR) presentation via <code class="docutils literal notranslate"><span class="pre">use_vr=True</span></code>.</p>
+<p><strong>VR mode is preferred</strong> for two reasons:</p>
+<ul class="simple">
+<li><p>Each eye sees the checkerboard independently, so there is no manual
+eye closure and no light leakage.</p></li>
+<li><p>The OpenXR compositor supplies a per-frame predicted photon time
+(<code class="docutils literal notranslate"><span class="pre">tracking_state.headPose.time</span></code>), which is attached to the EEG
+marker in place of <code class="docutils literal notranslate"><span class="pre">time.time()</span></code>. This cancels most of the
+output-side display latency — render queue, compositor buffering,
+scan-out, HMD persistence — on a per-frame basis, which matters for
+P100 latency where shifts of 10–20ms are meaningful.</p></li>
+</ul>
+<p>In monitor mode the software marker is the only timing source, so any
+fixed display-pipeline latency has to be handled separately (see below).
+A proof-of-concept photodiode sync patch is drawn in the bottom-left
+corner of the window in monitor mode — a 50px square whose polarity
+flips with each reversal. Taping a photodiode over that square and
+routing its TTL into a spare channel would give hardware timing ground
+truth; the code is in place but the hardware path has not been wired
+up yet.</p>
 </section>
-<section id="recording-duration">
-<h4>Recording Duration<a class="headerlink" href="#recording-duration" title="Link to this heading"></a></h4>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Now</span><span class="p">,</span> <span class="n">enter</span> <span class="n">the</span> <span class="n">duration</span> <span class="n">of</span> <span class="n">the</span> <span class="n">recording</span> <span class="p">(</span><span class="ow">in</span> <span class="n">seconds</span><span class="p">)</span><span class="o">.</span> 
-
-<span class="n">Enter</span> <span class="n">duration</span><span class="p">:</span>
-</pre></div>
-</div>
-<p>This is the duration of each recording. It is standard to use 120 second (2 minute) long recordings per recording, but some people might experience visual fatigue and difficulty not blinking for as long, so you are welcome to adjust length as needed.</p>
+<section id="electrode-placement">
+<h2>Electrode Placement<a class="headerlink" href="#electrode-placement" title="Link to this heading"></a></h2>
+<p>The P100 is generated in occipital cortex, so the electrode that
+matters is <strong>Oz</strong>. The Muse’s default electrodes (TP9, TP10, AF7, AF8)
+will pick up a blurry attenuated version of the response but are badly
+placed for the actual peak.</p>
+<p><strong>Muse users: use the extra-electrode mod and place the external
+electrode at Oz.</strong> POz is an acceptable fallback if Oz is mechanically
+awkward. See the <span class="xref std std-doc">../misc/using_an_extra_electrod_with_the_muse</span>
+page for build details.</p>
+<p>For full-cap devices (OpenBCI, g.tec Unicorn, etc.), use Oz as primary
+and add any of O1/O2/POz/PO3/PO4 you have channels for.</p>
 </section>
-<section id="subject-id">
-<h4>Subject ID<a class="headerlink" href="#subject-id" title="Link to this heading"></a></h4>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Next</span><span class="p">,</span> <span class="n">enter</span> <span class="n">the</span> <span class="n">ID</span><span class="c1"># of the subject you are recording data from. </span>
-
-<span class="n">Enter</span> <span class="n">subject</span> <span class="n">ID</span><span class="c1">#:</span>
-</pre></div>
-</div>
+<section id="timing-notes">
+<h2>Timing Notes<a class="headerlink" href="#timing-notes" title="Link to this heading"></a></h2>
+<p>Measured P100 latency is the true P100 latency plus the display-pipeline
+delay, plus the EEG device’s input delay, plus any clock-alignment
+error. For a Muse the device delay alone is ~30–50ms, so if you need
+<em>absolute</em> latencies you need to characterise and subtract it; for
+<em>relative</em> comparisons (between-eye, within-subject across sessions) it
+cancels out and you can ignore it.</p>
+<p>Two sidecar files are written alongside each recording to let you check
+timing after the fact:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">{save_fn}_timing.csv</span></code> — per-trial software and compositor
+timestamps and their delta</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">{save_fn}_frame_stats.json</span></code> — per-frame intervals and dropped-frame
+count (150%-of-refresh threshold)</p></li>
+</ul>
+<p>During each trial loop, Python garbage collection is disabled and
+process priority is raised via <code class="docutils literal notranslate"><span class="pre">psychopy.core.rush(True)</span></code> to reduce
+the chance of a dropped frame during a critical flip. Both are reset
+between blocks.</p>
 </section>
-<section id="session-number">
-<h4>Session Number<a class="headerlink" href="#session-number" title="Link to this heading"></a></h4>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Next</span><span class="p">,</span> <span class="n">enter</span> <span class="n">the</span> <span class="n">session</span> <span class="n">number</span> <span class="n">you</span> <span class="n">are</span> <span class="n">recording</span> <span class="k">for</span><span class="o">.</span> 
+<section id="running-the-experiment">
+<h2>Running the Experiment<a class="headerlink" href="#running-the-experiment" title="Link to this heading"></a></h2>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">eegnb.devices.eeg</span><span class="w"> </span><span class="kn">import</span> <span class="n">EEG</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">eegnb.experiments.visual_vep</span><span class="w"> </span><span class="kn">import</span> <span class="n">VisualPatternReversalVEP</span>
 
-<span class="n">Enter</span> <span class="n">session</span> <span class="c1">#:</span>
-</pre></div>
-</div>
-<p>The session number corresponds to each time you sit down to take multiple recordings. If you put your device on and run this script 5 consecutive times you would use the same session number every time. However, if you were to take a break then return for an additional 3 recordings, the last 3 would have a new session number. For more information about how this corresponds to saving data please see the documentation page on loading and saving data.</p>
-<p>If you are using <strong>OpenBCI on Windows/MacOS</strong> you will be given an additional prompt to enter the name of the serial port the USB dongle is using. For instructions on how to use the OpenBCI GUI to find the serial port see <a class="reference external" href="https://neurotechx.github.io/EEG-ExPy/getting_started/streaming.html">Initiating an EEG Stream</a>.</p>
-</section>
-</section>
-</section>
-<section id="using-jupyter-notebooks-or-a-custom-script">
-<h2>Using Jupyter Notebooks or a custom script<a class="headerlink" href="#using-jupyter-notebooks-or-a-custom-script" title="Link to this heading"></a></h2>
-<p>The first step is to import all of the necessary library dependencies. These are necessary for generating a save file name which conforms to the default folder structure, streaming and recording EEG data, and running the stimulus presentation.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">eegnb</span><span class="w"> </span><span class="kn">import</span> <span class="n">generate_save_fn</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">eegnb.devices.eeg</span><span class="w"> </span><span class="kn">import</span> <span class="n">EEG</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">eegnb.experiments</span><span class="w"> </span><span class="kn">import</span> <span class="n">VisualN170</span>
-</pre></div>
-</div>
-<p>Next we need to define session parameters which are otherwise handled via input prompts in the run <code class="docutils literal notranslate"><span class="pre">run_notebooks.py</span></code> script. After we define the session parameters we will pass them to the file name generator.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">board_name</span> <span class="o">=</span> <span class="s2">&quot;muse2&quot;</span> <span class="c1"># board name</span>
-<span class="n">experiment_name</span> <span class="o">=</span> <span class="s2">&quot;visual_n170&quot;</span> <span class="c1"># experiment name</span>
-<span class="n">subject_id</span> <span class="o">=</span> <span class="mi">0</span> <span class="c1"># test subject id</span>
-<span class="n">session_nb</span> <span class="o">=</span> <span class="mi">0</span> <span class="c1"># session number</span>
-<span class="n">record_duration</span> <span class="o">=</span> <span class="mi">120</span> <span class="c1"># recording duration</span>
-
-<span class="c1"># Create output filename</span>
-<span class="n">save_fn</span> <span class="o">=</span> <span class="n">generate_save_fn</span><span class="p">(</span><span class="n">board_name</span><span class="p">,</span> <span class="n">experiment_name</span><span class="p">,</span> <span class="n">subject_id</span><span class="p">,</span> <span class="n">session_nb</span><span class="p">)</span>
-</pre></div>
-</div>
-<p>Next it is necessary to call the <code class="docutils literal notranslate"><span class="pre">eegnb.devices.eeg.EEG</span></code> class which handles all of the backend processes related to each device.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">eeg_device</span> <span class="o">=</span> <span class="n">EEG</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">board_name</span><span class="p">)</span>
-</pre></div>
-</div>
-<p>Finally, we call the <code class="docutils literal notranslate"><span class="pre">present</span></code> method of the class corresponding to our desired experiment, in this case the visual N170. We pass both the EEG device and generated save file name in order to collect and save data. The presentation can also be run without an EEG device/save file for testing and debugging.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">experiment</span> <span class="o">=</span> <span class="n">VisualN170</span><span class="p">(</span><span class="n">duration</span><span class="o">=</span><span class="n">record_duration</span><span class="p">,</span> <span class="n">eeg</span><span class="o">=</span><span class="n">eeg_device</span><span class="p">,</span> <span class="n">save_fn</span><span class="o">=</span><span class="n">save_fn</span><span class="p">,</span> <span class="n">use_vr</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-
+<span class="n">eeg</span> <span class="o">=</span> <span class="n">EEG</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="s1">&#39;muse2&#39;</span><span class="p">)</span>
+<span class="n">experiment</span> <span class="o">=</span> <span class="n">VisualPatternReversalVEP</span><span class="p">(</span>
+    <span class="n">display_refresh_rate</span><span class="o">=</span><span class="mi">60</span><span class="p">,</span>   <span class="c1"># must match display and be divisible by 2Hz</span>
+    <span class="n">eeg</span><span class="o">=</span><span class="n">eeg</span><span class="p">,</span>
+    <span class="n">save_fn</span><span class="o">=</span><span class="s1">&#39;my_vep_recording.csv&#39;</span><span class="p">,</span>
+    <span class="n">use_vr</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>               <span class="c1"># False for monitor mode</span>
+<span class="p">)</span>
 <span class="n">experiment</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
 </pre></div>
 </div>
-<p>All together the example script looks like</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1">###################################################################################################  </span>
-<span class="c1"># Setup</span>
-<span class="c1"># ---------------------  </span>
-<span class="c1">#  </span>
-<span class="c1"># Imports</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">eegnb</span><span class="w"> </span><span class="kn">import</span> <span class="n">generate_save_fn</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">eegnb.devices.eeg</span><span class="w"> </span><span class="kn">import</span> <span class="n">EEG</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">eegnb.experiments</span><span class="w"> </span><span class="kn">import</span> <span class="n">VisualN170</span>
-
-<span class="c1"># Define some variables</span>
-<span class="n">board_name</span> <span class="o">=</span> <span class="s2">&quot;muse2&quot;</span> <span class="c1"># board name</span>
-<span class="n">experiment_name</span> <span class="o">=</span> <span class="s2">&quot;visual_n170&quot;</span> <span class="c1"># experiment name</span>
-<span class="n">subject_id</span> <span class="o">=</span> <span class="mi">0</span> <span class="c1"># test subject id</span>
-<span class="n">session_nb</span> <span class="o">=</span> <span class="mi">0</span> <span class="c1"># session number</span>
-<span class="n">record_duration</span> <span class="o">=</span> <span class="mi">120</span> <span class="c1"># recording duration</span>
-
-<span class="c1"># generate save path</span>
-<span class="n">save_fn</span> <span class="o">=</span> <span class="n">generate_save_fn</span><span class="p">(</span><span class="n">board_name</span><span class="p">,</span> <span class="n">experiment_name</span><span class="p">,</span> <span class="n">subject_id</span><span class="p">,</span> <span class="n">session_nb</span><span class="p">)</span>
-
-<span class="c1"># create device object</span>
-<span class="n">eeg_device</span> <span class="o">=</span> <span class="n">EEG</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">board_name</span><span class="p">)</span>
-
-<span class="c1"># Experiment type</span>
-<span class="n">experiment</span> <span class="o">=</span> <span class="n">VisualN170</span><span class="p">(</span><span class="n">duration</span><span class="o">=</span><span class="n">record_duration</span><span class="p">,</span> <span class="n">eeg</span><span class="o">=</span><span class="n">eeg_device</span><span class="p">,</span> <span class="n">save_fn</span><span class="o">=</span><span class="n">save_fn</span><span class="p">,</span> <span class="n">use_vr</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-
-<span class="c1">###################################################################################################  </span>
-<span class="c1"># Run experiment</span>
-<span class="c1"># ---------------------  </span>
-<span class="c1">#</span>
-<span class="n">experiment</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
-
-<span class="c1"># Saved csv location</span>
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Recording saved in&quot;</span><span class="p">,</span> <span class="n">experiment</span><span class="o">.</span><span class="n">save_fn</span><span class="p">)</span>
-</pre></div>
+</section>
+<section id="api-reference">
+<h2>API Reference<a class="headerlink" href="#api-reference" title="Link to this heading"></a></h2>
+</section>
+<section id="references">
+<h2>References<a class="headerlink" href="#references" title="Link to this heading"></a></h2>
+<div role="list" class="citation-list">
+<div class="citation" id="odom2016" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id1">Odom2016</a><span class="fn-bracket">]</span></span>
+<p>Odom JV, Bach M, Brigell M, Holder GE, McCulloch DL, Mizota A,
+Tormene AP; International Society for Clinical Electrophysiology of Vision.
+<strong>ISCEV standard for clinical visual evoked potentials: (2016 update).</strong>
+<em>Documenta Ophthalmologica</em> 133(1):1-9. doi:10.1007/s10633-016-9553-y</p>
 </div>
-</section>
-<section id="using-virtual-reality">
-<h2>Using virtual reality<a class="headerlink" href="#using-virtual-reality" title="Link to this heading"></a></h2>
-<section id="head-mounted-display">
-<h3>Head mounted display<a class="headerlink" href="#head-mounted-display" title="Link to this heading"></a></h3>
-<p>A head mounted display can be used for presenting experiments in a similar way to a monitor, without much modification.</p>
-<section id="features-to-be-added-in-future-releases">
-<h4>Features to be added in future releases:<a class="headerlink" href="#features-to-be-added-in-future-releases" title="Link to this heading"></a></h4>
-<ul class="simple">
-<li><p>Controller input</p></li>
-<li><p>Controller haptic feedback</p></li>
-</ul>
-</section>
-</section>
-<section id="prerequisites">
-<h3>Prerequisites:<a class="headerlink" href="#prerequisites" title="Link to this heading"></a></h3>
-<ul class="simple">
-<li><p>Oculus Rift compatible VR headset, e.g. Oculus Rift or Meta Quest series.</p></li>
-<li><p>Native Windows installation with meta link compatible video card.</p></li>
-<li><p>EEG device, e.g. OpenBCI Cyton or Muse</p></li>
-</ul>
-<p>If an experiment has the use_vr argument in its present method, it can have its stimulus presented to a subject’s VR headset.
-The N170 experiment for example, can have its stimulus displayed on the VR headset with a simple modification to the ‘use_vr’ argument, when presenting an experiment:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Run stimulus presentation with VR enabled.</span>
-<span class="n">experiment</span> <span class="o">=</span> <span class="n">VisualN170</span><span class="p">(</span><span class="n">duration</span><span class="o">=</span><span class="n">record_duration</span><span class="p">,</span> <span class="n">eeg</span><span class="o">=</span><span class="n">eeg_device</span><span class="p">,</span> <span class="n">save_fn</span><span class="o">=</span><span class="n">save_fn</span><span class="p">,</span> <span class="n">use_vr</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</pre></div>
 </div>
-</section>
-<section id="id1">
-<h3><a class="headerlink" href="#id1" title="Link to this heading"></a></h3>
-</section>
-<section id="steps-for-running-experiment-in-vr">
-<h3>Steps for running experiment in VR<a class="headerlink" href="#steps-for-running-experiment-in-vr" title="Link to this heading"></a></h3>
-<ol class="simple">
-<li><p>Launch the Oculus app on the Windows computer and the IDE or CLI to be used for running the experiment.</p></li>
-<li><p>Turn on the VR headset and put it on your head to make sure it is on and active, then take it off.</p></li>
-<li><p>Go to the ‘Devices’ view in the Oculus app, it will show the headset as connected and active, along with any inactive or connected controllers.</p></li>
-<li><p>Go to the ‘Settings’ view, under the ‘Beta’ title, enable ‘Pass through over Oculus Link’, double tapping the headset later with a fingertip will activate passthrough.</p></li>
-<li><p>Put the VR headset onto the head, activate passthrough to help with wearing the eeg device.</p></li>
-<li><p>Place the EEG device on top of the head.</p></li>
-<li><p>Ensure the electrodes are touching the scalp ok and not being blocked by the headset strap.</p></li>
-<li><p>From inside the VR headset’s ‘quick settings’ dashboard, select ‘Quest Link’ and connect to the Oculus server running on windows, via air link or link cable.</p></li>
-<li><p>Once the Oculus menu has finished loading on the VR headset, open the built-in Oculus desktop app by using the touch controllers or gamepad.</p></li>
-<li><p>Try opening an eeg device raw data viewer and verify that the electrodes are receiving a good signal without too much noise, eg ‘OpenBCI GUI’.</p></li>
-<li><p>Run the EEG-ExPy experiment from the command line or IDE, it should load and take control from the Oculus desktop app.</p></li>
-<li><p>Follow the experiment instructions, and press a key if necessary to begin the experiment and collect valid data.</p></li>
-</ol>
-</section>
-<section id="other-experiments-can-have-vr-added-too">
-<h3>Other experiments can have VR added too.<a class="headerlink" href="#other-experiments-can-have-vr-added-too" title="Link to this heading"></a></h3>
-<ol class="simple">
-<li><p>Load/prepare stimulus in the same function as previously (def load_stimulus(self))</p></li>
-<li><p>Present stimulus in the same function as previously(def present_stimulus(self, current_trial: int))</p></li>
-<li><p>VR can be enabled for the experiment as part of the initializer to the base Experiment class, by default it is not enabled(use_vr=False) and will function the same as previously before VR functionality was added.</p></li>
-</ol>
-</section>
 </section>
 </section>
 
@@ -669,8 +577,8 @@ The N170 experiment for example, can have its stimulus displayed on the VR heads
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="streaming.html" class="btn btn-neutral float-left" title="Initiating an EEG Stream" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="data_zipper.html" class="btn btn-neutral float-right" title="Data Zipping" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="../auto_examples/visual_ssvep/02r__ssvep_decoding.html" class="btn btn-neutral float-left" title="SSVEP Decoding" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="cueing.html" class="btn btn-neutral float-right" title="Visual Cueing" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

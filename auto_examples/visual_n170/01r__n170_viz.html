@@ -1,7 +1,7 @@
 
 
 <!DOCTYPE html>
-<html class="writer-html5" lang="en">
+<html class="writer-html5" lang="en" data-content_root="../../">
 <head>
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
@@ -19,9 +19,9 @@
   
       <script src="../../_static/jquery.js?v=5d32c60e"></script>
       <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js?v=464912d9"></script>
-      <script src="../../_static/doctools.js?v=888ff710"></script>
-      <script src="../../_static/sphinx_highlight.js?v=4825356b"></script>
+      <script src="../../_static/documentation_options.js?v=3e6ca1ad"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
       <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
       <script src="../../_static/copybutton.js?v=a56c686a"></script>
       <script src="../../_static/debug.js?v=63710f7d"></script>
@@ -217,6 +217,16 @@
 <li class="toctree-l3"><a class="reference internal" href="../visual_ssvep/02r__ssvep_decoding.html#id1">Decoding</a></li>
 </ul>
 </li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../experiments/vvep.html">Visual Pattern Reversal VEP</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../experiments/vvep.html#stimulus-parameters">Stimulus Parameters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../experiments/vvep.html#monitor-vs-vr">Monitor vs VR</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../experiments/vvep.html#electrode-placement">Electrode Placement</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../experiments/vvep.html#timing-notes">Timing Notes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../experiments/vvep.html#running-the-experiment">Running the Experiment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../experiments/vvep.html#api-reference">API Reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../experiments/vvep.html#references">References</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../../experiments/cueing.html">Visual Cueing</a><ul>
@@ -450,7 +460,7 @@
 to download the full example code.</p>
 </div>
 <section class="sphx-glr-example-title" id="n170-load-and-visualize-data">
-<span id="sphx-glr-auto-examples-visual-n170-01r-n170-viz-py"></span><h1>N170 Load and Visualize Data<a class="headerlink" href="#n170-load-and-visualize-data" title="Permalink to this heading"></a></h1>
+<span id="sphx-glr-auto-examples-visual-n170-01r-n170-viz-py"></span><h1>N170 Load and Visualize Data<a class="headerlink" href="#n170-load-and-visualize-data" title="Link to this heading"></a></h1>
 <p>This example demonstrates loading, organizing, and visualizing ERP response data from the visual N170 experiment.</p>
 <p>Images of faces and houses are shown in a rapid serial visual presentation (RSVP) stream.</p>
 <p>The data used is the first subject and first session of the one of the eeg-expy N170 example datasets, recorded using the InteraXon MUSE EEG headset (2016 model).
@@ -460,7 +470,7 @@ in the specified data directory, they will be quickly downloaded from the cloud.
 <p>After loading the data, we place it in an MNE <cite>Epochs</cite> object, and obtain the trial-averaged response.</p>
 <p>The final figure plotted at the end shows the N170 response ERP waveform.</p>
 <section id="setup">
-<h2>Setup<a class="headerlink" href="#setup" title="Permalink to this heading"></a></h2>
+<h2>Setup<a class="headerlink" href="#setup" title="Link to this heading"></a></h2>
 <div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Some standard pythonic imports</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">matplotlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">pyplot</span> <span class="k">as</span> <span class="n">plt</span>
@@ -478,7 +488,7 @@ in the specified data directory, they will be quickly downloaded from the cloud.
 </div>
 </section>
 <section id="load-data">
-<h2>Load Data<a class="headerlink" href="#load-data" title="Permalink to this heading"></a></h2>
+<h2>Load Data<a class="headerlink" href="#load-data" title="Link to this heading"></a></h2>
 <p>We will use the eeg-expy N170 example dataset</p>
 <p>Note that if you are running this locally, the following cell will download
 the example dataset, if you do not already have it.</p>
@@ -496,133 +506,22 @@ the example dataset, if you do not already have it.</p>
                 <span class="n">data_dir</span> <span class="o">=</span> <span class="n">eegnb_data_path</span><span class="p">)</span>
 </pre></div>
 </div>
-<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Downloading...
-From (original): https://drive.google.com/uc?id=1oStfxzEqf36R5d-2Auyw4DLnPj9E_FAH
-From (redirected): https://drive.google.com/uc?id=1oStfxzEqf36R5d-2Auyw4DLnPj9E_FAH&amp;confirm=t&amp;uuid=a27db41b-512b-4e63-8563-ca7245bc7796
-To: /home/runner/.eegnb/data/downloaded_data.zip
-
-  0%|          | 0.00/33.1M [00:00&lt;?, ?B/s]
-  5%|▍         | 1.57M/33.1M [00:00&lt;00:02, 14.0MB/s]
- 33%|███▎      | 11.0M/33.1M [00:00&lt;00:00, 39.2MB/s]
- 59%|█████▊    | 19.4M/33.1M [00:00&lt;00:00, 47.5MB/s]
- 84%|████████▍ | 27.8M/33.1M [00:00&lt;00:00, 50.7MB/s]
-100%|██████████| 33.1M/33.1M [00:00&lt;00:00, 50.3MB/s]
-
-
-Loading these files:
-
-/home/runner/.eegnb/data/visual-N170/eegnb_examples/muse2016_bfn/subject0001/session001/recording_2022-03-20-23.17.10.csv
-
-/home/runner/.eegnb/data/visual-N170/eegnb_examples/muse2016_bfn/subject0001/session001/recording_2022-03-20-22.33.14.csv
-
-/home/runner/.eegnb/data/visual-N170/eegnb_examples/muse2016_bfn/subject0001/session001/recording_2022-03-20-22.51.41.csv
-
-/home/runner/.eegnb/data/visual-N170/eegnb_examples/muse2016_bfn/subject0001/session001/recording_2022-03-20-23.09.14.csv
-
-/home/runner/.eegnb/data/visual-N170/eegnb_examples/muse2016_bfn/subject0001/session001/recording_2022-03-20-22.42.26.csv
-
-/home/runner/.eegnb/data/visual-N170/eegnb_examples/muse2016_bfn/subject0001/session001/recording_2022-03-20-23.57.53.csv
-
-/home/runner/.eegnb/data/visual-N170/eegnb_examples/muse2016_bfn/subject0001/session001/recording_2022-03-20-23.29.19.csv
-
-/home/runner/.eegnb/data/visual-N170/eegnb_examples/muse2016_bfn/subject0001/session001/recording_2022-03-20-23.41.11.csv
-
-/home/runner/.eegnb/data/visual-N170/eegnb_examples/muse2016_bfn/subject0001/session001/recording_2022-03-20-23.51.54.csv
-
-/home/runner/.eegnb/data/visual-N170/eegnb_examples/muse2016_bfn/subject0001/session001/recording_2022-03-20-23.02.59.csv
-
-
-
-
-[&#39;TP9&#39;, &#39;Fp1&#39;, &#39;Fp2&#39;, &#39;TP10&#39;, &#39;stim&#39;]
-[&#39;TP9&#39;, &#39;Fp1&#39;, &#39;Fp2&#39;, &#39;TP10&#39;, &#39;stim&#39;]
-Creating RawArray with float64 data, n_channels=5, n_times=76936
-    Range : 0 ... 76935 =      0.000 ...   300.527 secs
-Ready.
-[&#39;TP9&#39;, &#39;Fp1&#39;, &#39;Fp2&#39;, &#39;TP10&#39;, &#39;stim&#39;]
-[&#39;TP9&#39;, &#39;Fp1&#39;, &#39;Fp2&#39;, &#39;TP10&#39;, &#39;stim&#39;]
-Creating RawArray with float64 data, n_channels=5, n_times=93280
-    Range : 0 ... 93279 =      0.000 ...   364.371 secs
-Ready.
-[&#39;TP9&#39;, &#39;Fp1&#39;, &#39;Fp2&#39;, &#39;TP10&#39;, &#39;stim&#39;]
-[&#39;TP9&#39;, &#39;Fp1&#39;, &#39;Fp2&#39;, &#39;TP10&#39;, &#39;stim&#39;]
-Creating RawArray with float64 data, n_channels=5, n_times=76744
-    Range : 0 ... 76743 =      0.000 ...   299.777 secs
-Ready.
-[&#39;TP9&#39;, &#39;Fp1&#39;, &#39;Fp2&#39;, &#39;TP10&#39;, &#39;stim&#39;]
-[&#39;TP9&#39;, &#39;Fp1&#39;, &#39;Fp2&#39;, &#39;TP10&#39;, &#39;stim&#39;]
-Creating RawArray with float64 data, n_channels=5, n_times=76816
-    Range : 0 ... 76815 =      0.000 ...   300.059 secs
-Ready.
-[&#39;TP9&#39;, &#39;Fp1&#39;, &#39;Fp2&#39;, &#39;TP10&#39;, &#39;stim&#39;]
-[&#39;TP9&#39;, &#39;Fp1&#39;, &#39;Fp2&#39;, &#39;TP10&#39;, &#39;stim&#39;]
-Creating RawArray with float64 data, n_channels=5, n_times=76768
-    Range : 0 ... 76767 =      0.000 ...   299.871 secs
-Ready.
-[&#39;TP9&#39;, &#39;Fp1&#39;, &#39;Fp2&#39;, &#39;TP10&#39;, &#39;stim&#39;]
-[&#39;TP9&#39;, &#39;Fp1&#39;, &#39;Fp2&#39;, &#39;TP10&#39;, &#39;stim&#39;]
-Creating RawArray with float64 data, n_channels=5, n_times=76780
-    Range : 0 ... 76779 =      0.000 ...   299.918 secs
-Ready.
-[&#39;TP9&#39;, &#39;Fp1&#39;, &#39;Fp2&#39;, &#39;TP10&#39;, &#39;stim&#39;]
-[&#39;TP9&#39;, &#39;Fp1&#39;, &#39;Fp2&#39;, &#39;TP10&#39;, &#39;stim&#39;]
-Creating RawArray with float64 data, n_channels=5, n_times=76768
-    Range : 0 ... 76767 =      0.000 ...   299.871 secs
-Ready.
-[&#39;TP9&#39;, &#39;Fp1&#39;, &#39;Fp2&#39;, &#39;TP10&#39;, &#39;stim&#39;]
-[&#39;TP9&#39;, &#39;Fp1&#39;, &#39;Fp2&#39;, &#39;TP10&#39;, &#39;stim&#39;]
-Creating RawArray with float64 data, n_channels=5, n_times=76816
-    Range : 0 ... 76815 =      0.000 ...   300.059 secs
-Ready.
-[&#39;TP9&#39;, &#39;Fp1&#39;, &#39;Fp2&#39;, &#39;TP10&#39;, &#39;stim&#39;]
-[&#39;TP9&#39;, &#39;Fp1&#39;, &#39;Fp2&#39;, &#39;TP10&#39;, &#39;stim&#39;]
-Creating RawArray with float64 data, n_channels=5, n_times=76816
-    Range : 0 ... 76815 =      0.000 ...   300.059 secs
-Ready.
-[&#39;TP9&#39;, &#39;Fp1&#39;, &#39;Fp2&#39;, &#39;TP10&#39;, &#39;stim&#39;]
-[&#39;TP9&#39;, &#39;Fp1&#39;, &#39;Fp2&#39;, &#39;TP10&#39;, &#39;stim&#39;]
-Creating RawArray with float64 data, n_channels=5, n_times=76912
-    Range : 0 ... 76911 =      0.000 ...   300.434 secs
-Ready.
-</pre></div>
-</div>
 </section>
 <section id="visualize-the-power-spectrum">
-<h2>Visualize the power spectrum<a class="headerlink" href="#visualize-the-power-spectrum" title="Permalink to this heading"></a></h2>
+<h2>Visualize the power spectrum<a class="headerlink" href="#visualize-the-power-spectrum" title="Link to this heading"></a></h2>
 <div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">raw</span><span class="o">.</span><span class="n">plot_psd</span><span class="p">()</span>
-</pre></div>
-</div>
-<img src="../../_images/sphx_glr_01r__n170_viz_001.png" srcset="../../_images/sphx_glr_01r__n170_viz_001.png" alt="EEG" class = "sphx-glr-single-img"/><div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>NOTE: plot_psd() is a legacy function. New code should use .compute_psd().plot().
-Effective window size : 8.000 (s)
-
-&lt;MNELineFigure size 1000x350 with 2 Axes&gt;
 </pre></div>
 </div>
 </section>
 <section id="filtering">
-<h2>Filtering<a class="headerlink" href="#filtering" title="Permalink to this heading"></a></h2>
+<h2>Filtering<a class="headerlink" href="#filtering" title="Link to this heading"></a></h2>
 <div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">raw</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">30</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;iir&#39;</span><span class="p">)</span>
 <span class="n">raw</span><span class="o">.</span><span class="n">plot_psd</span><span class="p">(</span><span class="n">fmin</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">fmax</span><span class="o">=</span><span class="mi">30</span><span class="p">);</span>
 </pre></div>
 </div>
-<img src="../../_images/sphx_glr_01r__n170_viz_002.png" srcset="../../_images/sphx_glr_01r__n170_viz_002.png" alt="EEG" class = "sphx-glr-single-img"/><div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Filtering raw data in 10 contiguous segments
-Setting up band-pass filter from 1 - 30 Hz
-
-IIR filter parameters
----------------------
-Butterworth bandpass zero-phase (two-pass forward and reverse) non-causal filter:
-- Filter order 16 (effective, after forward-backward)
-- Cutoffs at 1.00, 30.00 Hz: -6.02, -6.02 dB
-
-NOTE: plot_psd() is a legacy function. New code should use .compute_psd().plot().
-Effective window size : 8.000 (s)
-
-&lt;MNELineFigure size 1000x350 with 2 Axes&gt;
-</pre></div>
-</div>
 </section>
 <section id="epoching">
-<h2>Epoching<a class="headerlink" href="#epoching" title="Permalink to this heading"></a></h2>
+<h2>Epoching<a class="headerlink" href="#epoching" title="Link to this heading"></a></h2>
 <div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Create an array containing the timestamps and type of each stimulus (i.e. face or house)</span>
 <span class="n">events</span> <span class="o">=</span> <span class="n">find_events</span><span class="p">(</span><span class="n">raw</span><span class="p">)</span>
 <span class="n">event_id</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;House&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s1">&#39;Face&#39;</span><span class="p">:</span> <span class="mi">2</span><span class="p">}</span>
@@ -636,37 +535,9 @@ Effective window size : 8.000 (s)
 <span class="n">epochs</span>
 </pre></div>
 </div>
-<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>3740 events found on stim channel stim
-Event IDs: [1 2]
-sample drop %:  9.919786096256688
-</pre></div>
-</div>
-<div class="output_subarea output_html rendered_html output_result">
-<table class="table table-hover table-striped table-sm table-responsive small">
-    <tr>
-        <th>Number of events</th>
-        <td>3369</td>
-    </tr>
-    <tr>
-        <th>Events</th>
-
-        <td>Face: 1702<br/>House: 1667</td>
-
-    </tr>
-    <tr>
-        <th>Time range</th>
-        <td>-0.102 – 0.602 s</td>
-    </tr>
-    <tr>
-        <th>Baseline</th>
-        <td>off</td>
-    </tr>
-</table>
-</div>
-<br />
-<br /></section>
+</section>
 <section id="epoch-average">
-<h2>Epoch average<a class="headerlink" href="#epoch-average" title="Permalink to this heading"></a></h2>
+<h2>Epoch average<a class="headerlink" href="#epoch-average" title="Link to this heading"></a></h2>
 <div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">conditions</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span>
 <span class="c1">#conditions[&#39;House&#39;] = [1]</span>
 <span class="c1">#conditions[&#39;Face&#39;] = [2]</span>
@@ -686,7 +557,6 @@ sample drop %:  9.919786096256688
 <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
 </pre></div>
 </div>
-<img src="../../_images/sphx_glr_01r__n170_viz_003.png" srcset="../../_images/sphx_glr_01r__n170_viz_003.png" alt="Fp1, Fp2, TP9, TP10" class = "sphx-glr-single-img"/><p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 5.670 seconds)</p>
 <div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-auto-examples-visual-n170-01r-n170-viz-py">
 <div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
 <p><a class="reference download internal" download="" href="../../_downloads/8d83acdbf2986ad81d4d9e035ff593ef/01r__n170_viz.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">01r__n170_viz.ipynb</span></code></a></p>

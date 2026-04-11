@@ -1,7 +1,7 @@
 
 
 <!DOCTYPE html>
-<html class="writer-html5" lang="en">
+<html class="writer-html5" lang="en" data-content_root="../../">
 <head>
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
@@ -19,9 +19,9 @@
   
       <script src="../../_static/jquery.js?v=5d32c60e"></script>
       <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js?v=464912d9"></script>
-      <script src="../../_static/doctools.js?v=888ff710"></script>
-      <script src="../../_static/sphinx_highlight.js?v=4825356b"></script>
+      <script src="../../_static/documentation_options.js?v=3e6ca1ad"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
       <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
       <script src="../../_static/copybutton.js?v=a56c686a"></script>
       <script src="../../_static/debug.js?v=63710f7d"></script>
@@ -217,6 +217,16 @@
 <li class="toctree-l3"><a class="reference internal" href="../visual_ssvep/02r__ssvep_decoding.html#id1">Decoding</a></li>
 </ul>
 </li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../experiments/vvep.html">Visual Pattern Reversal VEP</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../experiments/vvep.html#stimulus-parameters">Stimulus Parameters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../experiments/vvep.html#monitor-vs-vr">Monitor vs VR</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../experiments/vvep.html#electrode-placement">Electrode Placement</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../experiments/vvep.html#timing-notes">Timing Notes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../experiments/vvep.html#running-the-experiment">Running the Experiment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../experiments/vvep.html#api-reference">API Reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../experiments/vvep.html#references">References</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../../experiments/cueing.html">Visual Cueing</a><ul>
@@ -450,12 +460,12 @@
 to download the full example code.</p>
 </div>
 <section class="sphx-glr-example-title" id="p300-decoding">
-<span id="sphx-glr-auto-examples-visual-p300-02r-p300-decoding-py"></span><h1>P300 Decoding<a class="headerlink" href="#p300-decoding" title="Permalink to this heading"></a></h1>
+<span id="sphx-glr-auto-examples-visual-p300-02r-p300-decoding-py"></span><h1>P300 Decoding<a class="headerlink" href="#p300-decoding" title="Link to this heading"></a></h1>
 <p>This example runs a set of machine learning algorithms on the P300 cats/dogs
 dataset, and compares them in terms of classification performance.</p>
 <p>The data used is exactly the same as in the P300 <cite>load_and_visualize</cite> example.</p>
 <section id="setup">
-<h2>Setup<a class="headerlink" href="#setup" title="Permalink to this heading"></a></h2>
+<h2>Setup<a class="headerlink" href="#setup" title="Link to this heading"></a></h2>
 <div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Some standard pythonic imports</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
 <span class="n">warnings</span><span class="o">.</span><span class="n">filterwarnings</span><span class="p">(</span><span class="s1">&#39;ignore&#39;</span><span class="p">)</span>
@@ -485,7 +495,7 @@ dataset, and compares them in terms of classification performance.</p>
 </div>
 </section>
 <section id="load-data">
-<h2>Load Data<a class="headerlink" href="#load-data" title="Permalink to this heading"></a></h2>
+<h2>Load Data<a class="headerlink" href="#load-data" title="Link to this heading"></a></h2>
 <p>( See the P300 <cite>load_and_visualize</cite> example for further description of this)</p>
 <div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">eegnb_data_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="s1">&#39;~/&#39;</span><span class="p">),</span><span class="s1">&#39;.eegnb&#39;</span><span class="p">,</span> <span class="s1">&#39;data&#39;</span><span class="p">)</span>
 <span class="n">p300_data_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">eegnb_data_path</span><span class="p">,</span> <span class="s1">&#39;visual-P300&#39;</span><span class="p">,</span> <span class="s1">&#39;eegnb_examples&#39;</span><span class="p">)</span>
@@ -502,158 +512,15 @@ dataset, and compares them in terms of classification performance.</p>
                 <span class="n">data_dir</span> <span class="o">=</span> <span class="n">eegnb_data_path</span><span class="p">)</span>
 </pre></div>
 </div>
-<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Loading these files:
-
-/home/runner/.eegnb/data/visual-P300/eegnb_examples/muse2016/subject0001/session001/data_2017-02-04-15_51_07.csv
-
-/home/runner/.eegnb/data/visual-P300/eegnb_examples/muse2016/subject0001/session001/data_2017-02-04-15_58_30.csv
-
-/home/runner/.eegnb/data/visual-P300/eegnb_examples/muse2016/subject0001/session001/data_2017-02-04-16_03_08.csv
-
-/home/runner/.eegnb/data/visual-P300/eegnb_examples/muse2016/subject0001/session001/data_2017-02-04-15_45_13.csv
-
-/home/runner/.eegnb/data/visual-P300/eegnb_examples/muse2016/subject0001/session001/data_2017-02-04-15_55_07.csv
-
-/home/runner/.eegnb/data/visual-P300/eegnb_examples/muse2016/subject0001/session001/data_2017-02-04-15_47_49.csv
-
-
-
-
-[&#39;TP9&#39;, &#39;AF7&#39;, &#39;AF8&#39;, &#39;TP10&#39;, &#39;Right AUX&#39;, &#39;stim&#39;]
-[&#39;TP9&#39;, &#39;AF7&#39;, &#39;AF8&#39;, &#39;TP10&#39;, &#39;Right AUX&#39;, &#39;stim&#39;]
-Creating RawArray with float64 data, n_channels=6, n_times=30732
-    Range : 0 ... 30731 =      0.000 ...   120.043 secs
-Ready.
-[&#39;TP9&#39;, &#39;AF7&#39;, &#39;AF8&#39;, &#39;TP10&#39;, &#39;Right AUX&#39;, &#39;stim&#39;]
-[&#39;TP9&#39;, &#39;AF7&#39;, &#39;AF8&#39;, &#39;TP10&#39;, &#39;Right AUX&#39;, &#39;stim&#39;]
-Creating RawArray with float64 data, n_channels=6, n_times=30732
-    Range : 0 ... 30731 =      0.000 ...   120.043 secs
-Ready.
-[&#39;TP9&#39;, &#39;AF7&#39;, &#39;AF8&#39;, &#39;TP10&#39;, &#39;Right AUX&#39;, &#39;stim&#39;]
-[&#39;TP9&#39;, &#39;AF7&#39;, &#39;AF8&#39;, &#39;TP10&#39;, &#39;Right AUX&#39;, &#39;stim&#39;]
-Creating RawArray with float64 data, n_channels=6, n_times=30732
-    Range : 0 ... 30731 =      0.000 ...   120.043 secs
-Ready.
-[&#39;TP9&#39;, &#39;AF7&#39;, &#39;AF8&#39;, &#39;TP10&#39;, &#39;Right AUX&#39;, &#39;stim&#39;]
-[&#39;TP9&#39;, &#39;AF7&#39;, &#39;AF8&#39;, &#39;TP10&#39;, &#39;Right AUX&#39;, &#39;stim&#39;]
-Creating RawArray with float64 data, n_channels=6, n_times=30732
-    Range : 0 ... 30731 =      0.000 ...   120.043 secs
-Ready.
-[&#39;TP9&#39;, &#39;AF7&#39;, &#39;AF8&#39;, &#39;TP10&#39;, &#39;Right AUX&#39;, &#39;stim&#39;]
-[&#39;TP9&#39;, &#39;AF7&#39;, &#39;AF8&#39;, &#39;TP10&#39;, &#39;Right AUX&#39;, &#39;stim&#39;]
-Creating RawArray with float64 data, n_channels=6, n_times=30732
-    Range : 0 ... 30731 =      0.000 ...   120.043 secs
-Ready.
-[&#39;TP9&#39;, &#39;AF7&#39;, &#39;AF8&#39;, &#39;TP10&#39;, &#39;Right AUX&#39;, &#39;stim&#39;]
-[&#39;TP9&#39;, &#39;AF7&#39;, &#39;AF8&#39;, &#39;TP10&#39;, &#39;Right AUX&#39;, &#39;stim&#39;]
-Creating RawArray with float64 data, n_channels=6, n_times=30732
-    Range : 0 ... 30731 =      0.000 ...   120.043 secs
-Ready.
-</pre></div>
-</div>
 </section>
 <section id="filteriing">
-<h2>Filteriing<a class="headerlink" href="#filteriing" title="Permalink to this heading"></a></h2>
+<h2>Filteriing<a class="headerlink" href="#filteriing" title="Link to this heading"></a></h2>
 <div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">raw</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">30</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;iir&#39;</span><span class="p">)</span>
 </pre></div>
 </div>
-<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Filtering raw data in 6 contiguous segments
-Setting up band-pass filter from 1 - 30 Hz
-
-IIR filter parameters
----------------------
-Butterworth bandpass zero-phase (two-pass forward and reverse) non-causal filter:
-- Filter order 16 (effective, after forward-backward)
-- Cutoffs at 1.00, 30.00 Hz: -6.02, -6.02 dB
-</pre></div>
-</div>
-<div class="output_subarea output_html rendered_html output_result">
-<details open>
-    <summary><strong>General</strong></summary>
-    <table class="table table-hover table-striped table-sm table-responsive small">
-        <tr>
-            <th>Measurement date</th>
-
-            <td>Unknown</td>
-
-        </tr>
-        <tr>
-            <th>Experimenter</th>
-
-            <td>Unknown</td>
-
-        </tr>
-        <tr>
-            <th>Participant</th>
-
-            <td>Unknown</td>
-
-        </tr>
-    </table>
-    </details>
-    <details open>
-        <summary><strong>Channels</strong></summary>
-        <table class="table table-hover table-striped table-sm table-responsive small">
-            <tr>
-                <th>Digitized points</th>
-
-                <td>7 points</td>
-
-            </tr>
-            <tr>
-                <th>Good channels</th>
-                <td>4 EEG, 1 misc, 1 Stimulus</td>
-            </tr>
-            <tr>
-                <th>Bad channels</th>
-                <td>None</td>
-            </tr>
-            <tr>
-                <th>EOG channels</th>
-                <td>Not available</td>
-            </tr>
-            <tr>
-                <th>ECG channels</th>
-                <td>Not available</td>
-            </tr>
-        </table>
-        </details>
-        <details open>
-            <summary><strong>Data</strong></summary>
-            <table class="table table-hover table-striped table-sm table-responsive small">
-
-                <tr>
-                    <th>Sampling frequency</th>
-                    <td>256.00 Hz</td>
-                </tr>
-
-
-                <tr>
-                    <th>Highpass</th>
-                    <td>1.00 Hz</td>
-                </tr>
-
-
-                <tr>
-                    <th>Lowpass</th>
-                    <td>30.00 Hz</td>
-                </tr>
-
-
-
-
-                <tr>
-                    <th>Duration</th>
-                    <td>00:12:01 (HH:MM:SS)</td>
-                </tr>
-
-            </table>
-            </details>
-</div>
-<br />
-<br /></section>
+</section>
 <section id="epoching">
-<h2>Epoching<a class="headerlink" href="#epoching" title="Permalink to this heading"></a></h2>
+<h2>Epoching<a class="headerlink" href="#epoching" title="Link to this heading"></a></h2>
 <div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Create an array containing the timestamps and type of each stimulus (i.e. face or house)</span>
 <span class="n">events</span> <span class="o">=</span> <span class="n">find_events</span><span class="p">(</span><span class="n">raw</span><span class="p">)</span>
 <span class="n">event_id</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;Non-Target&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s1">&#39;Target&#39;</span><span class="p">:</span> <span class="mi">2</span><span class="p">}</span>
@@ -665,37 +532,9 @@ Butterworth bandpass zero-phase (two-pass forward and reverse) non-causal filter
 <span class="n">epochs</span>
 </pre></div>
 </div>
-<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>1161 events found on stim channel stim
-Event IDs: [1 2]
-sample drop %:  1.5503875968992276
-</pre></div>
-</div>
-<div class="output_subarea output_html rendered_html output_result">
-<table class="table table-hover table-striped table-sm table-responsive small">
-    <tr>
-        <th>Number of events</th>
-        <td>1143</td>
-    </tr>
-    <tr>
-        <th>Events</th>
-
-        <td>Non-Target: 959<br/>Target: 184</td>
-
-    </tr>
-    <tr>
-        <th>Time range</th>
-        <td>-0.102 – 0.801 s</td>
-    </tr>
-    <tr>
-        <th>Baseline</th>
-        <td>off</td>
-    </tr>
-</table>
-</div>
-<br />
-<br /></section>
+</section>
 <section id="classfication">
-<h2>Classfication<a class="headerlink" href="#classfication" title="Permalink to this heading"></a></h2>
+<h2>Classfication<a class="headerlink" href="#classfication" title="Link to this heading"></a></h2>
 <div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">clfs</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span>
 <span class="n">clfs</span><span class="p">[</span><span class="s1">&#39;Vect + LR&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">make_pipeline</span><span class="p">(</span><span class="n">Vectorizer</span><span class="p">(),</span> <span class="n">StandardScaler</span><span class="p">(),</span> <span class="n">LogisticRegression</span><span class="p">())</span>
 <span class="n">clfs</span><span class="p">[</span><span class="s1">&#39;Vect + RegLDA&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">make_pipeline</span><span class="p">(</span><span class="n">Vectorizer</span><span class="p">(),</span> <span class="n">LDA</span><span class="p">(</span><span class="n">shrinkage</span><span class="o">=</span><span class="s1">&#39;auto&#39;</span><span class="p">,</span> <span class="n">solver</span><span class="o">=</span><span class="s1">&#39;eigen&#39;</span><span class="p">))</span>
@@ -734,10 +573,6 @@ sample drop %:  1.5503875968992276
 <span class="n">sns</span><span class="o">.</span><span class="n">despine</span><span class="p">()</span>
 </pre></div>
 </div>
-<img src="../../_images/sphx_glr_02r__p300_decoding_001.png" srcset="../../_images/sphx_glr_02r__p300_decoding_001.png" alt="02r  p300 decoding" class = "sphx-glr-single-img"/><div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>NOTE: pick_types() is a legacy function. New code should use inst.pick(...).
-</pre></div>
-</div>
-<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 11.572 seconds)</p>
 <div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-auto-examples-visual-p300-02r-p300-decoding-py">
 <div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
 <p><a class="reference download internal" download="" href="../../_downloads/db47b930ce10faf6f74a13d608925887/02r__p300_decoding.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">02r__p300_decoding.ipynb</span></code></a></p>

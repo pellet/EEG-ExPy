@@ -1,7 +1,7 @@
 
 
 <!DOCTYPE html>
-<html class="writer-html5" lang="en">
+<html class="writer-html5" lang="en" data-content_root="../../">
 <head>
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
@@ -19,16 +19,16 @@
   
       <script src="../../_static/jquery.js?v=5d32c60e"></script>
       <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js?v=464912d9"></script>
-      <script src="../../_static/doctools.js?v=888ff710"></script>
-      <script src="../../_static/sphinx_highlight.js?v=4825356b"></script>
+      <script src="../../_static/documentation_options.js?v=3e6ca1ad"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
       <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
       <script src="../../_static/copybutton.js?v=a56c686a"></script>
       <script src="../../_static/debug.js?v=63710f7d"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="Visual Cueing" href="../../experiments/cueing.html" />
+    <link rel="next" title="Visual Pattern Reversal VEP" href="../../experiments/vvep.html" />
     <link rel="prev" title="SSVEP Visualization" href="01r__ssvep_viz.html" /> 
 </head>
 
@@ -217,6 +217,16 @@
 <li class="toctree-l3"><a class="reference internal" href="#id1">Decoding</a></li>
 </ul>
 </li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../experiments/vvep.html">Visual Pattern Reversal VEP</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../experiments/vvep.html#stimulus-parameters">Stimulus Parameters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../experiments/vvep.html#monitor-vs-vr">Monitor vs VR</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../experiments/vvep.html#electrode-placement">Electrode Placement</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../experiments/vvep.html#timing-notes">Timing Notes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../experiments/vvep.html#running-the-experiment">Running the Experiment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../experiments/vvep.html#api-reference">API Reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../experiments/vvep.html#references">References</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../../experiments/cueing.html">Visual Cueing</a><ul>
@@ -450,12 +460,12 @@
 to download the full example code.</p>
 </div>
 <section class="sphx-glr-example-title" id="ssvep-decoding">
-<span id="sphx-glr-auto-examples-visual-ssvep-02r-ssvep-decoding-py"></span><h1>SSVEP Decoding<a class="headerlink" href="#ssvep-decoding" title="Permalink to this heading"></a></h1>
+<span id="sphx-glr-auto-examples-visual-ssvep-02r-ssvep-decoding-py"></span><h1>SSVEP Decoding<a class="headerlink" href="#ssvep-decoding" title="Link to this heading"></a></h1>
 <p>This notebook runs only the data analysis part of experiment.</p>
 <p>Look at the notes to see how this can be run on the web with binder or google collab.</p>
 <p>All of the additional notes are removed; only the code cells are kept.</p>
 <section id="setup">
-<h2>Setup<a class="headerlink" href="#setup" title="Permalink to this heading"></a></h2>
+<h2>Setup<a class="headerlink" href="#setup" title="Link to this heading"></a></h2>
 <div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Some standard pythonic imports</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
 <span class="n">warnings</span><span class="o">.</span><span class="n">filterwarnings</span><span class="p">(</span><span class="s1">&#39;ignore&#39;</span><span class="p">)</span>
@@ -486,7 +496,7 @@ to download the full example code.</p>
 </div>
 </section>
 <section id="load-data">
-<h2>Load Data<a class="headerlink" href="#load-data" title="Permalink to this heading"></a></h2>
+<h2>Load Data<a class="headerlink" href="#load-data" title="Link to this heading"></a></h2>
 <p>( See the ssvep <cite>load_and_visualize</cite> example for further description of this)</p>
 <div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">eegnb_data_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="s1">&#39;~/&#39;</span><span class="p">),</span><span class="s1">&#39;.eegnb&#39;</span><span class="p">,</span> <span class="s1">&#39;data&#39;</span><span class="p">)</span>
 <span class="n">ssvep_data_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">eegnb_data_path</span><span class="p">,</span> <span class="s1">&#39;visual-SSVEP&#39;</span><span class="p">,</span> <span class="s1">&#39;eegnb_examples&#39;</span><span class="p">)</span>
@@ -503,58 +513,9 @@ to download the full example code.</p>
                 <span class="n">replace_ch_names</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;Right AUX&#39;</span><span class="p">:</span> <span class="s1">&#39;POz&#39;</span><span class="p">})</span>
 </pre></div>
 </div>
-<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Loading these files:
-
-/home/runner/.eegnb/data/visual-SSVEP/eegnb_examples/muse2016/subject0001/session001/data_2017-09-14-21.27.36.csv
-
-/home/runner/.eegnb/data/visual-SSVEP/eegnb_examples/muse2016/subject0001/session001/data_2017-09-14-21.20.04.csv
-
-/home/runner/.eegnb/data/visual-SSVEP/eegnb_examples/muse2016/subject0001/session001/data_2017-09-14-21.22.51.csv
-
-/home/runner/.eegnb/data/visual-SSVEP/eegnb_examples/muse2016/subject0001/session001/data_2017-09-14-21.32.15.csv
-
-/home/runner/.eegnb/data/visual-SSVEP/eegnb_examples/muse2016/subject0001/session001/data_2017-09-14-21.29.57.csv
-
-/home/runner/.eegnb/data/visual-SSVEP/eegnb_examples/muse2016/subject0001/session001/data_2017-09-14-21.25.17.csv
-
-
-
-
-[&#39;TP9&#39;, &#39;AF7&#39;, &#39;AF8&#39;, &#39;TP10&#39;, &#39;Right AUX&#39;, &#39;stim&#39;]
-[&#39;TP9&#39;, &#39;AF7&#39;, &#39;AF8&#39;, &#39;TP10&#39;, &#39;POz&#39;, &#39;stim&#39;]
-Creating RawArray with float64 data, n_channels=6, n_times=30720
-    Range : 0 ... 30719 =      0.000 ...   119.996 secs
-Ready.
-[&#39;TP9&#39;, &#39;AF7&#39;, &#39;AF8&#39;, &#39;TP10&#39;, &#39;Right AUX&#39;, &#39;stim&#39;]
-[&#39;TP9&#39;, &#39;AF7&#39;, &#39;AF8&#39;, &#39;TP10&#39;, &#39;POz&#39;, &#39;stim&#39;]
-Creating RawArray with float64 data, n_channels=6, n_times=30732
-    Range : 0 ... 30731 =      0.000 ...   120.043 secs
-Ready.
-[&#39;TP9&#39;, &#39;AF7&#39;, &#39;AF8&#39;, &#39;TP10&#39;, &#39;Right AUX&#39;, &#39;stim&#39;]
-[&#39;TP9&#39;, &#39;AF7&#39;, &#39;AF8&#39;, &#39;TP10&#39;, &#39;POz&#39;, &#39;stim&#39;]
-Creating RawArray with float64 data, n_channels=6, n_times=30732
-    Range : 0 ... 30731 =      0.000 ...   120.043 secs
-Ready.
-[&#39;TP9&#39;, &#39;AF7&#39;, &#39;AF8&#39;, &#39;TP10&#39;, &#39;Right AUX&#39;, &#39;stim&#39;]
-[&#39;TP9&#39;, &#39;AF7&#39;, &#39;AF8&#39;, &#39;TP10&#39;, &#39;POz&#39;, &#39;stim&#39;]
-Creating RawArray with float64 data, n_channels=6, n_times=30732
-    Range : 0 ... 30731 =      0.000 ...   120.043 secs
-Ready.
-[&#39;TP9&#39;, &#39;AF7&#39;, &#39;AF8&#39;, &#39;TP10&#39;, &#39;Right AUX&#39;, &#39;stim&#39;]
-[&#39;TP9&#39;, &#39;AF7&#39;, &#39;AF8&#39;, &#39;TP10&#39;, &#39;POz&#39;, &#39;stim&#39;]
-Creating RawArray with float64 data, n_channels=6, n_times=30732
-    Range : 0 ... 30731 =      0.000 ...   120.043 secs
-Ready.
-[&#39;TP9&#39;, &#39;AF7&#39;, &#39;AF8&#39;, &#39;TP10&#39;, &#39;Right AUX&#39;, &#39;stim&#39;]
-[&#39;TP9&#39;, &#39;AF7&#39;, &#39;AF8&#39;, &#39;TP10&#39;, &#39;POz&#39;, &#39;stim&#39;]
-Creating RawArray with float64 data, n_channels=6, n_times=30720
-    Range : 0 ... 30719 =      0.000 ...   119.996 secs
-Ready.
-</pre></div>
-</div>
 </section>
 <section id="epoching">
-<h2>Epoching<a class="headerlink" href="#epoching" title="Permalink to this heading"></a></h2>
+<h2>Epoching<a class="headerlink" href="#epoching" title="Link to this heading"></a></h2>
 <div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Next, we will chunk (epoch) the data into segments representing the data 100ms before to 800ms after each stimulus.</span>
 <span class="c1"># Note: we will not reject epochs here because the amplitude of the SSVEP at POz is so large it is difficult to separate from eye blinks</span>
 
@@ -566,14 +527,9 @@ Ready.
 <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;sample drop %: &#39;</span><span class="p">,</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">epochs</span><span class="o">.</span><span class="n">events</span><span class="p">)</span><span class="o">/</span><span class="nb">len</span><span class="p">(</span><span class="n">events</span><span class="p">))</span> <span class="o">*</span> <span class="mi">100</span><span class="p">)</span>
 </pre></div>
 </div>
-<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>197 events found on stim channel stim
-Event IDs: [1 2]
-sample drop %:  2.538071065989844
-</pre></div>
-</div>
 </section>
 <section id="decoding">
-<h2>Decoding<a class="headerlink" href="#decoding" title="Permalink to this heading"></a></h2>
+<h2>Decoding<a class="headerlink" href="#decoding" title="Link to this heading"></a></h2>
 <div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="c1"># We can use a filter bank approach on the original 4 Muse electrodes (to see how the headband alone without external electrodes could be used to classify SSVEP):</span>
 
 <span class="c1">#    - Apply bandpass filters around both stimulation frequencies</span>
@@ -606,34 +562,9 @@ sample drop %:  2.538071065989844
 <span class="n">y</span> <span class="o">=</span> <span class="n">epochs_all</span><span class="o">.</span><span class="n">events</span><span class="p">[:,</span> <span class="o">-</span><span class="mi">1</span><span class="p">]</span>
 </pre></div>
 </div>
-<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Filtering raw data in 6 contiguous segments
-Setting up band-pass filter from 25 - 35 Hz
-
-IIR filter parameters
----------------------
-Butterworth bandpass zero-phase (two-pass forward and reverse) non-causal filter:
-- Filter order 16 (effective, after forward-backward)
-- Cutoffs at 25.00, 35.00 Hz: -6.02, -6.02 dB
-
-Filtering raw data in 6 contiguous segments
-Setting up band-pass filter from 15 - 25 Hz
-
-IIR filter parameters
----------------------
-Butterworth bandpass zero-phase (two-pass forward and reverse) non-causal filter:
-- Filter order 16 (effective, after forward-backward)
-- Cutoffs at 15.00, 25.00 Hz: -6.02, -6.02 dB
-
-197 events found on stim channel stim_30Hz
-Event IDs: [1 2]
-197 events found on stim channel stim_20Hz
-Event IDs: [1 2]
-NOTE: pick_types() is a legacy function. New code should use inst.pick(...).
-</pre></div>
-</div>
 </section>
 <section id="id1">
-<h2>Decoding<a class="headerlink" href="#id1" title="Permalink to this heading"></a></h2>
+<h2>Decoding<a class="headerlink" href="#id1" title="Link to this heading"></a></h2>
 <div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Next, we will use 4 different machine learning pipelines to classify the SSVEP based on the data we collected. The</span>
 
 <span class="c1"># - CSP + RegLDA : Common Spatial Patterns + Regularized Linear Discriminat Analysis. This is a very common EEG analysis pipeline.</span>
@@ -676,13 +607,6 @@ NOTE: pick_types() is a legacy function. New code should use inst.pick(...).
 <span class="n">sns</span><span class="o">.</span><span class="n">despine</span><span class="p">()</span>
 </pre></div>
 </div>
-<img src="../../_images/sphx_glr_02r__ssvep_decoding_001.png" srcset="../../_images/sphx_glr_02r__ssvep_decoding_001.png" alt="02r  ssvep decoding" class = "sphx-glr-single-img"/><div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>CSP + RegLDA
-Cov + TS
-Cov + MDM
-CSP + Cov + TS
-</pre></div>
-</div>
-<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 1.773 seconds)</p>
 <div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-auto-examples-visual-ssvep-02r-ssvep-decoding-py">
 <div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
 <p><a class="reference download internal" download="" href="../../_downloads/a74331ba25f1e4b93e2ecf2b3efd4a13/02r__ssvep_decoding.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">02r__ssvep_decoding.ipynb</span></code></a></p>
@@ -703,7 +627,7 @@ CSP + Cov + TS
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="01r__ssvep_viz.html" class="btn btn-neutral float-left" title="SSVEP Visualization" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="../../experiments/cueing.html" class="btn btn-neutral float-right" title="Visual Cueing" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="../../experiments/vvep.html" class="btn btn-neutral float-right" title="Visual Pattern Reversal VEP" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

@@ -1,7 +1,7 @@
 
 
 <!DOCTYPE html>
-<html class="writer-html5" lang="en">
+<html class="writer-html5" lang="en" data-content_root="../../">
 <head>
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
@@ -19,9 +19,9 @@
   
       <script src="../../_static/jquery.js?v=5d32c60e"></script>
       <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js?v=464912d9"></script>
-      <script src="../../_static/doctools.js?v=888ff710"></script>
-      <script src="../../_static/sphinx_highlight.js?v=4825356b"></script>
+      <script src="../../_static/documentation_options.js?v=3e6ca1ad"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
       <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
       <script src="../../_static/copybutton.js?v=a56c686a"></script>
       <script src="../../_static/debug.js?v=63710f7d"></script>
@@ -217,6 +217,16 @@
 <li class="toctree-l3"><a class="reference internal" href="../visual_ssvep/02r__ssvep_decoding.html#id1">Decoding</a></li>
 </ul>
 </li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../experiments/vvep.html">Visual Pattern Reversal VEP</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../experiments/vvep.html#stimulus-parameters">Stimulus Parameters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../experiments/vvep.html#monitor-vs-vr">Monitor vs VR</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../experiments/vvep.html#electrode-placement">Electrode Placement</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../experiments/vvep.html#timing-notes">Timing Notes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../experiments/vvep.html#running-the-experiment">Running the Experiment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../experiments/vvep.html#api-reference">API Reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../experiments/vvep.html#references">References</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../../experiments/cueing.html">Visual Cueing</a><ul>
@@ -450,11 +460,11 @@
 to download the full example code.</p>
 </div>
 <section class="sphx-glr-example-title" id="n170-run-experiment">
-<span id="sphx-glr-auto-examples-visual-n170-00x-n170-run-experiment-py"></span><h1>N170 run experiment<a class="headerlink" href="#n170-run-experiment" title="Permalink to this heading"></a></h1>
+<span id="sphx-glr-auto-examples-visual-n170-00x-n170-run-experiment-py"></span><h1>N170 run experiment<a class="headerlink" href="#n170-run-experiment" title="Link to this heading"></a></h1>
 <p>This example demonstrates the initiation of an EEG stream with eeg-expy, and how to run
 an experiment.</p>
 <section id="setup">
-<h2>Setup<a class="headerlink" href="#setup" title="Permalink to this heading"></a></h2>
+<h2>Setup<a class="headerlink" href="#setup" title="Link to this heading"></a></h2>
 <p>Imports</p>
 <div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">eegnb</span><span class="w"> </span><span class="kn">import</span> <span class="n">generate_save_fn</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">eegnb.devices.eeg</span><span class="w"> </span><span class="kn">import</span> <span class="n">EEG</span>
@@ -479,7 +489,7 @@ an experiment.</p>
 </div>
 </section>
 <section id="run-experiment">
-<h2>Run experiment<a class="headerlink" href="#run-experiment" title="Permalink to this heading"></a></h2>
+<h2>Run experiment<a class="headerlink" href="#run-experiment" title="Link to this heading"></a></h2>
 <div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">experiment</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
 
 <span class="c1"># Saved csv location</span>
