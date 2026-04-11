@@ -331,16 +331,56 @@ before the timing stack has been fully validated, a reasonable plan B is:
    refresh rate, same presentation mode, same electrode montage, same
    analysis pipeline). Record the mean and spread of P100 latency and
    interocular latency difference for that population.
-2. **Compare new measurements against your own baseline**, not against
+2. **Stratify the baseline by head size.** P100 latency depends on head
+   size — in the published literature the effect is on the order of
+   0.1–0.2 ms per mm of head circumference or interaural distance, which
+   adds 5–10ms of variation across the adult range. That is the same order
+   of magnitude as the latency shifts of interest, so it should not be
+   averaged over. At baseline-collection time, measure each participant's
+   head circumference and/or preauricular-to-preauricular distance (the
+   interaural arc across Cz, which is what 10-20 cap sizes are labelled by),
+   and record it as session metadata. When comparing new measurements
+   against the baseline, use the bin whose head-size range contains the
+   new participant.
+
+   A worked example of the table format, with bin edges chosen to match
+   commercial EEG cap sizes:
+
+   +-------------------------+---------------+---------------+
+   | Interaural arc          | P100 mean (ms)| P100 ±2SD (ms)|
+   | (preaur–preaur, Cz)     |               |               |
+   +=========================+===============+===============+
+   | < 340 mm                |  *tbd*        |  *tbd*        |
+   +-------------------------+---------------+---------------+
+   | 340–360 mm              |  *tbd*        |  *tbd*        |
+   +-------------------------+---------------+---------------+
+   | 360–380 mm              |  *tbd*        |  *tbd*        |
+   +-------------------------+---------------+---------------+
+   | 380–400 mm              |  *tbd*        |  *tbd*        |
+   +-------------------------+---------------+---------------+
+   | ≥ 400 mm                |  *tbd*        |  *tbd*        |
+   +-------------------------+---------------+---------------+
+
+   Populate the cells from your own baseline cohort. At least 5–10
+   participants per bin is a reasonable starting target.
+
+   The table format is the historical clinical approach and is what this
+   MVP implementation supports. A continuous regression model fit on head
+   size (and optionally age and sex) is the more statistically principled
+   alternative and removes the bin-boundary arbitrariness entirely. That
+   approach is being explored on the ``spike/vep_normative_regression``
+   branch and is out of scope for the current MVP.
+3. **Compare new measurements against your own baseline**, not against
    published clinical norms. This sidesteps the entire question of
    whether your absolute latency matches literature values — any fixed
    offsets in your setup get absorbed into the baseline and the residual
    is just noise and real variability.
-3. **Track interocular differences** rather than absolute per-eye latency
+4. **Track interocular differences** rather than absolute per-eye latency
    where possible. The interocular difference is extremely robust to
-   fixed offsets (they subtract out exactly) and is one of the more
-   informative quantities in the PR-VEP literature.
-4. **Repeat-measure rather than one-shot.** Running the same participant
+   fixed offsets *and* to head-size effects (both cancel out exactly in
+   the subtraction), and is one of the more informative quantities in the
+   PR-VEP literature.
+5. **Repeat-measure rather than one-shot.** Running the same participant
    across multiple sessions and computing within-subject variability is
    far more diagnostic of whether your pipeline is stable than a single
    cross-sectional measurement.
