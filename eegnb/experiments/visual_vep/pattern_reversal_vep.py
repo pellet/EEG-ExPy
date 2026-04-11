@@ -31,9 +31,18 @@ class VisualPatternReversalVEP(BlockExperiment):
             timing_path = 'vep_timing.csv'
         self._timing_file = open(timing_path, 'w', newline='')
         self._timing_writer = csv.writer(self._timing_file)
-        self._timing_writer.writerow(
-            ['trial_idx', 'software_time', 'predicted_display_time', 'delta_ms', 'use_vr']
-        )
+        # Core timing columns plus VR compositor perf stats from
+        # rift._perfStats.frameStats[0] (most-recently-completed frame).
+        # The rift_* columns are None on the monitor path and on the first
+        # VR frame(s) before the compositor has reported any stats.
+        self._timing_writer.writerow([
+            'trial_idx', 'software_time', 'predicted_display_time', 'delta_ms', 'use_vr',
+            'rift_compositor_latency_ms',
+            'rift_app_cpu_ms', 'rift_app_gpu_ms',
+            'rift_compositor_cpu_ms', 'rift_compositor_gpu_ms',
+            'rift_app_dropped_frames', 'rift_compositor_dropped_frames',
+            'rift_asw_active',
+        ])
 
         self.instruction_text = f"""Welcome to the Visual Pattern Reversal VEP experiment!
         
@@ -255,9 +264,53 @@ class VisualPatternReversalVEP(BlockExperiment):
         # Log per-trial timing metadata for post-hoc validation
         trial_idx = self.current_block_index * self.block_trial_size + idx
         delta_ms = (predicted_display_time - software_time) * 1000 if predicted_display_time else None
-        self._timing_writer.writerow(
-            [trial_idx, software_time, predicted_display_time, delta_ms, self.use_vr]
-        )
+        rift_stats = self._read_rift_perf_stats() if self.use_vr else None
+        self._timing_writer.writerow([
+            trial_idx, software_time, predicted_display_time, delta_ms, self.use_vr,
+            rift_stats['compositor_latency_ms'] if rift_stats else None,
+            rift_stats['app_cpu_ms'] if rift_stats else None,
+            rift_stats['app_gpu_ms'] if rift_stats else None,
+            rift_stats['compositor_cpu_ms'] if rift_stats else None,
+            rift_stats['compositor_gpu_ms'] if rift_stats else None,
+            rift_stats['app_dropped_frames'] if rift_stats else None,
+            rift_stats['compositor_dropped_frames'] if rift_stats else None,
+            rift_stats['asw_active'] if rift_stats else None,
+        ])
+
+    def _read_rift_perf_stats(self):
+        """Capture the most-recently-completed frame's compositor stats.
+
+        Reads from ``rift._perfStats.frameStats[0]``, which is the most recent
+        frame the compositor has reported on. The fields mirror what the
+        Oculus/OpenXR runtime exposes via psychxr: per-frame CPU/GPU time
+        for the app and compositor, cumulative drop counts, compositor
+        latency (submit → photon), and whether async spacewarp was active.
+
+        Returns a dict of millisecond-scaled values, or None if stats
+        are not yet available (first frame or a non-VR session that
+        somehow ended up here).
+        """
+        try:
+            perf = self.rift._perfStats
+            if perf.frameStatsCount == 0:
+                return None
+            fs = perf.frameStats[0]
+        except (AttributeError, IndexError):
+            return None
+
+        def _ms(attr):
+            return getattr(fs, attr, 0) * 1000
+
+        return {
+            'compositor_latency_ms': _ms('compositorLatency'),
+            'app_cpu_ms': _ms('appCpuElapsedTime'),
+            'app_gpu_ms': _ms('appGpuElapsedTime'),
+            'compositor_cpu_ms': _ms('compositorCpuElapsedTime'),
+            'compositor_gpu_ms': _ms('compositorGpuElapsedTime'),
+            'app_dropped_frames': getattr(fs, 'appDroppedFrameCount', 0),
+            'compositor_dropped_frames': getattr(fs, 'compositorDroppedFrameCount', 0),
+            'asw_active': bool(getattr(fs, 'asyncSpaceWarpActive', False)),
+        }
 
     def __del__(self):
         if hasattr(self, '_timing_file') and not self._timing_file.closed:
