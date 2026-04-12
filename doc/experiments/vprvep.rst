@@ -68,18 +68,14 @@ up yet.
 Electrode Placement
 -------------------
 
-The P100 is generated in occipital cortex, so the electrode that
-matters is **Oz**. The Muse's default electrodes (TP9, TP10, AF7, AF8)
-will pick up a blurry attenuated version of the response but are badly
-placed for the actual peak.
+The P100 is generated in occipital cortex. Priority electrode placement
+for the OpenBCI Cyton is:
 
-**Muse users: use the extra-electrode mod and place the external
-electrode at Oz.** POz is an acceptable fallback if Oz is mechanically
-awkward. See the :doc:`../misc/using_an_extra_electrod_with_the_muse`
-page for build details.
-
-For full-cap devices (OpenBCI, g.tec Unicorn, etc.), use Oz as primary
-and add any of O1/O2/POz/PO3/PO4 you have channels for.
+1. **Oz** — the primary electrode; highest amplitude P100
+2. **O1, O2** — lateral occipital; provide left/right asymmetry information
+3. **POz** — parieto-occipital midline; useful fallback or supplement
+4. **Fp1, Fp2** — optional; placed on the forehead to record eye movement
+   artefacts (EOG) for rejection during analysis
 
 
 Timing Notes
