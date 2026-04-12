@@ -14,10 +14,12 @@ positive deflection occurring ~100ms after the reversal at midline
 occipital electrodes. The other components are a small N75 before it
 and an N145 after it.
 
-In this notebook, we will attempt to detect the P100 with the Muse
-headband (plus an extra electrode at Oz) using monocular pattern
-reversal blocks, and run the analysis pipeline to pull out the per-eye
-P100 latency and the interocular latency difference.
+In this notebook, we will attempt to detect the P100 with the OpenBCI
+Cyton, with the most critical electrode at Oz, followed by O1 and O2,
+then POz. Fp1 and Fp2 are optional channels for detecting eye movement
+artefacts. We use monocular pattern reversal blocks and run the analysis
+pipeline to pull out the per-eye P100 latency and the interocular
+latency difference.
 
 
 Stimulus Parameters
