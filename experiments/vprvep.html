@@ -369,7 +369,7 @@ latency difference.</p>
 <p>Parameters follow the ISCEV “large check” option <a class="reference internal" href="#odom2016" id="id1"><span>[Odom2016]</span></a>:</p>
 <ul class="simple">
 <li><p><strong>Check size</strong>: 1° of visual angle (0.5 cpd)</p></li>
-<li><p><strong>Reversal rate</strong>: 2 reversals per second</p></li>
+<li><p><strong>Reversal rate</strong>: 2 reversals per second (one reversal per two display frames)</p></li>
 <li><p><strong>Field size</strong>: 16° (monitor) / 20° (VR)</p></li>
 <li><p><strong>Contrast</strong>: High contrast black/white, mean luminance held constant</p></li>
 <li><p><strong>Fixation</strong>: Central red dot</p></li>
@@ -377,6 +377,15 @@ latency difference.</p>
 </ul>
 <p>Four blocks of 50 seconds by default, giving ~100 reversals per eye per
 block.</p>
+<p>The experiment requires a display refresh rate that is divisible by two,
+since each reversal occupies exactly two frames. Any such refresh rate is
+supported — 60 Hz, 90 Hz, 120 Hz, 144 Hz, etc. A higher refresh rate
+reduces the temporal jitter between the true reversal onset and the
+nearest frame boundary, which directly translates to more precise P100
+latency estimates. For example, at 60 Hz each frame is ~16.7 ms wide,
+whereas at 120 Hz it is ~8.3 ms — halving the worst-case timing error.
+VR headsets running at 90 Hz or above are therefore preferred over a
+standard 60 Hz monitor when absolute latency precision matters.</p>
 </section>
 <section id="monitor-vs-vr">
 <h2>Monitor vs VR<a class="headerlink" href="#monitor-vs-vr" title="Link to this heading"></a></h2>
@@ -442,7 +451,7 @@ between blocks.</p>
 
 <span class="n">eeg</span> <span class="o">=</span> <span class="n">EEG</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="s1">&#39;cyton&#39;</span><span class="p">)</span>
 <span class="n">experiment</span> <span class="o">=</span> <span class="n">VisualPatternReversalVEP</span><span class="p">(</span>
-    <span class="n">display_refresh_rate</span><span class="o">=</span><span class="mi">60</span><span class="p">,</span>   <span class="c1"># must match display and be divisible by 2Hz</span>
+    <span class="n">display_refresh_rate</span><span class="o">=</span><span class="mi">60</span><span class="p">,</span>   <span class="c1"># must match display and be divisible by 2; higher rates give better latency precision</span>
     <span class="n">eeg</span><span class="o">=</span><span class="n">eeg</span><span class="p">,</span>
     <span class="n">save_fn</span><span class="o">=</span><span class="s1">&#39;my_vep_recording.csv&#39;</span><span class="p">,</span>
     <span class="n">use_vr</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>               <span class="c1"># False for monitor mode</span>
