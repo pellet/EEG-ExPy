@@ -83,10 +83,10 @@ Timing Notes
 
 Measured P100 latency is the true P100 latency plus the display-pipeline
 delay, plus the EEG device's input delay, plus any clock-alignment
-error. For a Muse the device delay alone is ~30–50ms, so if you need
-*absolute* latencies you need to characterise and subtract it; for
-*relative* comparisons (between-eye, within-subject across sessions) it
-cancels out and you can ignore it.
+error. For the Cyton the USB-serial latency is typically ~30–40ms, so
+if you need *absolute* latencies you need to characterise and subtract
+it; for *relative* comparisons (between-eye, within-subject across
+sessions) it cancels out and you can ignore it.
 
 Two sidecar files are written alongside each recording to let you check
 timing after the fact:
@@ -110,7 +110,7 @@ Running the Experiment
    from eegnb.devices.eeg import EEG
    from eegnb.experiments.visual_vep import VisualPatternReversalVEP
 
-   eeg = EEG(device='muse2')
+   eeg = EEG(device='cyton')
    experiment = VisualPatternReversalVEP(
        display_refresh_rate=60,   # must match display and be divisible by 2Hz
        eeg=eeg,
