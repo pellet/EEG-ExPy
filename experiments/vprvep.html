@@ -418,10 +418,10 @@ artefacts (EOG) for rejection during analysis</p></li>
 <h2>Timing Notes<a class="headerlink" href="#timing-notes" title="Link to this heading"></a></h2>
 <p>Measured P100 latency is the true P100 latency plus the display-pipeline
 delay, plus the EEG device’s input delay, plus any clock-alignment
-error. For a Muse the device delay alone is ~30–50ms, so if you need
-<em>absolute</em> latencies you need to characterise and subtract it; for
-<em>relative</em> comparisons (between-eye, within-subject across sessions) it
-cancels out and you can ignore it.</p>
+error. For the Cyton the USB-serial latency is typically ~30–40ms, so
+if you need <em>absolute</em> latencies you need to characterise and subtract
+it; for <em>relative</em> comparisons (between-eye, within-subject across
+sessions) it cancels out and you can ignore it.</p>
 <p>Two sidecar files are written alongside each recording to let you check
 timing after the fact:</p>
 <ul class="simple">
@@ -440,7 +440,7 @@ between blocks.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">eegnb.devices.eeg</span><span class="w"> </span><span class="kn">import</span> <span class="n">EEG</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">eegnb.experiments.visual_vep</span><span class="w"> </span><span class="kn">import</span> <span class="n">VisualPatternReversalVEP</span>
 
-<span class="n">eeg</span> <span class="o">=</span> <span class="n">EEG</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="s1">&#39;muse2&#39;</span><span class="p">)</span>
+<span class="n">eeg</span> <span class="o">=</span> <span class="n">EEG</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="s1">&#39;cyton&#39;</span><span class="p">)</span>
 <span class="n">experiment</span> <span class="o">=</span> <span class="n">VisualPatternReversalVEP</span><span class="p">(</span>
     <span class="n">display_refresh_rate</span><span class="o">=</span><span class="mi">60</span><span class="p">,</span>   <span class="c1"># must match display and be divisible by 2Hz</span>
     <span class="n">eeg</span><span class="o">=</span><span class="n">eeg</span><span class="p">,</span>
