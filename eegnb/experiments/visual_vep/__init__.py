@@ -4,7 +4,7 @@ This module contains experiments for measuring visual evoked potentials,
 including pattern reversal VEP for assessing the P100 component.
 """
 
-from .vep import VisualGratingVEP
+from .grating_vep import VisualGratingVEP
 from .pattern_reversal_vep import VisualPatternReversalVEP
 
 __all__ = ['VisualGratingVEP', 'VisualPatternReversalVEP']
