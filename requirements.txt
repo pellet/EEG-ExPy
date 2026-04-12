@@ -89,6 +89,7 @@ stimupy
 
 ## ~~ Docsbuild Requirements ~~
 setuptools  # brainflow imports pkg_resources at runtime; not included by default in Python 3.10+ envs
+python-dotenv
 recommonmark
 brainflow
 numpydoc
