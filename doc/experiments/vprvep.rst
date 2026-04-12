@@ -28,7 +28,7 @@ Stimulus Parameters
 Parameters follow the ISCEV "large check" option [Odom2016]_:
 
 - **Check size**: 1° of visual angle (0.5 cpd)
-- **Reversal rate**: 2 reversals per second
+- **Reversal rate**: 2 reversals per second (one reversal per two display frames)
 - **Field size**: 16° (monitor) / 20° (VR)
 - **Contrast**: High contrast black/white, mean luminance held constant
 - **Fixation**: Central red dot
@@ -36,6 +36,16 @@ Parameters follow the ISCEV "large check" option [Odom2016]_:
 
 Four blocks of 50 seconds by default, giving ~100 reversals per eye per
 block.
+
+The experiment requires a display refresh rate that is divisible by two,
+since each reversal occupies exactly two frames. Any such refresh rate is
+supported — 60 Hz, 90 Hz, 120 Hz, 144 Hz, etc. A higher refresh rate
+reduces the temporal jitter between the true reversal onset and the
+nearest frame boundary, which directly translates to more precise P100
+latency estimates. For example, at 60 Hz each frame is ~16.7 ms wide,
+whereas at 120 Hz it is ~8.3 ms — halving the worst-case timing error.
+VR headsets running at 90 Hz or above are therefore preferred over a
+standard 60 Hz monitor when absolute latency precision matters.
 
 
 Monitor vs VR
@@ -112,7 +122,7 @@ Running the Experiment
 
    eeg = EEG(device='cyton')
    experiment = VisualPatternReversalVEP(
-       display_refresh_rate=60,   # must match display and be divisible by 2Hz
+       display_refresh_rate=60,   # must match display and be divisible by 2; higher rates give better latency precision
        eeg=eeg,
        save_fn='my_vep_recording.csv',
        use_vr=True,               # False for monitor mode
