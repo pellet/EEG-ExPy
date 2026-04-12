@@ -29,15 +29,12 @@ jobs:
       if: "startsWith(runner.os, 'Linux')"
       run: |
         make install-deps-apt
-    - name: Install conda
-      uses: conda-incubator/setup-miniconda@v3
+    - name: Set up conda env
+      uses: ./.github/actions/setup-conda-env
       with:
         environment-file: environments/eeg-expy-full.yml
-        auto-activate-base: false
-        python-version: ${{ matrix.python_version }}
         activate-environment: eeg-expy-full
-        channels: conda-forge
-        miniconda-version: "latest"
+        python-version: ${{ matrix.python_version }}
 
     - name: Fix PsychXR numpy dependency DLL issues (Windows only)
       if: matrix.os == 'windows-latest'
@@ -75,15 +72,12 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-    - name: Install conda
-      uses: conda-incubator/setup-miniconda@v3
+    - name: Set up conda env
+      uses: ./.github/actions/setup-conda-env
       with:
         environment-file: environments/eeg-expy-full.yml
-        auto-activate-base: false
-        python-version: ${{ matrix.python_version }}
         activate-environment: eeg-expy-full
-        channels: conda-forge
-        miniconda-version: "latest"
+        python-version: ${{ matrix.python_version }}
     - name: Typecheck
       run: |
         make typecheck

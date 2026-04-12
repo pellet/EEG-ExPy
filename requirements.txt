@@ -15,7 +15,6 @@ pysocks>=1.7.1
 pyserial>=3.5
 h5py>=3.1.0
 pytest-shutil
-pyo>=1.0.3; platform_system == "Linux"
 #pynput requires pyobjc, psychopy requires a version less than 8, setting pyobjc to
 # a specific version prevents an endless dependency resolution loop.
 pyobjc==7.3; sys_platform == 'darwin'
@@ -35,7 +34,6 @@ pysocks>=1.7.1
 pyserial>=3.5
 h5py>=3.1.0
 pytest-shutil
-pyo>=1.0.3; platform_system == "Linux"
 #pynput requires pyobjc, psychopy requires a version less than 8, setting pyobjc to
 # a specific version prevents an endless dependency resolution loop.
 pyobjc==7.3; sys_platform == 'darwin'
@@ -68,7 +66,6 @@ pysocks>=1.7.1
 pyserial>=3.5
 h5py>=3.1.0
 pytest-shutil
-pyo>=1.0.3; platform_system == "Linux"
 airium>=0.1.0
 attrdict>=2.0.1
 attrdict3
@@ -87,9 +84,11 @@ pyglet==1.4.11 ; platform_system == "Windows"
 psychxr>=0.2.4rc2; platform_system == "Windows" and python_version <= "3.9"
 
 
+# Used for generating checkerboard in pattern reversal experiment
+stimupy
 
-
-## ~~ Docsbuild Requirements ~~ 
+## ~~ Docsbuild Requirements ~~
+setuptools  # brainflow imports pkg_resources at runtime; not included by default in Python 3.10+ envs
 recommonmark
 brainflow
 numpydoc
