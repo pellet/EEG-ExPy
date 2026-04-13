@@ -159,6 +159,25 @@ display, parabolic interpolation, and the default 8-block design is
 recommended.
 
 
+Longitudinal Tracking
+---------------------
+
+To monitor P100 latency over time — for example during nerve recovery or
+neuroplasticity studies — record multiple sessions using the same subject
+and session numbering scheme and compare the per-eye P100 across them.
+
+Before attributing a latency change to an intervention, establish a
+**baseline**: record at least 3–5 sessions over 1–2 weeks under the same
+conditions. This gives you the natural session-to-session variability for
+your setup and participant, so you can distinguish a real shift from
+measurement noise.
+
+The ``02r__pattern_reversal_longitudinal.py`` example notebook
+demonstrates the full workflow: discovering sessions, extracting per-eye
+P100 latencies with parabolic interpolation, printing a summary table,
+and plotting latency trends and interocular differences over time.
+
+
 Timing Notes
 ------------
 
