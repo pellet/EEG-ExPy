@@ -177,11 +177,6 @@ timing after the fact:
 - ``{save_fn}_frame_stats.json`` — per-frame intervals and dropped-frame
   count (150%-of-refresh threshold)
 
-During each trial loop, Python garbage collection is disabled and
-process priority is raised via ``psychopy.core.rush(True)`` to reduce
-the chance of a dropped frame during a critical flip. Both are reset
-between blocks.
-
 
 References
 ----------
