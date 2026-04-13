@@ -37,7 +37,7 @@ Running the Experiment
 
    eeg = EEG(device='cyton')
    experiment = VisualPatternReversalVEP(
-       display_refresh_rate=60,   # must match display and be divisible by 2; higher rates give better latency precision
+       display_refresh_rate=120,  # must match display and be divisible by 2; higher rates give better latency precision
        eeg=eeg,
        save_fn='my_vep_recording.csv',
        use_vr=True,               # False for monitor mode
