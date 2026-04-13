@@ -497,10 +497,6 @@ timestamps and their delta</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">{save_fn}_frame_stats.json</span></code> — per-frame intervals and dropped-frame
 count (150%-of-refresh threshold)</p></li>
 </ul>
-<p>During each trial loop, Python garbage collection is disabled and
-process priority is raised via <code class="docutils literal notranslate"><span class="pre">psychopy.core.rush(True)</span></code> to reduce
-the chance of a dropped frame during a critical flip. Both are reset
-between blocks.</p>
 </section>
 <section id="references">
 <h2>References<a class="headerlink" href="#references" title="Link to this heading"></a></h2>
