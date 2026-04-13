@@ -220,11 +220,12 @@
 </ul>
 </li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Visual Pattern Reversal VEP</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#running-the-experiment">Running the Experiment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#participant-preparation">Participant Preparation</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#stimulus-parameters">Stimulus Parameters</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#monitor-vs-vr">Monitor vs VR</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#electrode-placement">Electrode Placement</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#timing-notes">Timing Notes</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#running-the-experiment">Running the Experiment</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#api-reference">API Reference</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#references">References</a></li>
 </ul>
@@ -364,6 +365,37 @@ then POz. Fp1 and Fp2 are optional channels for detecting eye movement
 artefacts. We use monocular pattern reversal blocks and run the analysis
 pipeline to pull out the per-eye P100 latency and the interocular
 latency difference.</p>
+<p><strong>PR-VEP Experiment Notebook Examples:</strong></p>
+<section id="running-the-experiment">
+<h2>Running the Experiment<a class="headerlink" href="#running-the-experiment" title="Link to this heading"></a></h2>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">eegnb.devices.eeg</span><span class="w"> </span><span class="kn">import</span> <span class="n">EEG</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">eegnb.experiments.visual_vep</span><span class="w"> </span><span class="kn">import</span> <span class="n">VisualPatternReversalVEP</span>
+
+<span class="n">eeg</span> <span class="o">=</span> <span class="n">EEG</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="s1">&#39;cyton&#39;</span><span class="p">)</span>
+<span class="n">experiment</span> <span class="o">=</span> <span class="n">VisualPatternReversalVEP</span><span class="p">(</span>
+    <span class="n">display_refresh_rate</span><span class="o">=</span><span class="mi">60</span><span class="p">,</span>   <span class="c1"># must match display and be divisible by 2; higher rates give better latency precision</span>
+    <span class="n">eeg</span><span class="o">=</span><span class="n">eeg</span><span class="p">,</span>
+    <span class="n">save_fn</span><span class="o">=</span><span class="s1">&#39;my_vep_recording.csv&#39;</span><span class="p">,</span>
+    <span class="n">use_vr</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>               <span class="c1"># False for monitor mode</span>
+<span class="p">)</span>
+<span class="n">experiment</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+</pre></div>
+</div>
+</section>
+<section id="participant-preparation">
+<h2>Participant Preparation<a class="headerlink" href="#participant-preparation" title="Link to this heading"></a></h2>
+<p>The PR-VEP is sensitive to the optical quality of the retinal image.
+Participants who normally wear glasses or contact lenses <strong>must</strong> wear
+their corrective lenses during the test. Uncorrected refractive error
+blurs the checkerboard’s high spatial frequency edges, which attenuates
+the P100 amplitude and can increase its latency — mimicking a genuine
+neural conduction delay. This is especially important when comparing
+latencies between eyes or across sessions.</p>
+<p>ISCEV guidelines require that visual acuity be documented for each
+recording session. If a participant’s corrected acuity is worse than
+6/9 (20/30), note it alongside the data so that downstream analysis can
+account for it.</p>
+</section>
 <section id="stimulus-parameters">
 <h2>Stimulus Parameters<a class="headerlink" href="#stimulus-parameters" title="Link to this heading"></a></h2>
 <p>Parameters follow the ISCEV “large check” option <a class="reference internal" href="#odom2016" id="id1"><span>[Odom2016]</span></a>:</p>
@@ -443,22 +475,6 @@ count (150%-of-refresh threshold)</p></li>
 process priority is raised via <code class="docutils literal notranslate"><span class="pre">psychopy.core.rush(True)</span></code> to reduce
 the chance of a dropped frame during a critical flip. Both are reset
 between blocks.</p>
-</section>
-<section id="running-the-experiment">
-<h2>Running the Experiment<a class="headerlink" href="#running-the-experiment" title="Link to this heading"></a></h2>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">eegnb.devices.eeg</span><span class="w"> </span><span class="kn">import</span> <span class="n">EEG</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">eegnb.experiments.visual_vep</span><span class="w"> </span><span class="kn">import</span> <span class="n">VisualPatternReversalVEP</span>
-
-<span class="n">eeg</span> <span class="o">=</span> <span class="n">EEG</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="s1">&#39;cyton&#39;</span><span class="p">)</span>
-<span class="n">experiment</span> <span class="o">=</span> <span class="n">VisualPatternReversalVEP</span><span class="p">(</span>
-    <span class="n">display_refresh_rate</span><span class="o">=</span><span class="mi">60</span><span class="p">,</span>   <span class="c1"># must match display and be divisible by 2; higher rates give better latency precision</span>
-    <span class="n">eeg</span><span class="o">=</span><span class="n">eeg</span><span class="p">,</span>
-    <span class="n">save_fn</span><span class="o">=</span><span class="s1">&#39;my_vep_recording.csv&#39;</span><span class="p">,</span>
-    <span class="n">use_vr</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>               <span class="c1"># False for monitor mode</span>
-<span class="p">)</span>
-<span class="n">experiment</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
-</pre></div>
-</div>
 </section>
 <section id="api-reference">
 <h2>API Reference<a class="headerlink" href="#api-reference" title="Link to this heading"></a></h2>
