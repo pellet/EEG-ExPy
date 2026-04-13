@@ -152,15 +152,6 @@ the chance of a dropped frame during a critical flip. Both are reset
 between blocks.
 
 
-API Reference
--------------
-
-.. autoclass:: eegnb.experiments.visual_vep.VisualPatternReversalVEP
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-
 References
 ----------
 
