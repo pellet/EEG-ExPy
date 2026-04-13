@@ -225,6 +225,7 @@
 <li class="toctree-l2"><a class="reference internal" href="#stimulus-parameters">Stimulus Parameters</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#monitor-vs-vr">Monitor vs VR</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#electrode-placement">Electrode Placement</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#latency-resolution">Latency Resolution</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#timing-notes">Timing Notes</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#references">References</a></li>
 </ul>
@@ -406,8 +407,8 @@ account for it.</p>
 <li><p><strong>Fixation</strong>: Central red dot</p></li>
 <li><p><strong>Recording</strong>: Monocular, alternating left and right eye per block</p></li>
 </ul>
-<p>Four blocks of 50 seconds by default, giving ~100 reversals per eye per
-block.</p>
+<p>Eight blocks of 50 seconds by default, giving ~100 reversals per eye per
+block (400 per eye total).</p>
 <p>The experiment requires a display refresh rate that is divisible by two,
 since each reversal occupies exactly two frames. Any such refresh rate is
 supported — 60 Hz, 90 Hz, 120 Hz, 144 Hz, etc. A higher refresh rate
@@ -431,7 +432,7 @@ eye closure and no light leakage.</p></li>
 marker in place of <code class="docutils literal notranslate"><span class="pre">time.time()</span></code>. This cancels most of the
 output-side display latency — render queue, compositor buffering,
 scan-out, HMD persistence — on a per-frame basis, which matters for
-P100 latency where shifts of 10–20ms are meaningful.</p></li>
+P100 latency where even small shifts are clinically meaningful.</p></li>
 </ul>
 <p>In monitor mode the software marker is the only timing source, so any
 fixed display-pipeline latency has to be handled separately (see below).
@@ -453,6 +454,31 @@ for the OpenBCI Cyton is:</p>
 <li><p><strong>Fp1, Fp2</strong> — optional; placed on the forehead to record eye movement
 artefacts (EOG) for rejection during analysis</p></li>
 </ol>
+</section>
+<section id="latency-resolution">
+<h2>Latency Resolution<a class="headerlink" href="#latency-resolution" title="Link to this heading"></a></h2>
+<p>The precision of a P100 latency estimate depends on three factors:</p>
+<ol class="arabic simple">
+<li><p><strong>Display refresh rate</strong> — determines the worst-case stimulus timing
+jitter (see <em>Stimulus Parameters</em> above). At 120 Hz this is ~4.2 ms
+per frame.</p></li>
+<li><p><strong>EEG sampling rate</strong> — the Cyton samples at 250 Hz, giving 4 ms
+between samples. Without interpolation, the peak latency is locked to
+the nearest sample and cannot resolve shifts smaller than 4 ms.</p></li>
+<li><p><strong>Number of trials</strong> — averaging more reversals reduces noise in the
+ERP waveform, tightening the confidence interval around the peak
+estimate. The default is 8 blocks of 100 reversals (400 per eye).</p></li>
+</ol>
+<p>To achieve sub-sample precision the analysis pipeline uses <strong>parabolic
+interpolation</strong>: a parabola is fitted through the peak sample and its
+two neighbours, and the vertex of the fit is taken as the true peak
+location. At 250 Hz this brings effective resolution to ~0.5 ms — well
+below the sample interval. The interpolated peak finder is used by
+default in <code class="docutils literal notranslate"><span class="pre">vep_utils.plot_vep()</span></code>.</p>
+<p>For studies that require detecting latency shifts of 1–2 ms (e.g.
+within-subject longitudinal comparisons), the combination of 120 Hz
+display, parabolic interpolation, and the default 8-block design is
+recommended.</p>
 </section>
 <section id="timing-notes">
 <h2>Timing Notes<a class="headerlink" href="#timing-notes" title="Link to this heading"></a></h2>
