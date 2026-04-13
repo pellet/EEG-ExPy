@@ -22,6 +22,46 @@ pipeline to pull out the per-eye P100 latency and the interocular
 latency difference.
 
 
+**PR-VEP Experiment Notebook Examples:**
+
+.. include:: ../auto_examples/visual_vep/index.rst
+
+
+Running the Experiment
+----------------------
+
+.. code-block:: python
+
+   from eegnb.devices.eeg import EEG
+   from eegnb.experiments.visual_vep import VisualPatternReversalVEP
+
+   eeg = EEG(device='cyton')
+   experiment = VisualPatternReversalVEP(
+       display_refresh_rate=60,   # must match display and be divisible by 2; higher rates give better latency precision
+       eeg=eeg,
+       save_fn='my_vep_recording.csv',
+       use_vr=True,               # False for monitor mode
+   )
+   experiment.run()
+
+
+Participant Preparation
+-----------------------
+
+The PR-VEP is sensitive to the optical quality of the retinal image.
+Participants who normally wear glasses or contact lenses **must** wear
+their corrective lenses during the test. Uncorrected refractive error
+blurs the checkerboard's high spatial frequency edges, which attenuates
+the P100 amplitude and can increase its latency — mimicking a genuine
+neural conduction delay. This is especially important when comparing
+latencies between eyes or across sessions.
+
+ISCEV guidelines require that visual acuity be documented for each
+recording session. If a participant's corrected acuity is worse than
+6/9 (20/30), note it alongside the data so that downstream analysis can
+account for it.
+
+
 Stimulus Parameters
 -------------------
 
@@ -110,24 +150,6 @@ During each trial loop, Python garbage collection is disabled and
 process priority is raised via ``psychopy.core.rush(True)`` to reduce
 the chance of a dropped frame during a critical flip. Both are reset
 between blocks.
-
-
-Running the Experiment
-----------------------
-
-.. code-block:: python
-
-   from eegnb.devices.eeg import EEG
-   from eegnb.experiments.visual_vep import VisualPatternReversalVEP
-
-   eeg = EEG(device='cyton')
-   experiment = VisualPatternReversalVEP(
-       display_refresh_rate=60,   # must match display and be divisible by 2; higher rates give better latency precision
-       eeg=eeg,
-       save_fn='my_vep_recording.csv',
-       use_vr=True,               # False for monitor mode
-   )
-   experiment.run()
 
 
 API Reference
