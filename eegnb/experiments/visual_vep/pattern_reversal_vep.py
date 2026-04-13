@@ -14,7 +14,7 @@ QUEST_PPD = 20
 class VisualPatternReversalVEP(BlockExperiment):
 
     def __init__(self, display_refresh_rate: int, eeg: Optional[EEG] = None, save_fn=None,
-                 block_duration_seconds=50, block_trial_size: int=100, n_blocks: int=4, use_vr=False, use_fullscr=True):
+                 block_duration_seconds=50, block_trial_size: int=100, n_blocks: int=8, use_vr=False, use_fullscr=True):
 
         self.display_refresh_rate = display_refresh_rate
         soa=0.5

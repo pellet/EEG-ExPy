@@ -74,8 +74,8 @@ Parameters follow the ISCEV "large check" option [Odom2016]_:
 - **Fixation**: Central red dot
 - **Recording**: Monocular, alternating left and right eye per block
 
-Four blocks of 50 seconds by default, giving ~100 reversals per eye per
-block.
+Eight blocks of 50 seconds by default, giving ~100 reversals per eye per
+block (400 per eye total).
 
 The experiment requires a display refresh rate that is divisible by two,
 since each reversal occupies exactly two frames. Any such refresh rate is
@@ -103,7 +103,7 @@ Quest (VR) presentation via ``use_vr=True``.
   marker in place of ``time.time()``. This cancels most of the
   output-side display latency — render queue, compositor buffering,
   scan-out, HMD persistence — on a per-frame basis, which matters for
-  P100 latency where shifts of 10–20ms are meaningful.
+  P100 latency where even small shifts are clinically meaningful.
 
 In monitor mode the software marker is the only timing source, so any
 fixed display-pipeline latency has to be handled separately (see below).
@@ -126,6 +126,36 @@ for the OpenBCI Cyton is:
 3. **POz** — parieto-occipital midline; useful fallback or supplement
 4. **Fp1, Fp2** — optional; placed on the forehead to record eye movement
    artefacts (EOG) for rejection during analysis
+
+
+Latency Resolution
+------------------
+
+The precision of a P100 latency estimate depends on three factors:
+
+1. **Display refresh rate** — determines the worst-case stimulus timing
+   jitter (see *Stimulus Parameters* above). At 120 Hz this is ~4.2 ms
+   per frame.
+
+2. **EEG sampling rate** — the Cyton samples at 250 Hz, giving 4 ms
+   between samples. Without interpolation, the peak latency is locked to
+   the nearest sample and cannot resolve shifts smaller than 4 ms.
+
+3. **Number of trials** — averaging more reversals reduces noise in the
+   ERP waveform, tightening the confidence interval around the peak
+   estimate. The default is 8 blocks of 100 reversals (400 per eye).
+
+To achieve sub-sample precision the analysis pipeline uses **parabolic
+interpolation**: a parabola is fitted through the peak sample and its
+two neighbours, and the vertex of the fit is taken as the true peak
+location. At 250 Hz this brings effective resolution to ~0.5 ms — well
+below the sample interval. The interpolated peak finder is used by
+default in ``vep_utils.plot_vep()``.
+
+For studies that require detecting latency shifts of 1–2 ms (e.g.
+within-subject longitudinal comparisons), the combination of 120 Hz
+display, parabolic interpolation, and the default 8-block design is
+recommended.
 
 
 Timing Notes
