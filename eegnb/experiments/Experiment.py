@@ -153,7 +153,8 @@ class BaseExperiment(ABC):
         """
 
         # Splitting instruction text into lines
-        self.instruction_text = self.instruction_text % self.duration
+        if '%s' in self.instruction_text:
+            self.instruction_text = self.instruction_text % self.duration
 
         # Disabling the cursor during display of instructions
         self.window.mouseVisible = False
@@ -342,7 +343,7 @@ class BaseExperiment(ABC):
         print(f"  Mean: {mean_ms:.2f}ms  Std: {std_ms:.2f}ms  Max: {max_ms:.2f}ms")
 
         if self.save_fn:
-            stats_path = self.save_fn.replace('.csv', '_frame_stats.json')
+            stats_path = self.save_fn.with_name(self.save_fn.stem + '_frame_stats.json')
             with open(stats_path, 'w') as f:
                 json.dump({
                     'total_frames': total,

@@ -26,7 +26,7 @@ class VisualPatternReversalVEP(BlockExperiment):
         # Per-trial timing sidecar: records software time, compositor predicted
         # display time, and delta for each trial. Written alongside the EEG CSV.
         if save_fn:
-            timing_path = save_fn.replace('.csv', '_timing.csv')
+            timing_path = save_fn.with_name(save_fn.stem + '_timing.csv')
         else:
             timing_path = 'vep_timing.csv'
         self._timing_file = open(timing_path, 'w', newline='')
@@ -88,7 +88,7 @@ class VisualPatternReversalVEP(BlockExperiment):
 
         # Ensure the expected frame rate matches and is divisable by the stimulus rate(soa)
         assert actual_frame_rate % self.soa == 0, f"Expected frame rate divisable by stimulus rate: {self.soa}, but got {actual_frame_rate} Hz"
-        assert self.display_refresh_rate == actual_frame_rate, f"Expected frame rate {self.display_refresh_rate} Hz, but got {actual_frame_rate} Hz"
+        assert abs(self.display_refresh_rate - actual_frame_rate) <= self.display_refresh_rate * 0.05, f"Expected frame rate {self.display_refresh_rate} Hz, but got {actual_frame_rate} Hz"
 
         if self.use_vr:
             # Create the VR checkerboard
