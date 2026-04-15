@@ -35,13 +35,15 @@ import numpy as np
 import warnings
 warnings.filterwarnings('ignore')
 import matplotlib.pyplot as plt
+import pandas as pd
+from glob import glob
+from pathlib import Path
 
 from mne import Epochs, find_events
 
+from eegnb import get_recording_dir
 from eegnb.analysis.utils import load_data
-from eegnb.analysis import vep_utils
 from eegnb.analysis.vep_utils import plot_vep
-from eegnb.datasets import fetch_dataset
 
 # sphinx_gallery_thumbnail_number = 3
 
@@ -53,8 +55,7 @@ from eegnb.datasets import fetch_dataset
 # timestamps so that t=0 corresponds to actual photon delivery.
 #
 
-def windows_quest3s_usb_unicorn_lag():
-    return 0.0368
+windows_cyton_lag = 0.0368
 
 ###################################################################################################
 # Load Data
@@ -63,15 +64,15 @@ def windows_quest3s_usb_unicorn_lag():
 # Download the PR-VEP example dataset if it is not already present locally.
 #
 
-eegnb_data_path = os.path.join(os.path.expanduser('~/'), '.eegnb', 'data')
-prvep_data_path = os.path.join(eegnb_data_path, 'visual-PRVEP', 'eegnb_examples')
-
-if not os.path.isdir(prvep_data_path):
-    fetch_dataset(data_dir=eegnb_data_path, experiment='visual-PRVEP', site='eegnb_examples')
-
 raw = load_data(subject=1, session=0,
-                experiment='visual-PRVEP', site='eegnb_examples', device_name='unicorn',
-                data_dir=eegnb_data_path)
+                experiment='visual-PRVEP', site='acer-34-predator_100Hz_mark-iv', device_name='cyton',
+                data_dir=os.getenv("DATA_DIR"))
+
+session_dir = get_recording_dir('cyton', 'visual-PRVEP', subject_id=1, session_nb=0,
+                                site='acer-34-predator_100Hz_mark-iv',
+                                data_dir=os.getenv("DATA_DIR"))
+timing_files = glob(str(session_dir / '*_timing.csv'))
+timing_df = pd.concat([pd.read_csv(f) for f in timing_files], ignore_index=True)
 
 ###################################################################################################
 # Visualize the power spectrum
@@ -102,9 +103,10 @@ event_id = {'left_eye': 1, 'right_eye': 2}
 epochs = Epochs(raw, events=events, event_id=event_id,
                 tmin=-0.1, tmax=0.4, baseline=None,
                 reject={'eeg': 65e-6}, preload=True,
-                verbose=False, picks=[7])
+                verbose=False, picks=[7],
+                metadata=timing_df)
 
-epochs.shift_time(-windows_quest3s_usb_unicorn_lag())
+epochs.shift_time(-windows_cyton_lag)
 print('sample drop %: ', (1 - len(epochs.events)/len(events)) * 100)
 
 ###################################################################################################

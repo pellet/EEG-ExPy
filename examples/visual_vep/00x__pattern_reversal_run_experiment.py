@@ -24,7 +24,7 @@ photon timestamps for improved timing accuracy.
 
 from eegnb.devices import CYTON_CONFIG_GAIN_4X
 import platform
-from os import path, getenv
+from os import getenv
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -79,9 +79,9 @@ else:
     display = "acer-34-predator_{}Hz".format(refresh_rate)
 
 site="{}_{}".format(display, montage_type)
-data_dir = path.join(path.expanduser("~/"), getenv("DATA_DIR", ".eegnb"))
+data_dir = getenv("DATA_DIR")
 save_fn = generate_save_fn(eeg_device.device_name,
-                           experiment="block_pattern-reversal",
+                           experiment="visual-PRVEP",
                            site=site,
                            subject_id=subject_id,
                            session_nb=session_nb,

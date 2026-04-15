@@ -32,7 +32,7 @@ def _get_recording_dir(
     """A subroutine of get_recording_dir that accepts subject and session as strings"""
     # folder structure is /DATA_DIR/experiment/board_name/site/subject/session/*.csv
     recording_dir = (
-        Path(data_dir) / experiment / site / board_name / subject_str / session_str
+        Path(data_dir or DATA_DIR) / experiment / site / board_name / subject_str / session_str
     )
 
     # check if directory exists, if not, make the directory
