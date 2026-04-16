@@ -17,9 +17,13 @@ def get_peak(erp_name, evoked_potential, peak_time_min, peak_time_max, mode):
     location between samples, giving ~0.5 ms precision at 250 Hz.
     """
     # Step 1: find the sample-level peak via MNE
-    peak_channel, sample_latency, _ = evoked_potential.get_peak(
-        tmin=peak_time_min, tmax=peak_time_max,
-        mode=mode, return_amplitude=True)
+    try:
+        peak_channel, sample_latency, _ = evoked_potential.get_peak(
+            tmin=peak_time_min, tmax=peak_time_max,
+            mode=mode, return_amplitude=True)
+    except ValueError as e:
+        print(f'{erp_name}: could not find peak ({e})')
+        return None
 
     # Step 2: parabolic interpolation around the peak sample
     ch_idx = evoked_potential.ch_names.index(peak_channel)
@@ -60,17 +64,20 @@ def plot_vep(evoked_occipital: Evoked):
                                         peak_time_max=0.075 + n75_peak_width,
                                         mode='neg')
     p100_peak_width = 0.1
-    p100_latency = get_peak(erp_name='P100',
-                                         evoked_potential=evoked_occipital,
-                                         peak_time_min=n75_latency,
-                                         peak_time_max=n75_latency + p100_peak_width,
-                                         mode='pos')
+    p100_latency = None
+    if n75_latency is not None:
+        p100_latency = get_peak(erp_name='P100',
+                                             evoked_potential=evoked_occipital,
+                                             peak_time_min=n75_latency,
+                                             peak_time_max=n75_latency + p100_peak_width,
+                                             mode='pos')
     n145_peak_width = 0.12
-    n145_latency = get_peak(erp_name='N145',
-                                         evoked_potential=evoked_occipital,
-                                         peak_time_min=p100_latency,
-                                         peak_time_max=p100_latency + n145_peak_width,
-                                         mode='neg')
+    if p100_latency is not None:
+        get_peak(erp_name='N145',
+                                             evoked_potential=evoked_occipital,
+                                             peak_time_min=p100_latency,
+                                             peak_time_max=p100_latency + n145_peak_width,
+                                             mode='neg')
 
     plt = evoked_occipital.plot(spatial_colors=True, show=False)
 
@@ -82,7 +89,8 @@ def plot_vep(evoked_occipital: Evoked):
     ax.axvline(x=0, color='r', linestyle='--', label='stim')
     ax.axvline(x=0.100, color='r', linestyle='--', label='100 ms')
     #ax.axvline(x=n75_latency, color='g', linestyle='-', label='n75')
-    ax.axvline(x=p100_latency, color='g', linestyle='-', label='p100')
+    if p100_latency is not None:
+        ax.axvline(x=p100_latency, color='g', linestyle='-', label='p100')
     #ax.axvline(x=n145_latency, color='g', linestyle='-', label='n145')
 
     # Add a legend to each subplot

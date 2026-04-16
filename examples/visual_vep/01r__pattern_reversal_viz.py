@@ -9,11 +9,11 @@ An animation of a checkerboard reversal is shown (the checkerboard squares'
 colours are toggled once each half a second).
 
 The data used is the first subject and first session of the eeg-expy PR-VEP
-example dataset, recorded using a g.tec Unicorn EEG headset with electrodes
-placed at occipital locations (O1, Iz, O2, PO1, PO2) fitted around a Meta
-Quest 3S headset. The session used the Meta Quest 3S linked with a PC to
-display the checkerboard reversal animation in VR, alternating monocular
-stimulation between left and right eye across blocks.
+example dataset, recorded using an OpenBCI Cyton EEG headset with electrodes
+placed at (Fp1, Fp2, C3, C4, P7, P8, O1, O2) fitted around a Meta
+Quest 2 headset. The session used the Meta Quest 2 linked with a PC to
+display the checkerboard reversal animation in VR at 120 Hz, alternating
+monocular stimulation between left and right eye across blocks.
 
 We first use ``fetch_dataset`` to obtain the data files. If the files are not
 already present in the local data directory they will be downloaded from the
@@ -31,9 +31,14 @@ between eyes, and the interocular difference wave.
 # -----
 
 import os
+import sys
 import numpy as np
 import warnings
 warnings.filterwarnings('ignore')
+
+# Ensure Unicode characters (e.g. μ) print correctly on Windows terminals
+if sys.stdout.encoding and sys.stdout.encoding.lower() != 'utf-8':
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 import matplotlib.pyplot as plt
 import pandas as pd
 from glob import glob
@@ -64,12 +69,12 @@ windows_cyton_lag = 0.0368
 # Download the PR-VEP example dataset if it is not already present locally.
 #
 
-raw = load_data(subject=1, session=0,
-                experiment='visual-PRVEP', site='acer-34-predator_100Hz_mark-iv', device_name='cyton',
+raw = load_data(subject=0, session=0,
+                experiment='visual-PRVEP', site='quest-2_120Hz_mark-iv', device_name='cyton',
                 data_dir=os.getenv("DATA_DIR"))
 
-session_dir = get_recording_dir('cyton', 'visual-PRVEP', subject_id=1, session_nb=0,
-                                site='acer-34-predator_100Hz_mark-iv',
+session_dir = get_recording_dir('cyton', 'visual-PRVEP', subject_id=0, session_nb=0,
+                                site='quest-2_120Hz_mark-iv',
                                 data_dir=os.getenv("DATA_DIR"))
 timing_files = glob(str(session_dir / '*_timing.csv'))
 timing_df = pd.concat([pd.read_csv(f) for f in timing_files], ignore_index=True)
@@ -101,9 +106,9 @@ events = find_events(raw)
 event_id = {'left_eye': 1, 'right_eye': 2}
 
 epochs = Epochs(raw, events=events, event_id=event_id,
-                tmin=-0.1, tmax=0.4, baseline=None,
+                tmin=-0.1, tmax=0.4, baseline=(None, 0),
                 reject={'eeg': 65e-6}, preload=True,
-                verbose=False, picks=[7],
+                verbose=False, picks=['POz', 'Oz'],
                 metadata=timing_df)
 
 epochs.shift_time(-windows_cyton_lag)
@@ -126,8 +131,8 @@ plot_vep(evoked_potentials_right)
 # Compare evoked potentials by eye
 # ---------------------------------
 
-evoked_left = epochs['left_eye'].average(picks=['Oz'])
-evoked_right = epochs['right_eye'].average(picks=['Oz'])
+evoked_left = epochs['left_eye'].average(picks=['POz'])
+evoked_right = epochs['right_eye'].average(picks=['POz'])
 
 fig, ax = plt.subplots(figsize=(10, 6))
 times = evoked_left.times * 1000
