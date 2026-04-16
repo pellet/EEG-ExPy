@@ -54,7 +54,7 @@ config = CYTON_CONFIG_GAIN_4X
 
 # Electrode montage type: "cap" or "mark-iv"
 montage_type = "mark-iv"
-ch_names = ["Fp1", "Fp2", "C1", "C2", "O1", "O2", "POz", "Oz"]
+ch_names = ["Fp1", "Fp2", "C1", "C2", "POz", "Oz", "O1", "O2"]
 
 # Subject and session identifiers
 subject_id = 0
