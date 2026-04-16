@@ -65,7 +65,7 @@ session_nb = 0
 # ---------------------
 #
 # Start EEG device based on configuration above.
-eeg_device = EEG(device, serial_port, ch_names, config)
+eeg_device = EEG(device, serial_port=serial_port, ch_names=ch_names, config=config)
 #eeg_device = EEG(device="synthetic")
 
 ###################################################################################################
