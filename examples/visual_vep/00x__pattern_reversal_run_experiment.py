@@ -41,7 +41,7 @@ from eegnb.experiments.visual_vep import VisualPatternReversalVEP
 #
 
 # Display: set use_vr=True for Meta Quest, False for monitor
-use_vr = False
+use_vr = True
 
 # Device: "cyton", "unicorn", "muse2", etc.
 device = "cyton"
@@ -57,7 +57,7 @@ montage_type = "mark-iv"
 ch_names = ["Fp1", "Fp2", "C1", "C2", "O1", "O2", "POz", "Oz"]
 
 # Subject and session identifiers
-subject_id = 1
+subject_id = 0
 session_nb = 0
 
 ###################################################################################################
@@ -66,6 +66,7 @@ session_nb = 0
 #
 # Start EEG device based on configuration above.
 eeg_device = EEG(device, serial_port, ch_names, config)
+#eeg_device = EEG(device="synthetic")
 
 ###################################################################################################
 # Display and save path setup

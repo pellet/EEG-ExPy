@@ -44,7 +44,7 @@ class BlockExperiment(BaseExperiment, ABC):
         
         # Initialize BaseExperiment with total trials
         # Pass None for duration if block_duration is None to ignore time spent in instructions
-        super().__init__(exp_name, block_duration, eeg, save_fn, total_trials, iti, soa, jitter, use_vr, use_fullscr, stereoscopic)
+        super().__init__(exp_name, block_duration, eeg, save_fn, total_trials, iti, soa, jitter, use_vr, use_fullscr, stereoscopic=stereoscopic)
         
         # Block-specific parameters
         self.block_duration = block_duration

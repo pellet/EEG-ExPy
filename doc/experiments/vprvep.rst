@@ -99,7 +99,7 @@ Quest (VR) presentation via ``use_vr=True``.
 - Each eye sees the checkerboard independently, so there is no manual
   eye closure and no light leakage.
 - The OpenXR compositor supplies a per-frame predicted photon time
-  (``tracking_state.headPose.time``), which is attached to the EEG
+  (``tracking_state.headPose.timeInSeconds``), which is attached to the EEG
   marker in place of ``time.time()``. This cancels most of the
   output-side display latency — render queue, compositor buffering,
   scan-out, HMD persistence — on a per-frame basis, which matters for

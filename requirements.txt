@@ -52,7 +52,8 @@ click
 # a specific version prevents an endless dependency resolution loop.
 pyobjc==7.3; sys_platform == 'darwin'
 #upgrade psychopy to use newer wxpython dependency which is prebuilt for m1 support.
-psychopy==2025.1.1
+# Forked with a fix for Rift stereo projection matrix crash under strict-ndim psychxr.
+psychopy @ git+https://github.com/pellet/psychopy.git@v2026.2.0-rift-fix
 #needed for macos arm sound support: https://github.com/psychopy/psychopy-sounddevice/pull/4
 -e psychopy-sounddevice
 ffpyplayer==4.5.2 # 4.5.3 fails to build as wheel.
@@ -80,16 +81,22 @@ pywinhook @ https://github.com/ActivityWatch/wheels/raw/master/pywinhook/pyWinho
 # See issue: https://github.com/psychopy/psychopy/issues/2876
 pyglet==1.4.11 ; platform_system == "Windows"
 
-# Oculus/Quest VR support - currently only supported on Windows and
-# <= 3.9, otherwise will need Oculus PC SDK to build wheel.
-psychxr>=0.2.4rc2; platform_system == "Windows" and python_version <= "3.9"
+# Oculus/Quest VR support - prebuilt Windows wheels from the fork's GitHub
+# release (0.2.6rc1 adds Python 3.10 support). PyPI only has 0.2.4 (<= 3.9).
+psychxr @ https://github.com/pellet/psychxr/releases/download/v0.2.6rc1/psychxr-0.2.6rc1-cp38-cp38-win_amd64.whl ; platform_system == "Windows" and python_version == "3.8"
+psychxr @ https://github.com/pellet/psychxr/releases/download/v0.2.6rc1/psychxr-0.2.6rc1-cp39-cp39-win_amd64.whl ; platform_system == "Windows" and python_version == "3.9"
+psychxr @ https://github.com/pellet/psychxr/releases/download/v0.2.6rc1/psychxr-0.2.6rc1-cp310-cp310-win_amd64.whl ; platform_system == "Windows" and python_version == "3.10"
 
+# PsychoPy/PsychXR does not yet officially support Python > 3.10; the wheels below are experimental.
+psychxr @ https://github.com/pellet/psychxr/releases/download/v0.2.6rc1/psychxr-0.2.6rc1-cp311-cp311-win_amd64.whl ; platform_system == "Windows" and python_version == "3.11"
+psychxr @ https://github.com/pellet/psychxr/releases/download/v0.2.6rc1/psychxr-0.2.6rc1-cp312-cp312-win_amd64.whl ; platform_system == "Windows" and python_version == "3.12"
+psychxr @ https://github.com/pellet/psychxr/releases/download/v0.2.6rc1/psychxr-0.2.6rc1-cp313-cp313-win_amd64.whl ; platform_system == "Windows" and python_version == "3.13"
 
 # Used for generating checkerboard in pattern reversal experiment
 stimupy
 
 ## ~~ Docsbuild Requirements ~~
-setuptools  # brainflow imports pkg_resources at runtime; not included by default in Python 3.10+ envs
+setuptools<81  # brainflow imports pkg_resources at runtime; setuptools 81 deprecated it and 82 removed it
 python-dotenv
 recommonmark
 brainflow

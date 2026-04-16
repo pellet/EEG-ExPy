@@ -254,7 +254,7 @@ class BaseExperiment(ABC):
             # More accurate than time() + fixed lag constant — varies per frame
             # based on compositor load. Stored so present_stimulus() can use it
             # as the EEG marker timestamp.
-            self.predicted_display_time = tracking_state.headPose.time
+            self.predicted_display_time = tracking_state.headPose.timeInSeconds
         present_stimulus()
 
     def _clear_user_input(self):
