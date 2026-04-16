@@ -22,14 +22,13 @@ photon timestamps for improved timing accuracy.
 #
 # Imports
 
-from eegnb.devices import CYTON_CONFIG_GAIN_4X
 import platform
 from os import getenv
 from dotenv import load_dotenv
 load_dotenv()
 
 from eegnb import generate_save_fn
-from eegnb.devices import CYTON_CONFIG_GAIN_12X
+from eegnb.devices import CYTON_CONFIG_GAIN_4X
 from eegnb.devices.eeg import EEG
 from eegnb.experiments.visual_vep import VisualPatternReversalVEP
 

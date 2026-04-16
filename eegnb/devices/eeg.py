@@ -412,6 +412,17 @@ class EEG:
         eeg_data = data[:, BoardShim.get_eeg_channels(self.brainflow_id)]
         timestamps = data[:, BoardShim.get_timestamp_channel(self.brainflow_id)]
 
+        # BrainFlow scales Cyton data assuming 24× gain. If a different gain was
+        # configured via config_board, correct the scaling here.
+        # Config string format: x{ch}0{gain_code}0110X  (gain_code: 0=1×,1=2×,2=4×,3=6×,4=12×,5=24×)
+        if self.config and 'cyton' in self.device_name:
+            gain_multipliers = {0: 1, 1: 2, 2: 4, 3: 6, 4: 12, 5: 24}
+            brainflow_assumed_gain = 24
+            gain_code = int(self.config[3])  # 4th char of first command "x{ch}0{G}..."
+            actual_gain = gain_multipliers.get(gain_code, brainflow_assumed_gain)
+            if actual_gain != brainflow_assumed_gain:
+                eeg_data = eeg_data * (actual_gain / brainflow_assumed_gain)
+
         return ch_names, eeg_data, timestamps
 
     def _brainflow_push_sample(self, marker):

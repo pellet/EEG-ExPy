@@ -104,7 +104,7 @@ SAMPLE_FREQS = {
 #   S1 = SRB1 connection (0=disconnected)
 #
 # Build a config string by joining per-channel strings — applied with
-# EEG(device='cyton', config=CYTON_CONFIG_GAIN_12X).
+# EEG(device='cyton', config=CYTON_CONFIG_GAIN_4X).
 
 def _cyton_ch_config(gain_code: int, n_channels: int = 8) -> str:
     """Build a Cyton channel-settings string for all channels.
@@ -116,7 +116,7 @@ def _cyton_ch_config(gain_code: int, n_channels: int = 8) -> str:
     Returns:
         Config string ready to pass to ``EEG(config=...)``.
     """
-    return "".join(f"x{ch}{gain_code}0110X" for ch in range(1, n_channels + 1))
+    return "".join(f"x{ch}0{gain_code}0110X" for ch in range(1, n_channels + 1))
 
 # Standard gain presets — normal EEG input, bias enabled, SRB2 on, SRB1 off.
 CYTON_CONFIG_GAIN_1X  = _cyton_ch_config(0)   # 1× (for strong signals / testing)
