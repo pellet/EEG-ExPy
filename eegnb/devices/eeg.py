@@ -333,11 +333,14 @@ class EEG:
         if self.config:
             # For Cyton boards, split config string by 'X' delimiter and apply each setting
             if 'cyton' in self.device_name:
-                config_settings = self.config.split('X')
+                config_settings = [s for s in self.config.split('X') if s]
                 for setting in config_settings:
-                    self.board.config_board(setting + 'X')
+                    cmd = setting + 'X'
+                    response = self.board.config_board(cmd)
+                    print(f"[cyton config] {cmd} -> {response!r}")
             else:
-                self.board.config_board(self.config)
+                response = self.board.config_board(self.config)
+                print(f"[config_board] {self.config!r} -> {response!r}")
 
     def _start_brainflow(self):
         # only start stream if non exists
@@ -414,14 +417,14 @@ class EEG:
 
         # BrainFlow scales Cyton data assuming 24× gain. If a different gain was
         # configured via config_board, correct the scaling here.
-        # Config string format: x{ch}0{gain_code}0110X  (gain_code: 0=1×,1=2×,2=4×,3=6×,4=12×,5=24×)
+        # Config string format: x{ch}0{gain_code}0110X  (gain_code: 0=1×,1=2×,2=4×,3=6×,4=8×,5=12×,6=24×)
         if self.config and 'cyton' in self.device_name:
-            gain_multipliers = {0: 1, 1: 2, 2: 4, 3: 6, 4: 12, 5: 24}
+            gain_multipliers = {0: 1, 1: 2, 2: 4, 3: 6, 4: 8, 5: 12, 6: 24}
             brainflow_assumed_gain = 24
             gain_code = int(self.config[3])  # 4th char of first command "x{ch}0{G}..."
             actual_gain = gain_multipliers.get(gain_code, brainflow_assumed_gain)
             if actual_gain != brainflow_assumed_gain:
-                eeg_data = eeg_data * (actual_gain / brainflow_assumed_gain)
+                eeg_data = eeg_data * (brainflow_assumed_gain / actual_gain)
 
         return ch_names, eeg_data, timestamps
 

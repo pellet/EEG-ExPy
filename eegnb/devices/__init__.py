@@ -3,6 +3,7 @@ from eegnb.devices.utils import (  # noqa: F401
     CYTON_CONFIG_GAIN_2X,
     CYTON_CONFIG_GAIN_4X,
     CYTON_CONFIG_GAIN_6X,
+    CYTON_CONFIG_GAIN_8X,
     CYTON_CONFIG_GAIN_12X,
     CYTON_CONFIG_GAIN_24X,
 )

@@ -97,7 +97,7 @@ SAMPLE_FREQS = {
 # Each channel command has the format:  x N P G I B S1 S2 X
 #   N  = channel number (1-8)
 #   P  = power (0=ON, 1=OFF)
-#   G  = gain  (0=1×, 1=2×, 2=4×, 3=6×, 4=12×, 5=24×)
+#   G  = gain  (0=1×, 1=2×, 2=4×, 3=6×, 4=8×, 5=12×, 6=24×)
 #   I  = input type (0=normal EEG, 1=shorted, ...)
 #   B  = include in BIAS derivation (1=yes)
 #   S2 = SRB2 connection (1=connected)
@@ -110,7 +110,7 @@ def _cyton_ch_config(gain_code: int, n_channels: int = 8) -> str:
     """Build a Cyton channel-settings string for all channels.
 
     Args:
-        gain_code: BrainFlow gain code (0=1×, 1=2×, 2=4×, 3=6×, 4=12×, 5=24×).
+        gain_code: ADS1299 gain code (0=1×, 1=2×, 2=4×, 3=6×, 4=8×, 5=12×, 6=24×).
         n_channels: Number of channels to configure (default 8 for standard Cyton).
 
     Returns:
@@ -121,10 +121,11 @@ def _cyton_ch_config(gain_code: int, n_channels: int = 8) -> str:
 # Standard gain presets — normal EEG input, bias enabled, SRB2 on, SRB1 off.
 CYTON_CONFIG_GAIN_1X  = _cyton_ch_config(0)   # 1× (for strong signals / testing)
 CYTON_CONFIG_GAIN_2X  = _cyton_ch_config(1)   # 2×
-CYTON_CONFIG_GAIN_4X  = _cyton_ch_config(2)   # 4×
+CYTON_CONFIG_GAIN_4X  = _cyton_ch_config(2)   # 4×  - for Thinkpulse electrodes
 CYTON_CONFIG_GAIN_6X  = _cyton_ch_config(3)   # 6×
-CYTON_CONFIG_GAIN_12X = _cyton_ch_config(4)   # 12× — good general-purpose EEG config
-CYTON_CONFIG_GAIN_24X = _cyton_ch_config(5)   # 24× — for very quiet environments
+CYTON_CONFIG_GAIN_8X  = _cyton_ch_config(4)   # 8×
+CYTON_CONFIG_GAIN_12X = _cyton_ch_config(5)   # 12× — good general-purpose EEG config
+CYTON_CONFIG_GAIN_24X = _cyton_ch_config(6)   # 24× — default gain
 
 
 def create_stim_array(timestamps, markers):
