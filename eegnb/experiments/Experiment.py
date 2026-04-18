@@ -115,6 +115,23 @@ class BaseExperiment(ABC):
         """
         self.window.flip()
 
+    def present_soa(self, idx: int):
+        """
+        Method called each frame during the SOA wait (stimulus-on period between trial transitions).
+
+        VR compositors require continuous frame submission (~120 Hz) or they emit
+        "failed to meet deadline" warnings and force half-rate reprojection. The default
+        implementation just flips; VR-capable subclasses should override to redraw the
+        stimulus for trial `idx` without side effects (no EEG markers, no timing rows).
+
+        A bare window.flip() submits a stale/undefined frame and is not sufficient for
+        Quest / OpenXR compositors under load.
+
+        idx : Trial index of the most recently presented stimulus — same value that was
+              passed to the preceding present_stimulus call.
+        """
+        self.window.flip()
+
     def setup(self, instructions=True):
         # Setting up Graphics
         self.window = (
@@ -280,6 +297,14 @@ class BaseExperiment(ABC):
 
         """
 
+        if self.use_vr and type(self).present_soa is BaseExperiment.present_soa:
+            raise NotImplementedError(
+                f"{type(self).__name__} uses VR but does not override present_soa(idx). "
+                "psychxr does not honor setAutoDraw, and the VR compositor requires per-frame "
+                "redraws during the SOA wait; the default flip-only implementation will blank "
+                "the stimulus after one frame. Override present_soa(idx) to redraw your stimulus."
+            )
+
         def iti_with_jitter():
             return self.iti + np.random.rand() * self.jitter
 
@@ -310,6 +335,10 @@ class BaseExperiment(ABC):
                     # Stimulus presentation overwritten by specific experiment
                     self._draw(lambda: self.present_stimulus(current_trial))
                     rendering_trial = current_trial
+                else:
+                    # Keep submitting frames during SOA wait — VR compositor
+                    # drops to half-rate if we stall between reversals.
+                    self._draw(lambda: self.present_soa(current_trial))
             else:
                 self._draw(lambda: self.present_iti())
 

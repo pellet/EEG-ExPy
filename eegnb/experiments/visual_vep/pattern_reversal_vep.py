@@ -207,7 +207,10 @@ class VisualPatternReversalVEP(BlockExperiment):
         self.window.flip()
 
     def present_stimulus(self, idx: int):
-        # Get the label of the trial
+        self._draw_frame(idx)
+        self._push_marker(idx)
+
+    def _draw_frame(self, idx: int):
         trial_idx = self.current_block_index * self.block_trial_size + idx
         label = self.parameter[trial_idx]
 
@@ -222,7 +225,7 @@ class VisualPatternReversalVEP(BlockExperiment):
         else:
             self.black_background.draw()
             display = self.stim['monoscopic']
-            
+
         checkerboard_frame = idx % 2
         display['checkerboards'][checkerboard_frame].draw()
         display['fixation'].draw()
@@ -239,6 +242,10 @@ class VisualPatternReversalVEP(BlockExperiment):
 
         self.window.flip()
 
+    def _push_marker(self, idx: int):
+        trial_idx = self.current_block_index * self.block_trial_size + idx
+        label = self.parameter[trial_idx]
+
         # Use compositor-reported predicted display time when available (VR path).
         # Falls back to time() for monitor path — apply hardware lag offset in analysis.
         software_time = time()
@@ -248,16 +255,18 @@ class VisualPatternReversalVEP(BlockExperiment):
         else:
             eeg_timestamp = software_time
 
-        # Pushing the sample to the EEG
         marker = self.markernames[label]
         self.eeg.push_sample(marker=marker, timestamp=eeg_timestamp)
 
-        # Log per-trial timing metadata for post-hoc validation
-        trial_idx = self.current_block_index * self.block_trial_size + idx
         delta_ms = (predicted_display_time - software_time) * 1000 if predicted_display_time else None
         self._timing_writer.writerow(
             [trial_idx, software_time, predicted_display_time, delta_ms, self.use_vr]
         )
+
+    def present_soa(self, idx: int):
+        # Redraw the current checkerboard each frame during the SOA wait so the
+        # VR compositor stays fed (~120 Hz). No marker push / timing row.
+        self._draw_frame(idx)
 
     def __del__(self):
         if hasattr(self, '_timing_file') and not self._timing_file.closed:
