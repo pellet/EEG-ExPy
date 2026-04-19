@@ -684,13 +684,15 @@ class EEG:
 
 
 
-    def push_sample(self, marker, timestamp, marker_name=None):
+    def push_sample(self, marker, timestamp=None, marker_name=None):
         """
         Universal method for pushing a marker and its timestamp to store alongside the EEG data.
 
         Parameters:
             marker (int): marker number for the stimuli being presented.
-            timestamp (float): timestamp of stimulus onset from time.time() function.
+            timestamp (float, optional): timestamp of stimulus onset from time.time() function.
+                Not used by the BrainFlow backend (which records the board's current sample
+                timestamp instead). Required by muselsl and kernelflow backends.
         """
         if self.backend == "brainflow":
             self._brainflow_push_sample(marker=marker)

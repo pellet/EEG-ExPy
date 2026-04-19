@@ -1,4 +1,4 @@
-﻿from time import time
+from time import time
 import csv
 import os
 import numpy as np
@@ -246,18 +246,14 @@ class VisualPatternReversalVEP(BlockExperiment):
         trial_idx = self.current_block_index * self.block_trial_size + idx
         label = self.parameter[trial_idx]
 
-        # Use compositor-reported predicted display time when available (VR path).
-        # Falls back to time() for monitor path — apply hardware lag offset in analysis.
         software_time = time()
         predicted_display_time = getattr(self, 'predicted_display_time', None)
-        if predicted_display_time is not None:
-            eeg_timestamp = predicted_display_time
-        else:
-            eeg_timestamp = software_time
 
         marker = self.markernames[label]
-        self.eeg.push_sample(marker=marker, timestamp=eeg_timestamp)
+        self.eeg.push_sample(marker=marker)
 
+        # Record predicted_display_time in the timing sidecar — analysis
+        # uses per-trial variation around the mean for compositor-jitter correction.
         delta_ms = (predicted_display_time - software_time) * 1000 if predicted_display_time else None
         self._timing_writer.writerow(
             [trial_idx, software_time, predicted_display_time, delta_ms, self.use_vr]

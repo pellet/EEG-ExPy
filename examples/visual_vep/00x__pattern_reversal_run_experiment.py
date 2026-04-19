@@ -49,15 +49,16 @@ device = "cyton"
 serial_port = "COM3"
 
 # Config: Only needed for Thinkpulse active electrodes, otherwise leave as None.
-config = CYTON_CONFIG_GAIN_4X
+config = None #CYTON_CONFIG_GAIN_4X
 
 # Electrode montage type: "cap" or "mark-iv"
-montage_type = "mark-iv"
-ch_names = ["Fp1", "Fp2", "C1", "C2", "POz", "Oz", "O1", "O2"]
+montage_type = "cap" #"mark-iv"
+# Ground Fpz, Ref M1.
+ch_names = ["Fp1", "Fp2", "T5", "T6", "O1", "O2", "Oz", "M2"]
 
 # Subject and session identifiers
 subject_id = 0
-session_nb = 0
+session_nb = 2
 
 ###################################################################################################
 # Initiate EEG device
