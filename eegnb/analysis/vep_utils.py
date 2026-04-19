@@ -57,48 +57,23 @@ def get_peak(erp_name, evoked_potential, peak_time_min, peak_time_max, mode):
 
 
 def plot_vep(evoked_occipital: Evoked):
-    n75_peak_width = 0.05
-    n75_latency = get_peak(erp_name='N75',
-                                        evoked_potential=evoked_occipital,
-                                        peak_time_min=0.06,
-                                        peak_time_max=0.075 + n75_peak_width,
-                                        mode='neg')
-    p100_peak_width = 0.1
-    p100_latency = None
-    if n75_latency is not None:
-        p100_latency = get_peak(erp_name='P100',
-                                             evoked_potential=evoked_occipital,
-                                             peak_time_min=n75_latency,
-                                             peak_time_max=n75_latency + p100_peak_width,
-                                             mode='pos')
-    n145_peak_width = 0.12
-    if p100_latency is not None:
-        get_peak(erp_name='N145',
-                                             evoked_potential=evoked_occipital,
-                                             peak_time_min=p100_latency,
-                                             peak_time_max=p100_latency + n145_peak_width,
-                                             mode='neg')
+    # Fixed absolute windows — independent of each other so a missed N75
+    # doesn't cascade into a missed P100 or N145.
+    get_peak(erp_name='N75',   evoked_potential=evoked_occipital,
+             peak_time_min=0.060, peak_time_max=0.090, mode='neg')
+    p100_latency = get_peak(erp_name='P100', evoked_potential=evoked_occipital,
+                            peak_time_min=0.080, peak_time_max=0.130, mode='pos')
+    get_peak(erp_name='N145',  evoked_potential=evoked_occipital,
+             peak_time_min=0.120, peak_time_max=0.170, mode='neg')
 
-    plt = evoked_occipital.plot(spatial_colors=True, show=False)
+    fig = evoked_occipital.plot(show=False)
 
-    # Get the axes from the figure
-    axes = plt.get_axes()  # This gets all Axes objects
-
-    # Add vertical lines as markers to each subplot
-    ax = axes[0]
-    ax.axvline(x=0, color='r', linestyle='--', label='stim')
+    ax = fig.get_axes()[0]
+    ax.axvline(x=0,     color='r', linestyle='--', label='stim')
     ax.axvline(x=0.100, color='r', linestyle='--', label='100 ms')
-    #ax.axvline(x=n75_latency, color='g', linestyle='-', label='n75')
     if p100_latency is not None:
         ax.axvline(x=p100_latency, color='g', linestyle='-', label='p100')
-    #ax.axvline(x=n145_latency, color='g', linestyle='-', label='n145')
 
-    # Add a legend to each subplot
-    # ax.legend()
+    fig.legend(loc="lower right")
 
-    # plt.show()
-
-    # Add a legend
-    plt.legend(loc="lower right")
-
-    return plt
+    return fig
