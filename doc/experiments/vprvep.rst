@@ -163,7 +163,7 @@ Longitudinal Tracking
 ---------------------
 
 To monitor P100 latency over time — for example during nerve recovery or
-neuroplasticity studies — record multiple sessions using the same subject
+longitudinal monitoring — record multiple sessions using the same subject
 and session numbering scheme and compare the per-eye P100 across them.
 
 Before attributing a latency change to an intervention, establish a
