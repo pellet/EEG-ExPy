@@ -693,7 +693,12 @@ class EEG:
             timestamp (float, optional): timestamp of stimulus onset from time.time() function.
                 Not used by the BrainFlow backend (which records the board's current sample
                 timestamp instead). Required by muselsl and kernelflow backends.
+
+        Returns:
+            bool: True if the marker was recorded, False if the stream is no longer active.
         """
+        if not self.stream_started:
+            return False
         if self.backend == "brainflow":
             self._brainflow_push_sample(marker=marker)
         elif self.backend == "muselsl":
@@ -704,8 +709,10 @@ class EEG:
            self._serial_push_sample(marker=marker) 
         elif self.backend == "xidport":
            self._xid_push_sample(marker=marker)
+        return True
 
     def stop(self):
+        self.stream_started = False
         if self.backend == "brainflow":
             self._stop_brainflow()
         elif self.backend == "muselsl":

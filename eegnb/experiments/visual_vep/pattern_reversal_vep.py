@@ -1,6 +1,5 @@
 from time import time
 import csv
-import os
 import numpy as np
 
 from psychopy import visual
@@ -250,7 +249,8 @@ class VisualPatternReversalVEP(BlockExperiment):
         predicted_display_time = getattr(self, 'predicted_display_time', None)
 
         marker = self.markernames[label]
-        self.eeg.push_sample(marker=marker)
+        if not self.eeg.push_sample(marker=marker):
+            return
 
         # Record predicted_display_time in the timing sidecar — analysis
         # uses per-trial variation around the mean for compositor-jitter correction.
