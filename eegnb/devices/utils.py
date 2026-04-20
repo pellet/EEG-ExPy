@@ -1,5 +1,6 @@
 import numpy as np
 import socket
+import sys
 import platform
 import serial
 
@@ -161,3 +162,80 @@ def get_openbci_usb():
 
 def serial_ports():
     return serial.tools.list_ports.comports()
+
+
+def get_ftdi_latency_ms(com_port: str):
+    """Read the FTDI VCP LatencyTimer (ms) for a COM port from the Windows registry.
+
+    Returns the latency in ms, or None on non-Windows platforms or if the port
+    is not found under HKLM\\SYSTEM\\CurrentControlSet\\Enum\\FTDIBUS.
+    """
+    if sys.platform != 'win32':
+        return None
+    import winreg
+    ftdi_root = r"SYSTEM\CurrentControlSet\Enum\FTDIBUS"
+    target = com_port.upper()
+    try:
+        root_key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, ftdi_root)
+    except OSError:
+        return None
+    try:
+        for i in range(1024):
+            try:
+                device_name = winreg.EnumKey(root_key, i)
+            except OSError:
+                break
+            device_path = f"{ftdi_root}\\{device_name}"
+            try:
+                device_key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, device_path)
+            except OSError:
+                continue
+            try:
+                for j in range(64):
+                    try:
+                        instance = winreg.EnumKey(device_key, j)
+                    except OSError:
+                        break
+                    params_path = f"{device_path}\\{instance}\\Device Parameters"
+                    try:
+                        params_key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, params_path)
+                    except OSError:
+                        continue
+                    try:
+                        port_name, _ = winreg.QueryValueEx(params_key, "PortName")
+                        if str(port_name).upper() == target:
+                            latency, _ = winreg.QueryValueEx(params_key, "LatencyTimer")
+                            return int(latency)
+                    except OSError:
+                        pass
+                    finally:
+                        params_key.Close()
+            finally:
+                device_key.Close()
+    finally:
+        root_key.Close()
+    return None
+
+
+def assert_ftdi_latency_1ms(com_port: str) -> None:
+    """Assert the FTDI LatencyTimer for a COM port is 1 ms (Windows only).
+
+    The OpenBCI Cyton dongle ships with the Windows default of 16 ms, which
+    adds ~15 ms of USB buffering jitter to every marker push and corrupts
+    stimulus/EEG alignment for VEP-class experiments. No-op on non-Windows.
+
+    Fix in: Device Manager -> Ports -> USB Serial Port -> Properties ->
+    Port Settings -> Advanced -> Latency Timer (ms) = 1.
+    """
+    if sys.platform != 'win32':
+        return
+    latency = get_ftdi_latency_ms(com_port)
+    assert latency is not None, (
+        f"Could not read FTDI LatencyTimer for {com_port}. "
+        f"Verify it is an FTDI device in Device Manager."
+    )
+    assert latency == 1, (
+        f"FTDI LatencyTimer for {com_port} is {latency} ms; required 1 ms. "
+        f"Device Manager -> Ports -> USB Serial Port ({com_port}) -> "
+        f"Properties -> Port Settings -> Advanced -> Latency Timer (ms) = 1."
+    )

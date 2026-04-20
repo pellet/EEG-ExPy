@@ -25,6 +25,7 @@ import pyxid2
 from eegnb.devices.utils import (
     get_openbci_usb,
     create_stim_array,
+    assert_ftdi_latency_1ms,
     SAMPLE_FREQS,
     EEG_INDICES,
     EEG_CHANNELS,
@@ -323,6 +324,8 @@ class EEG:
         if self.serial_port:
             serial_port = str(self.serial_port)
             self.brainflow_params.serial_port = serial_port
+            if self.device_name in ('cyton', 'cyton_daisy'):
+                assert_ftdi_latency_1ms(serial_port)
 
         # Initialize board_shim
         self.sfreq = BoardShim.get_sampling_rate(self.brainflow_id)
