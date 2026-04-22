@@ -41,7 +41,7 @@ class MetaQuest(Rift):
             return self.libovr_to_wallclock_offset
 
         try:
-            from psychxr.libovr import getTimeInSeconds
+            from psychxr.drivers.libovr import getTimeInSeconds
             best_bracket = None
             best_offset = None
             for _ in range(21):
