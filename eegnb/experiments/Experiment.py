@@ -11,8 +11,8 @@ obj.run()
 from abc import abstractmethod, ABC
 from typing import Callable
 from eegnb.devices.eeg import EEG
+from eegnb.devices.meta_quest import MetaQuest as Rift
 from psychopy import prefs
-from psychopy.visual.rift import Rift
 
 import gc
 from time import time
@@ -63,13 +63,14 @@ class BaseExperiment(ABC):
         self.stereoscopic = stereoscopic
         if use_vr:
             # VR interface accessible by specific experiment classes for customizing and using controllers.
-            self.rift: Rift = visual.Rift(monoscopic=not stereoscopic, headLocked=True)
+            # OculusRift extends psychopy's Rift with clock sync, per-trial telemetry buffering, and telemetry CSV saving.
+            self.rift: Rift = Rift(monoscopic=not stereoscopic, headLocked=True)
 
         # Shift content onto each lens's optical axis. VR HMDs use canted
         # asymmetric frustums, so NDC (0,0) is off-axis and binocular content
         # there forces inward vergence ("cross-eyed" feel).
         if use_vr and stereoscopic:
-            self.left_eye_x_pos, self.right_eye_x_pos = self._compute_optical_axis_offsets()
+            self.left_eye_x_pos, self.right_eye_x_pos = self.rift.compute_optical_axis_offsets()
         else:
             self.left_eye_x_pos = 0
             self.right_eye_x_pos = 0
@@ -84,17 +85,6 @@ class BaseExperiment(ABC):
         self.parameter = np.random.binomial(1, 0.5, self.n_trials)
         self.trials = DataFrame(dict(parameter=self.parameter, timestamp=np.zeros(self.n_trials)))
 
-    def _compute_optical_axis_offsets(self):
-        """NDC x offsets placing content on each lens's optical axis:
-        ndc_x = (LeftTan - RightTan) / (LeftTan + RightTan)."""
-        import psychxr.drivers.libovr as libovr
-        # fov = [UpTan, DownTan, LeftTan, RightTan]
-        left_fov, _, _ = libovr.getEyeRenderFov(libovr.EYE_LEFT)
-        right_fov, _, _ = libovr.getEyeRenderFov(libovr.EYE_RIGHT)
-        left_L, left_R = float(left_fov[2]), float(left_fov[3])
-        right_L, right_R = float(right_fov[2]), float(right_fov[3])
-        return ((left_L - left_R) / (left_L + left_R),
-                (right_L - right_R) / (right_L + right_R))
 
     @abstractmethod
     def load_stimulus(self):
@@ -281,11 +271,7 @@ class BaseExperiment(ABC):
             tracking_state = self.window.getTrackingState()
             self.window.calcEyePoses(tracking_state.headPose.thePose)
             self.window.setDefaultView()
-            # Per-frame predicted photon time from the OpenXR compositor.
-            # More accurate than time() + fixed lag constant — varies per frame
-            # based on compositor load. Stored so present_stimulus() can use it
-            # as the EEG marker timestamp.
-            self.predicted_display_time = tracking_state.headPose.timeInSeconds
+
         present_stimulus()
 
     def _clear_user_input(self):
@@ -416,12 +402,11 @@ class BaseExperiment(ABC):
         # Record experiment until a key is pressed or duration has expired.
         record_start_time = time()
 
-        # Elevate process priority and disable GC during the trial loop to
-        # prevent OS scheduling jitter and ~1-10ms GC pauses that cause
-        # dropped frames (visible as Quest Link hourglass).
         core.rush(True)
         gc.disable()
         try:
+            if self.use_vr:        
+                self.rift.sync_vr_clock()
             self._run_trial_loop(record_start_time, self.duration)
         finally:
             gc.enable()
@@ -436,17 +421,32 @@ class BaseExperiment(ABC):
         if self.eeg:
             self.eeg.stop()
 
+        if self.use_vr:
+            self.rift.save_telemetry(self.save_fn)
+
         # Closing the window
         self.window.close()
 
 
+
+    def push_vr_marker(self, marker, trial_idx):
+        """
+        Pushes the marker to EEG and delegates high-resolution LibOVR 
+        compositor stats to the VR hardware object.
+        """
+        software_time = time()
+        
+        if not self.eeg.push_sample(marker=marker):
+            return
+
+        if self.use_vr:
+            self.rift.log_telemetry(trial_idx, software_time)
 
     def send_triggers(self, marker):
         """Send timing triggers to recording device[s]"""
         for dev in self.devices:
             timestamp = time()
             dev.push_sample(marker=marker, timestamp=timestamp)
-
 
     @property
     def name(self) -> str:

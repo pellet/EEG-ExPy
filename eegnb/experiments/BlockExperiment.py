@@ -12,6 +12,7 @@ from abc import ABC
 from time import time
 
 from .Experiment import BaseExperiment
+from psychopy import core
 
 
 class BlockExperiment(BaseExperiment, ABC):
@@ -126,14 +127,11 @@ class BlockExperiment(BaseExperiment, ABC):
             if not self._show_block_instructions(block_index):
                 break
 
-            # Elevate process priority and disable GC during the trial loop
-            # to prevent OS scheduling jitter and ~1-10ms GC pauses that
-            # cause the Quest Link compositor to drop frames (hourglass).
-            # Both are restored between blocks so instruction screens run normally.
-            from psychopy import core
             core.rush(True)
             gc.disable()
             try:
+                if self.use_vr:
+                    self.rift.sync_vr_clock()
                 if not self._run_trial_loop(start_time=time(), duration=self.block_duration):
                     break
             finally:
@@ -145,6 +143,9 @@ class BlockExperiment(BaseExperiment, ABC):
         # Stop EEG Stream after all blocks
         if self.eeg:
             self.eeg.stop()
+
+        if self.use_vr:
+            self.rift.save_telemetry(self.save_fn)
 
         # Close window at the end of all blocks
         self.window.close()
