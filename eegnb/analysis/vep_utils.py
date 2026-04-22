@@ -52,28 +52,20 @@ def get_peak(erp_name, evoked_potential, peak_time_min, peak_time_max, mode):
         interp_latency = sample_latency
         interp_uv = data[peak_sample]
 
-    print_latency(erp_name, interp_latency, peak_channel, interp_uv)
-    return interp_latency
+    return {
+        'name': erp_name,
+        'latency': interp_latency,
+        'channel': peak_channel,
+        'amplitude': interp_uv
+    }
 
 
-def plot_vep(evoked_occipital: Evoked):
-    # Fixed absolute windows — independent of each other so a missed N75
-    # doesn't cascade into a missed P100 or N145.
-    get_peak(erp_name='N75',   evoked_potential=evoked_occipital,
+def get_pr_vep_latencies(evoked_occipital: Evoked):
+    n75 = get_peak(erp_name='N75',   evoked_potential=evoked_occipital,
              peak_time_min=0.060, peak_time_max=0.090, mode='neg')
-    p100_latency = get_peak(erp_name='P100', evoked_potential=evoked_occipital,
+    p100 = get_peak(erp_name='P100', evoked_potential=evoked_occipital,
                             peak_time_min=0.080, peak_time_max=0.130, mode='pos')
-    get_peak(erp_name='N145',  evoked_potential=evoked_occipital,
+    n145 = get_peak(erp_name='N145',  evoked_potential=evoked_occipital,
              peak_time_min=0.120, peak_time_max=0.170, mode='neg')
 
-    fig = evoked_occipital.plot(show=False)
-
-    ax = fig.get_axes()[0]
-    ax.axvline(x=0,     color='r', linestyle='--', label='stim')
-    ax.axvline(x=0.100, color='r', linestyle='--', label='100 ms')
-    if p100_latency is not None:
-        ax.axvline(x=p100_latency, color='g', linestyle='-', label='p100')
-
-    fig.legend(loc="lower right")
-
-    return fig
+    return n75, p100, n145

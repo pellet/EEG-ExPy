@@ -54,11 +54,11 @@ config = None
 # Electrode montage type: "cap" or "mark-iv"
 montage_type = "cap"
 # Ground M1, Ref Fz.
-ch_names = ["Fp1", "Fp2", "T5", "T6", "O1", "O2", "Oz", "Pz"]
+ch_names = ["CPz", "POz", "T5", "T6", "O1", "O2", "Oz", "Pz"]
 
 # Subject and session identifiers
 subject_id = 0
-session_nb = 7
+session_nb = 10
 
 ###################################################################################################
 # Initiate EEG device
