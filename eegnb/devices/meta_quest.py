@@ -1,4 +1,5 @@
 import logging
+import numpy as np
 from time import time
 from psychopy.visual.rift import Rift
 
@@ -63,6 +64,35 @@ class MetaQuest(Rift):
         except Exception as e:
             logging.warning(f"[MetaQuest] LibOVR clock sync failed: {e}")
             return None
+
+    def log_display_info(self):
+        """
+        Reads IPD, PPD, and display resolution from the LibOVR session and logs
+        them to the telemetry sidecar as header comment rows.
+        Returns (ppd, ipd_mm) for use in stimulus sizing.
+        """
+        try:
+            ppta = self.pixelsPerTanAngleAtCenter
+            ppd_h = np.mean([p[0] for p in ppta]) * (np.pi / 180.0)
+            ppd_v = np.mean([p[1] for p in ppta]) * (np.pi / 180.0)
+            ppd = int(round(min(ppd_h, ppd_v)))
+
+            eye_to_nose = self.eyeToNoseDistance
+            ipd_mm = (eye_to_nose[0] + eye_to_nose[1]) * 1000.0
+
+            logging.info(
+                f"[MetaQuest] IPD={ipd_mm:.1f}mm  ppd={ppd} (h={ppd_h:.1f} v={ppd_v:.1f})  "
+                f"res={self.displayResolution}  eye_buf={self.size}"
+            )
+
+            if not hasattr(self, 'timing_data'):
+                self.timing_data = []
+            self.timing_data.insert(0, ['# ipd_mm', ipd_mm, 'ppd', ppd, f'ppd_h={ppd_h:.1f} ppd_v={ppd_v:.1f}'])
+
+            return ppd, ipd_mm
+        except Exception as e:
+            logging.warning(f"[MetaQuest] Failed to read display info: {e}")
+            return None, None
 
     def log_telemetry(self, trial_idx, software_time):
         """Extracts native LibOVR performance stats and buffers them in memory."""

@@ -1,5 +1,6 @@
 from time import time
 import csv
+import logging
 import numpy as np
 
 from psychopy import visual
@@ -8,7 +9,12 @@ from eegnb.devices.eeg import EEG
 from eegnb.experiments.BlockExperiment import BlockExperiment
 from stimupy.stimuli.checkerboards import contrast_contrast
 
-QUEST_PPD = 20
+# ISCEV PR-VEP standard
+ISCEV_CHECK_DEG = 1.0
+ISCEV_FIELD_DEG = 16.0
+ISCEV_MEAN_LUM = 0.0
+
+QUEST2_PPD_NOMINAL = 20
 
 class VisualPatternReversalVEP(BlockExperiment):
 
@@ -21,18 +27,6 @@ class VisualPatternReversalVEP(BlockExperiment):
         jitter=0
 
         super().__init__("Visual Pattern Reversal VEP", block_duration_seconds, eeg, save_fn, block_trial_size, n_blocks, iti, soa, jitter, use_vr, use_fullscr, stereoscopic=True)
-
-        # Per-trial timing sidecar: records software time, compositor predicted
-        # display time, and delta for each trial. Written alongside the EEG CSV.
-        if save_fn:
-            timing_path = save_fn.with_name(save_fn.stem + '_timing.csv')
-        else:
-            timing_path = 'vep_timing.csv'
-        self._timing_file = open(timing_path, 'w', newline='')
-        self._timing_writer = csv.writer(self._timing_file)
-        self._timing_writer.writerow(
-            ['trial_idx', 'software_time', 'predicted_display_time', 'delta_ms', 'use_vr']
-        )
 
         self.instruction_text = f"""Welcome to the Visual Pattern Reversal VEP experiment!
         
@@ -52,32 +46,17 @@ class VisualPatternReversalVEP(BlockExperiment):
         self.parameter = np.array(block_eyes)
 
     @staticmethod
-    def create_monitor_checkerboard(intensity_checks):
-        # Standard parameters for monitor-based pattern reversal VEP
-        # Using standard 1 degree check size at 30 pixels per degree
+    def create_checkerboard(intensity_checks, field_deg=ISCEV_FIELD_DEG,
+                            check_deg=ISCEV_CHECK_DEG, ppd=72):
+        cpd = 1.0 / (2.0 * check_deg)
         return contrast_contrast(
-            visual_size=(16, 16),  # aspect ratio in degrees
-            ppd=72,  # pixels per degree
-            frequency=(0.5, 0.5),  # spatial frequency of the checkerboard (0.5 cpd = 1 degree check size)
+            visual_size=(field_deg, field_deg),
+            ppd=ppd,
+            frequency=(cpd, cpd),
             intensity_checks=intensity_checks,
             target_shape=(0, 0),
             alpha=0,
-            tau=0
-        )
-
-    @staticmethod
-    def create_vr_checkerboard(intensity_checks):
-        # Optimized parameters for Oculus/Meta Quest 2 with PC link
-        # Quest 2 has approximately 20 pixels per degree and a ~90° FOV
-        # Using standard 1 degree check size (0.5 cpd)
-        return contrast_contrast(
-            visual_size=(20, 20),  # size in degrees - covers a good portion of the FOV
-            ppd=QUEST_PPD,  # pixels per degree for Quest 2
-            frequency=(0.5, 0.5),  # spatial frequency (0.5 cpd = 1 degree check size)
-            intensity_checks=intensity_checks,
-            target_shape=(0, 0),
-            alpha=0,
-            tau=0
+            tau=0,
         )
 
     def load_stimulus(self) -> Dict[str, Any]:
@@ -90,21 +69,18 @@ class VisualPatternReversalVEP(BlockExperiment):
         assert abs(self.display_refresh_rate - actual_frame_rate) <= self.display_refresh_rate * 0.05, f"Expected frame rate {self.display_refresh_rate} Hz, but got {actual_frame_rate} Hz"
 
         if self.use_vr:
-            # Create the VR checkerboard
-            create_checkerboard = self.create_vr_checkerboard
-            # the window is large over the eye, checkerboard should only cover the central vision
-            size = self.window.size / 1.5
-        else:
-            # Create the Monitor checkerboard
-            create_checkerboard = self.create_monitor_checkerboard
-            size = (self.window_size[1], self.window_size[1])
+            ppd, ipd_mm = self.rift.log_display_info()
+            logging.info(f"[PRVEP-HMD] optical_axis_ndc=L{self.left_eye_x_pos:+.3f}/R{self.right_eye_x_pos:+.3f}")
 
-        # Optode sync patch: small white/black square in the bottom-left corner.
-        # Alternates polarity with each checkerboard reversal so a photodiode
-        # taped to this corner produces a TTL pulse on every stimulus onset.
-        # Monitor path only — VR uses compositor timestamps instead.
+            # 1 texel = 1 buffer pixel
+            tex_px = int(round(ISCEV_FIELD_DEG * ppd))
+            stim_size_px = (tex_px, tex_px)
+        else:
+            ppd = 72
+            stim_size_px = (self.window_size[1], self.window_size[1])
+
         if not self.use_vr:
-            patch_size = 50  # pixels
+            patch_size = 50
             x = -self.window.size[0] / 2 + patch_size / 2
             y = -self.window.size[1] / 2 + patch_size / 2
             self.optode_patch = visual.Rect(
@@ -114,42 +90,54 @@ class VisualPatternReversalVEP(BlockExperiment):
         else:
             self.optode_patch = None
 
-        # The surrounding / periphery needs to be dark when not using vr.
-        # Also used for covering eye which is not being stimulated.
         self.black_background = visual.Rect(self.window,
                                             width=self.window.size[0],
                                             height=self.window.size[1],
                                             fillColor='black')
 
-        # A grey background behind the checkerboard must be used in vr to maintain luminence.
+        # Match checkerboard mean luminance to avoid adaptation shift.
         self.grey_background = visual.Rect(self.window,
                                             width=self.window.size[0],
                                             height=self.window.size[1],
-                                            fillColor=[-0.22, -0.22, -0.22])
+                                            fillColor=[ISCEV_MEAN_LUM] * 3)
 
-        # Create checkerboard stimuli
         def create_checkerboard_stim(intensity_checks, pos):
-            return visual.ImageStim(self.window,
-                                    image=create_checkerboard(intensity_checks)['img'],
-                                    units='pix', size=size, color='white', pos=pos)
+            return visual.ImageStim(
+                self.window,
+                image=self.create_checkerboard(
+                    intensity_checks,
+                    field_deg=ISCEV_FIELD_DEG,
+                    check_deg=ISCEV_CHECK_DEG,
+                    ppd=ppd,
+                )['img'],
+                units='pix', size=stim_size_px, color='white', pos=pos,
+            )
 
         # Create fixation stimuli
         def create_fixation_stim(pos):
-            fixation = visual.GratingStim(
-                win=self.window, 
-                pos=pos, 
-                sf=400 if self.use_vr else 0.2,
-                color=[1, 0, 0]
+            size = 0.02 if self.use_vr else 0.4
+            return visual.Rect(
+                win=self.window,
+                pos=pos,
+                width=size,
+                height=size,
+                units='norm' if self.use_vr else None,
+                fillColor=[1, -1, -1],
+                lineColor=[1, -1, -1],
             )
-            fixation.size = 0.02 if self.use_vr else 0.4
-            return fixation
 
-        # Create VR block instruction stimuli
         def create_vr_block_instruction(pos):
-            return visual.TextStim(win=self.window, text="Focus on the red dot, and try not to blink whilst the squares are flashing, press the spacebar or pull the controller trigger when ready to commence.", color=[-1, -1, -1],
-            pos=pos, height=0.1)
+            return visual.TextStim(
+                win=self.window,
+                text="Focus on the red dot, and try not to blink whilst the "
+                     "squares are flashing, press the spacebar or pull the "
+                     "controller trigger when ready to commence.",
+                color=[-1, -1, -1],
+                pos=pos, height=0.1,
+            )
 
-        # Create and position stimulus
+        # All stimuli placed on each lens's optical axis for symmetric FOV
+        # and maximum lens resolution.
         def create_eye_stimuli(eye_x_pos, pix_x_pos):
             return {
                 'checkerboards': [
@@ -160,13 +148,11 @@ class VisualPatternReversalVEP(BlockExperiment):
                 'vr_block_instructions': create_vr_block_instruction((eye_x_pos, 0))
             }
 
-        # Structure all stimuli in organized dictionary
         if self.use_vr:
-            # Calculate pixel positions for stereoscopic presentation
+            # pix_x = ndc_x * (per-eye buffer width / 2)
             window_width = self.window.size[0]
             left_pix_x_pos = self.left_eye_x_pos * (window_width / 2)
             right_pix_x_pos = self.right_eye_x_pos * (window_width / 2)
-
             return {
                 'left': create_eye_stimuli(self.left_eye_x_pos, left_pix_x_pos),
                 'right': create_eye_stimuli(self.right_eye_x_pos, right_pix_x_pos)
@@ -178,6 +164,7 @@ class VisualPatternReversalVEP(BlockExperiment):
 
     def _present_vr_block_instructions(self, open_eye, closed_eye):
         self.window.setBuffer(open_eye)
+        self.grey_background.draw()
         self.stim[open_eye]['vr_block_instructions'].draw()
         self.stim[open_eye]['fixation'].draw()
         self.window.setBuffer(closed_eye)
@@ -244,29 +231,15 @@ class VisualPatternReversalVEP(BlockExperiment):
     def _push_marker(self, idx: int):
         trial_idx = self.current_block_index * self.block_trial_size + idx
         label = self.parameter[trial_idx]
-
-        software_time = time()
-        predicted_display_time = getattr(self, 'predicted_display_time', None)
-
         marker = self.markernames[label]
-        if not self.eeg.push_sample(marker=marker):
-            return
-
-        # Record predicted_display_time in the timing sidecar — analysis
-        # uses per-trial variation around the mean for compositor-jitter correction.
-        delta_ms = (predicted_display_time - software_time) * 1000 if predicted_display_time else None
-        self._timing_writer.writerow(
-            [trial_idx, software_time, predicted_display_time, delta_ms, self.use_vr]
-        )
+        
+        self.push_vr_marker(marker, trial_idx)
 
     def present_soa(self, idx: int):
         # Redraw the current checkerboard each frame during the SOA wait so the
         # VR compositor stays fed (~120 Hz). No marker push / timing row.
         self._draw_frame(idx)
 
-    def __del__(self):
-        if hasattr(self, '_timing_file') and not self._timing_file.closed:
-            self._timing_file.close()
 
     def present_iti(self):
         if self.use_vr:
