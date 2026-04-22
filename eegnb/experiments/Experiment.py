@@ -64,10 +64,12 @@ class BaseExperiment(ABC):
         if use_vr:
             # VR interface accessible by specific experiment classes for customizing and using controllers.
             self.rift: Rift = visual.Rift(monoscopic=not stereoscopic, headLocked=True)
-        # eye for presentation
-        if stereoscopic:
-            self.left_eye_x_pos = 0.2
-            self.right_eye_x_pos = -0.2
+
+        # Shift content onto each lens's optical axis. VR HMDs use canted
+        # asymmetric frustums, so NDC (0,0) is off-axis and binocular content
+        # there forces inward vergence ("cross-eyed" feel).
+        if use_vr and stereoscopic:
+            self.left_eye_x_pos, self.right_eye_x_pos = self._compute_optical_axis_offsets()
         else:
             self.left_eye_x_pos = 0
             self.right_eye_x_pos = 0
@@ -81,6 +83,18 @@ class BaseExperiment(ABC):
         # Setting up the trial and parameter list
         self.parameter = np.random.binomial(1, 0.5, self.n_trials)
         self.trials = DataFrame(dict(parameter=self.parameter, timestamp=np.zeros(self.n_trials)))
+
+    def _compute_optical_axis_offsets(self):
+        """NDC x offsets placing content on each lens's optical axis:
+        ndc_x = (LeftTan - RightTan) / (LeftTan + RightTan)."""
+        import psychxr.drivers.libovr as libovr
+        # fov = [UpTan, DownTan, LeftTan, RightTan]
+        left_fov, _, _ = libovr.getEyeRenderFov(libovr.EYE_LEFT)
+        right_fov, _, _ = libovr.getEyeRenderFov(libovr.EYE_RIGHT)
+        left_L, left_R = float(left_fov[2]), float(left_fov[3])
+        right_L, right_R = float(right_fov[2]), float(right_fov[3])
+        return ((left_L - left_R) / (left_L + left_R),
+                (right_L - right_R) / (right_L + right_R))
 
     @abstractmethod
     def load_stimulus(self):
