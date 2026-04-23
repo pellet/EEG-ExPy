@@ -375,13 +375,13 @@
 <p>Use the following commands to download the repo, create and activate a conda or virtualenv virtual environment:</p>
 <div class="sphinx-tabs docutils container">
 <div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-0-0-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-0-0-0" name="0-0" role="tab" tabindex="0">Conda</button><button aria-controls="panel-0-0-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-0-0-1" name="0-1" role="tab" tabindex="-1">Virtualenv</button></div><div aria-labelledby="tab-0-0-0" class="sphinx-tabs-panel" id="panel-0-0-0" name="0-0" role="tabpanel" tabindex="0"><p><strong>Environment file options</strong></p>
-<p><em>Python 3.8 - 3.10:</em></p>
+<p><em>Python 3.10:</em></p>
 <ul class="simple">
 <li><p><cite>eeg-expy-full</cite>: Install all dependencies</p></li>
 <li><p><cite>eeg-expy-stimpres</cite>: Stimulus presentation</p></li>
 <li><p><cite>eeg-expy-streamstim</cite>: Combined streaming and stimulus presentation</p></li>
 </ul>
-<p><em>Python 3.8 - 3.13:</em></p>
+<p><em>Python 3.10 - 3.13:</em></p>
 <ul class="simple">
 <li><p><cite>eeg-expy-docsbuild</cite>: Documentation</p></li>
 <li><p><cite>eeg-expy-streaming</cite>: Data streaming</p></li>
@@ -394,7 +394,7 @@ git<span class="w"> </span>clone<span class="w"> </span>https://github.com/Neuro
 
 <span class="c1"># Create conda environment from chosen eeg-expy-*.yml</span>
 <span class="c1"># The Python version will be pinned by the environment file</span>
-conda<span class="w"> </span>env<span class="w"> </span>create<span class="w"> </span>-n<span class="w"> </span>eeg-expy<span class="w"> </span>--file<span class="o">=</span>environments/eeg-expy-full.yml
+conda<span class="w"> </span>env<span class="w"> </span>create<span class="w"> </span>-n<span class="w"> </span>eeg-expy<span class="w"> </span>-f<span class="w"> </span>environments/eeg-expy-full.yml
 
 <span class="c1"># Activate the environment</span>
 conda<span class="w"> </span>activate<span class="w"> </span>eeg-expy
