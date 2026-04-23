@@ -4,6 +4,7 @@ from .visual_ssvep.ssvep import VisualSSVEP
 
 from psychopy import sound, plugins, prefs
 import platform
+import logging
 
 # PTB does not yet support macOS Apple Silicon freely, need to fall back to sounddevice.
 if platform.system() == 'Darwin' and platform.machine() == 'arm64':
@@ -15,10 +16,17 @@ if platform.system() == 'Darwin' and platform.machine() == 'arm64':
     # Force reload sound module
     import importlib
     importlib.reload(sound)
-    # setting prefs.hardware['audio_device'] still falls back to a default device, need to use setDevice.
+    
+    # Try to set the audio device if requested and available
     audio_device = prefs.hardware.get('audioDevice', 'default')
     if audio_device and audio_device != 'default':
-        sound.setDevice(audio_device)
+        if hasattr(sound, 'setDevice'):
+            try:
+                sound.setDevice(audio_device)
+            except Exception as e:
+                logging.warning(f"Failed to set audio device to '{audio_device}': {e}")
+        else:
+            logging.warning(f"sound.setDevice not available, could not set device to '{audio_device}'")
 else:
     #change the pref library to PTB and set the latency mode to high precision
     prefs.hardware['audioLib'] = 'PTB'
