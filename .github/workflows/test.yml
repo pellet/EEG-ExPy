@@ -21,15 +21,23 @@ jobs:
         python_version: ['3.10']
         include:
           # Experimental: PsychoPy not officially supported on 3.11+
+          # 3.11 still tries full env to catch regressions early
           - os: ubuntu-22.04
             python_version: '3.11'
             experimental: true
+            env_file: environments/eeg-expy-full.yml
+            env_name: eeg-expy-full
+          # 3.12+ use streaming env as PsychoPy is definitely not ready
           - os: ubuntu-22.04
             python_version: '3.12'
             experimental: true
+            env_file: environments/eeg-expy-streaming.yml
+            env_name: eeg-expy-streaming
           - os: ubuntu-22.04
             python_version: '3.13'
             experimental: true
+            env_file: environments/eeg-expy-streaming.yml
+            env_name: eeg-expy-streaming
 
     steps:
     - uses: actions/checkout@v2
@@ -40,8 +48,8 @@ jobs:
     - name: Set up conda env
       uses: ./.github/actions/setup-conda-env
       with:
-        environment-file: environments/eeg-expy-full.yml
-        activate-environment: eeg-expy-full
+        environment-file: ${{ matrix.env_file || 'environments/eeg-expy-full.yml' }}
+        activate-environment: ${{ matrix.env_name || 'eeg-expy-full' }}
         python-version: ${{ matrix.python_version }}
     - name: Run eeg-expy install test
       run: |
