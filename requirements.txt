@@ -14,9 +14,7 @@ pysocks>=1.7.1
 pyserial>=3.5
 h5py>=3.1.0
 pytest-shutil
-#pynput requires pyobjc, psychopy requires a version less than 8, setting pyobjc to
-# a specific version prevents an endless dependency resolution loop.
-pyobjc==7.3; sys_platform == 'darwin'
+pyobjc>=8.0; sys_platform == 'darwin'
 airium>=0.1.0
 attrdict>=2.0.1
 attrdict3
@@ -34,9 +32,7 @@ pysocks>=1.7.1
 pyserial>=3.5
 h5py>=3.1.0
 pytest-shutil
-#pynput requires pyobjc, psychopy requires a version less than 8, setting pyobjc to
-# a specific version prevents an endless dependency resolution loop.
-pyobjc==7.3; sys_platform == 'darwin'
+pyobjc>=8.0; sys_platform == 'darwin'
 #Removed keyboard dependency due segmentation fault on Apple Silicon: https://github.com/boppreh/keyboard/issues/507
 pynput
 airium>=0.1.0
@@ -47,9 +43,7 @@ click
 
 ## ~~ Stimpres Requirements ~~ 
 
-#pynput requires pyobjc, psychopy requires a version less than 8, setting pyobjc to
-# a specific version prevents an endless dependency resolution loop.
-pyobjc==7.3; sys_platform == 'darwin'
+pyobjc>=8.0; sys_platform == 'darwin'
 #upgrade psychopy to use newer wxpython dependency which is prebuilt for m1 support.
 # Forked with a fix for Rift stereo projection matrix crash under strict-ndim psychxr.
 psychopy @ git+https://github.com/pellet/psychopy.git@v2026.2.0-rift-fix
