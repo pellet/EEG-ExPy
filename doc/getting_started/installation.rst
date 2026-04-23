@@ -44,7 +44,7 @@ Use the following commands to download the repo, create and activate a conda or 
 
        **Environment file options**
 
-       *Python 3.8 - 3.10:*
+       *Python 3.10:*
 
        - `eeg-expy-full`: Install all dependencies
 
@@ -52,7 +52,7 @@ Use the following commands to download the repo, create and activate a conda or 
 
        - `eeg-expy-streamstim`: Combined streaming and stimulus presentation
 
-       *Python 3.8 - 3.13:*
+       *Python 3.10 - 3.13:*
 
        - `eeg-expy-docsbuild`: Documentation
 
@@ -68,7 +68,7 @@ Use the following commands to download the repo, create and activate a conda or 
 
           # Create conda environment from chosen eeg-expy-*.yml
           # The Python version will be pinned by the environment file
-          conda env create -n eeg-expy --file=environments/eeg-expy-full.yml
+          conda env create -n eeg-expy -f environments/eeg-expy-full.yml
 
           # Activate the environment
           conda activate eeg-expy
