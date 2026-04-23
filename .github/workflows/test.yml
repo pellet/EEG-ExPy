@@ -17,7 +17,7 @@ jobs:
       fail-fast: false
       matrix:
         os: ['ubuntu-22.04', windows-latest, macOS-latest]
-        python_version: ['3.8']
+        python_version: ['3.9']
         include:
           # PsychoPy currently restricted to <= 3.10
           - os: ubuntu-22.04
