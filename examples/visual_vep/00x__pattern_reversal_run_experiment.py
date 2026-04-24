@@ -98,7 +98,6 @@ print(save_fn)
 # at each block instruction prompt to begin that block.
 
 pattern_reversal_vep = VisualPatternReversalVEP(
-    display_refresh_rate=refresh_rate,
     eeg=eeg_device,
     save_fn=save_fn,
     use_vr=use_vr
