@@ -67,16 +67,7 @@ jobs:
           Xvfb :0 -screen 0 1024x768x24 -ac +extension GLX +render -noreset &> xvfb.log &
           export DISPLAY=:0
         fi
-        
-        # Set default pytest args
-        ARGS="--ignore=tests/test_run_experiments.py"
-        
-        # If in streaming environment, ignore experiments and VR hardware modules
-        if [[ "${{ matrix.env_name }}" == "eeg-expy-streaming" ]]; then
-          ARGS="$ARGS --ignore=eegnb/experiments --ignore=eegnb/devices/vr.py"
-        fi
-        
-        make test PYTEST_ARGS="$ARGS"
+        make test
 
 
   typecheck:

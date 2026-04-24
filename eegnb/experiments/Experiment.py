@@ -366,14 +366,20 @@ class BaseExperiment(ABC):
         mean_ms = np.mean(intervals_ms)
         std_ms = np.std(intervals_ms)
         max_ms = max(intervals_ms)
+        refresh_rate_hz = int(np.round(
+            self.window.displayRefreshRate if self.use_vr
+            else (self.window.getActualFrameRate() or 0)
+        ))
 
         print(f"\nFrame timing: {total} frames, {dropped} dropped ({dropped/total*100:.1f}%)")
+        print(f"  Refresh rate: {refresh_rate_hz} Hz")
         print(f"  Mean: {mean_ms:.2f}ms  Std: {std_ms:.2f}ms  Max: {max_ms:.2f}ms")
 
         if self.save_fn:
             stats_path = self.save_fn.with_name(self.save_fn.stem + '_frame_stats.json')
             with open(stats_path, 'w') as f:
                 json.dump({
+                    'display_refresh_rate_hz': refresh_rate_hz,
                     'total_frames': total,
                     'dropped_frames': dropped,
                     'mean_ms': round(mean_ms, 3),

@@ -18,10 +18,9 @@ QUEST2_PPD_NOMINAL = 20
 
 class VisualPatternReversalVEP(BlockExperiment):
 
-    def __init__(self, display_refresh_rate: int, eeg: Optional[EEG] = None, save_fn=None,
+    def __init__(self, eeg: Optional[EEG] = None, save_fn=None,
                  block_duration_seconds=50, block_trial_size: int=100, n_blocks: int=8, use_vr=False, use_fullscr=True):
 
-        self.display_refresh_rate = display_refresh_rate
         soa=0.5
         iti=0
         jitter=0
@@ -60,16 +59,20 @@ class VisualPatternReversalVEP(BlockExperiment):
         )
 
     def load_stimulus(self) -> Dict[str, Any]:
-        # Frame rate, in Hz
         # TODO: Fix - Rift.GetActualFrameRate() crashes in psychxr due to 'EndFrame called before BeginFrame'
-        actual_frame_rate = np.round(self.window.displayRefreshRate if self.use_vr else self.window.getActualFrameRate())
+        self.display_refresh_rate = int(np.round(
+            self.window.displayRefreshRate if self.use_vr else self.window.getActualFrameRate()
+        ))
 
-        # Ensure the expected frame rate matches and is divisable by the stimulus rate(soa)
-        assert actual_frame_rate % self.soa == 0, f"Expected frame rate divisable by stimulus rate: {self.soa}, but got {actual_frame_rate} Hz"
-        assert abs(self.display_refresh_rate - actual_frame_rate) <= self.display_refresh_rate * 0.05, f"Expected frame rate {self.display_refresh_rate} Hz, but got {actual_frame_rate} Hz"
+        # Integer frames per reversal cycle required so each half-cycle has the same duration.
+        reversals_per_sec = 1 / self.soa
+        assert self.display_refresh_rate % reversals_per_sec == 0, (
+            f"Frame rate {self.display_refresh_rate} Hz must be an integer multiple of "
+            f"the stimulus reversal rate {reversals_per_sec} Hz"
+        )
 
         if self.use_vr:
-            ppd, ipd_mm = self.rift.log_display_info()
+            ppd, ipd_mm = self.vr.log_display_info()
             logging.info(f"[PRVEP-HMD] optical_axis_ndc=L{self.left_eye_x_pos:+.3f}/R{self.right_eye_x_pos:+.3f}")
 
             # 1 texel = 1 buffer pixel

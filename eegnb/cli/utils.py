@@ -56,7 +56,8 @@ def run_experiment(
         # Condition added for different run types of old and new experiment class structure
         # If it's a class (BaseExperiment subclass), instantiate it
         if isinstance(exp_item, type) and issubclass(exp_item, Experiment.BaseExperiment):
-            module = exp_item()
+            # Concrete subclasses supply defaults for BaseExperiment's required args; mypy can't see which subclass.
+            module = exp_item()  # type: ignore[call-arg]
             module.duration = record_duration
             module.eeg = eeg_device
             module.save_fn = save_fn

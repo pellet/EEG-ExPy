@@ -131,7 +131,7 @@ class BlockExperiment(BaseExperiment, ABC):
             gc.disable()
             try:
                 if self.use_vr:
-                    self.rift.sync_vr_clock()
+                    self.vr.sync_vr_clock()
                 if not self._run_trial_loop(start_time=time(), duration=self.block_duration):
                     break
             finally:
@@ -145,7 +145,7 @@ class BlockExperiment(BaseExperiment, ABC):
             self.eeg.stop()
 
         if self.use_vr:
-            self.rift.save_telemetry(self.save_fn)
+            self.vr.save_telemetry(self.save_fn)
 
         # Close window at the end of all blocks
         self.window.close()
