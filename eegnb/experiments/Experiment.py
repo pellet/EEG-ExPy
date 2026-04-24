@@ -349,9 +349,10 @@ class BaseExperiment(ABC):
     def _enable_frame_tracking(self):
         """Enable per-frame interval recording for dropped frame diagnostics."""
         self.window.recordFrameIntervals = True
+        rate = self.window.displayRefreshRate if self.use_vr else self.window.getActualFrameRate()
+        self.display_refresh_rate = int(np.round(rate)) if rate else None
         # Threshold for counting a frame as "dropped" — 50% over expected duration
-        expected_frame_dur = 1.0 / (self.window.displayRefreshRate if self.use_vr
-                                     else (self.window.getActualFrameRate() or 60))
+        expected_frame_dur = 1.0 / (rate or 60)
         self.window.refreshThreshold = expected_frame_dur * 1.5
 
     def _report_frame_stats(self):
@@ -366,20 +367,16 @@ class BaseExperiment(ABC):
         mean_ms = np.mean(intervals_ms)
         std_ms = np.std(intervals_ms)
         max_ms = max(intervals_ms)
-        refresh_rate_hz = int(np.round(
-            self.window.displayRefreshRate if self.use_vr
-            else (self.window.getActualFrameRate() or 0)
-        ))
 
         print(f"\nFrame timing: {total} frames, {dropped} dropped ({dropped/total*100:.1f}%)")
-        print(f"  Refresh rate: {refresh_rate_hz} Hz")
+        print(f"  Refresh rate: {self.display_refresh_rate} Hz")
         print(f"  Mean: {mean_ms:.2f}ms  Std: {std_ms:.2f}ms  Max: {max_ms:.2f}ms")
 
         if self.save_fn:
             stats_path = self.save_fn.with_name(self.save_fn.stem + '_frame_stats.json')
             with open(stats_path, 'w') as f:
                 json.dump({
-                    'display_refresh_rate_hz': refresh_rate_hz,
+                    'display_refresh_rate_hz': self.display_refresh_rate,
                     'total_frames': total,
                     'dropped_frames': dropped,
                     'mean_ms': round(mean_ms, 3),

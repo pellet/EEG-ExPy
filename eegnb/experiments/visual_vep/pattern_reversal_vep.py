@@ -1,5 +1,3 @@
-from time import time
-import csv
 import logging
 import numpy as np
 
@@ -60,14 +58,14 @@ class VisualPatternReversalVEP(BlockExperiment):
 
     def load_stimulus(self) -> Dict[str, Any]:
         # TODO: Fix - Rift.GetActualFrameRate() crashes in psychxr due to 'EndFrame called before BeginFrame'
-        self.display_refresh_rate = int(np.round(
+        refresh_rate = int(np.round(
             self.window.displayRefreshRate if self.use_vr else self.window.getActualFrameRate()
         ))
 
         # Integer frames per reversal cycle required so each half-cycle has the same duration.
         reversals_per_sec = 1 / self.soa
-        assert self.display_refresh_rate % reversals_per_sec == 0, (
-            f"Frame rate {self.display_refresh_rate} Hz must be an integer multiple of "
+        assert refresh_rate % reversals_per_sec == 0, (
+            f"Frame rate {refresh_rate} Hz must be an integer multiple of "
             f"the stimulus reversal rate {reversals_per_sec} Hz"
         )
 
