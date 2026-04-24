@@ -11,8 +11,8 @@ obj.run()
 from abc import abstractmethod, ABC
 from typing import Callable
 from eegnb.devices.eeg import EEG
-from eegnb.devices.meta_quest import MetaQuest as Rift
-from psychopy import prefs
+from eegnb.devices.vr import VR
+from psychopy import prefs, visual, event, core
 
 import gc
 from time import time
@@ -21,7 +21,6 @@ import json
 
 import numpy as np
 from pandas import DataFrame
-from psychopy import visual, event, core
 
 from eegnb import generate_save_fn
 
@@ -63,14 +62,14 @@ class BaseExperiment(ABC):
         self.stereoscopic = stereoscopic
         if use_vr:
             # VR interface accessible by specific experiment classes for customizing and using controllers.
-            # OculusRift extends psychopy's Rift with clock sync, per-trial telemetry buffering, and telemetry CSV saving.
-            self.rift: Rift = Rift(monoscopic=not stereoscopic, headLocked=True)
+            # VR extends psychopy's VR with clock sync, per-trial telemetry buffering, and telemetry CSV saving.
+            self.vr: VR = VR(monoscopic=not stereoscopic, headLocked=True)
 
         # Shift content onto each lens's optical axis. VR HMDs use canted
         # asymmetric frustums, so NDC (0,0) is off-axis and binocular content
         # there forces inward vergence ("cross-eyed" feel).
         if use_vr and stereoscopic:
-            self.left_eye_x_pos, self.right_eye_x_pos = self.rift.compute_optical_axis_offsets()
+            self.left_eye_x_pos, self.right_eye_x_pos = self.vr.compute_optical_axis_offsets()
         else:
             self.left_eye_x_pos = 0
             self.right_eye_x_pos = 0
@@ -139,7 +138,7 @@ class BaseExperiment(ABC):
     def setup(self, instructions=True):
         # Setting up Graphics
         self.window = (
-            self.rift if self.use_vr
+            self.vr if self.use_vr
             else visual.Window(self.window_size, monitor="testMonitor", units="deg", 
                                screen = self.screen_num, fullscr=self.use_fullscr))
         
@@ -239,13 +238,13 @@ class BaseExperiment(ABC):
         """
         trigger_squeezed = False
         if trigger:
-            for x in self.rift.getIndexTriggerValues(vr_controller):
+            for x in self.vr.getIndexTriggerValues(vr_controller):
                 if x > 0.0:
                     trigger_squeezed = True
 
         button_pressed = False
         if button is not None:
-            button_pressed, tsec = self.rift.getButtons([button], vr_controller, 'released')
+            button_pressed, tsec = self.vr.getButtons([button], vr_controller, 'released')
 
         if trigger_squeezed or button_pressed:
             return True
@@ -283,7 +282,7 @@ class BaseExperiment(ABC):
         Clears/resets input events from vr controllers
         """
         if self.use_vr:
-            self.rift.updateInputState()
+            self.vr.updateInputState()
         
     def _run_trial_loop(self, start_time, duration):
         """
@@ -406,7 +405,7 @@ class BaseExperiment(ABC):
         gc.disable()
         try:
             if self.use_vr:        
-                self.rift.sync_vr_clock()
+                self.vr.sync_vr_clock()
             self._run_trial_loop(record_start_time, self.duration)
         finally:
             gc.enable()
@@ -422,7 +421,7 @@ class BaseExperiment(ABC):
             self.eeg.stop()
 
         if self.use_vr:
-            self.rift.save_telemetry(self.save_fn)
+            self.vr.save_telemetry(self.save_fn)
 
         # Closing the window
         self.window.close()
@@ -440,7 +439,7 @@ class BaseExperiment(ABC):
             return
 
         if self.use_vr:
-            self.rift.log_telemetry(trial_idx, software_time)
+            self.vr.log_telemetry(trial_idx, software_time)
 
     def send_triggers(self, marker):
         """Send timing triggers to recording device[s]"""
@@ -452,4 +451,3 @@ class BaseExperiment(ABC):
     def name(self) -> str:
         """ This experiment's name """
         return self.exp_name
-

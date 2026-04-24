@@ -17,17 +17,19 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: ['ubuntu-22.04', windows-latest, macOS-latest]
+        os: [ubuntu-22.04, windows-latest, macOS-latest]
         python_version: ['3.10']
+        env_file: [environments/eeg-expy-full.yml]
+        env_name: [eeg-expy-full]
         include:
-          # Experimental: PsychoPy not officially supported on 3.11+
-          # 3.11 still tries full env to catch regressions early
+          # Experimental Full Build: Catch regressions on 3.11 early
           - os: ubuntu-22.04
             python_version: '3.11'
             experimental: true
             env_file: environments/eeg-expy-full.yml
             env_name: eeg-expy-full
-          # 3.12+ use streaming env as PsychoPy is definitely not ready
+
+          # Experimental Streaming Builds: Verify acquisition/analysis on 3.12+
           - os: ubuntu-22.04
             python_version: '3.12'
             experimental: true
@@ -48,8 +50,8 @@ jobs:
     - name: Set up conda env
       uses: ./.github/actions/setup-conda-env
       with:
-        environment-file: ${{ matrix.env_file || 'environments/eeg-expy-full.yml' }}
-        activate-environment: ${{ matrix.env_name || 'eeg-expy-full' }}
+        environment-file: ${{ matrix.env_file }}
+        activate-environment: ${{ matrix.env_name }}
         python-version: ${{ matrix.python_version }}
     - name: Run eeg-expy install test
       run: |
@@ -65,7 +67,16 @@ jobs:
           Xvfb :0 -screen 0 1024x768x24 -ac +extension GLX +render -noreset &> xvfb.log &
           export DISPLAY=:0
         fi
-        make test PYTEST_ARGS="--ignore=tests/test_run_experiments.py"
+        
+        # Set default pytest args
+        ARGS="--ignore=tests/test_run_experiments.py"
+        
+        # If in streaming environment, ignore experiments and VR hardware modules
+        if [[ "${{ matrix.env_name }}" == "eeg-expy-streaming" ]]; then
+          ARGS="$ARGS --ignore=eegnb/experiments --ignore=eegnb/devices/vr.py"
+        fi
+        
+        make test PYTEST_ARGS="$ARGS"
 
 
   typecheck:
@@ -78,7 +89,7 @@ jobs:
       fail-fast: false
       matrix:
         os: ['ubuntu-22.04']
-        python_version: [3.10]
+        python_version: ['3.10']
 
     steps:
     - uses: actions/checkout@v2

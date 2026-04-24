@@ -3,9 +3,9 @@ import numpy as np
 from time import time
 from psychopy.visual.rift import Rift
 
-class MetaQuest(Rift):
+class VR(Rift):
     """
-    Extended Rift class for Meta Quest HMDs, providing built-in methods for
+    Extended VR class for HMDs, providing built-in methods for
     stereoscopic rendering math, precise hardware clock synchronization,
     and per-trial compositor telemetry buffering.
     """
@@ -28,7 +28,7 @@ class MetaQuest(Rift):
             return ((left_L - left_R) / (left_L + left_R),
                     (right_L - right_R) / (right_L + right_R))
         except Exception as e:
-            logging.warning(f"[MetaQuest] Failed to compute optical axis offsets: {e}")
+            logging.warning(f"[VR] Failed to compute optical axis offsets: {e}")
             return (0.0, 0.0)
 
     def sync_vr_clock(self):
@@ -55,14 +55,14 @@ class MetaQuest(Rift):
                     best_offset = offset
             
             logging.info(
-                f"[MetaQuest] clock offset (wall - libovr) = "
+                f"[VR] clock offset (wall - libovr) = "
                 f"{best_offset:.6f}s  (tightest bracket = {best_bracket*1e3:.3f}ms)"
             )
             
             self.libovr_to_wallclock_offset = best_offset
             return best_offset
         except Exception as e:
-            logging.warning(f"[MetaQuest] LibOVR clock sync failed: {e}")
+            logging.warning(f"[VR] LibOVR clock sync failed: {e}")
             return None
 
     def log_display_info(self):
@@ -81,7 +81,7 @@ class MetaQuest(Rift):
             ipd_mm = (eye_to_nose[0] + eye_to_nose[1]) * 1000.0
 
             logging.info(
-                f"[MetaQuest] IPD={ipd_mm:.1f}mm  ppd={ppd} (h={ppd_h:.1f} v={ppd_v:.1f})  "
+                f"[VR] IPD={ipd_mm:.1f}mm  ppd={ppd} (h={ppd_h:.1f} v={ppd_v:.1f})  "
                 f"res={self.displayResolution}  eye_buf={self.size}"
             )
 
@@ -91,7 +91,7 @@ class MetaQuest(Rift):
 
             return ppd, ipd_mm
         except Exception as e:
-            logging.warning(f"[MetaQuest] Failed to read display info: {e}")
+            logging.warning(f"[VR] Failed to read display info: {e}")
             return None, None
 
     def log_telemetry(self, trial_idx, software_time):
