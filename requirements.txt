@@ -40,6 +40,11 @@ attrdict>=2.0.1
 attrdict3
 click
 
+# Tests
+pytest
+pytest-cov
+nbval
+
 
 ## ~~ Stimpres Requirements ~~ 
 
