@@ -226,6 +226,8 @@
 <li class="toctree-l2"><a class="reference internal" href="../experiments/vprvep.html#stimulus-parameters">Stimulus Parameters</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../experiments/vprvep.html#monitor-vs-vr">Monitor vs VR</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../experiments/vprvep.html#electrode-placement">Electrode Placement</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../experiments/vprvep.html#reference-schemes">Reference Schemes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../experiments/vprvep.html#biomarkers">Biomarkers</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../experiments/vprvep.html#latency-resolution">Latency Resolution</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../experiments/vprvep.html#longitudinal-tracking">Longitudinal Tracking</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../experiments/vprvep.html#timing-notes">Timing Notes</a></li>
@@ -407,6 +409,8 @@ be run to begin the notebooks interfacing with the bluemuse backend.</p>
 <strong>Backend:</strong> Brainflow
 <strong>Needed Parameters:</strong>
 <strong>Optional Parameters:</strong></p>
+<p><strong>Cyton USB-Serial Latency (Windows):</strong>
+A note on Cyton USB-serial latency: the Windows FTDI driver default <code class="docutils literal notranslate"><span class="pre">LatencyTimer</span></code> of 16 ms causes batched marker delivery and corrupts millisecond-grade marker timing. The experiment scripts assert <code class="docutils literal notranslate"><span class="pre">LatencyTimer</span> <span class="pre">=</span> <span class="pre">1</span> <span class="pre">ms</span></code> at startup; recordings predating this assertion contain a ~15 ms hardware buffering lag on the marker channel that must be subtracted before comparing absolute latencies across sessions.</p>
 </section>
 <section id="openbci-cyton-daisy">
 <h3>OpenBCI Cyton + Daisy<a class="headerlink" href="#openbci-cyton-daisy" title="Link to this heading"></a></h3>
