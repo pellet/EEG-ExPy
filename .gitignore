@@ -12,6 +12,9 @@ doc/sg_execution_times.rst
 # Built by auto_examples
 examples/visual_cueing/*.csv
 
+# Jupytext-paired notebooks (the .py is the source of truth; .ipynb is auto-paired)
+**.ipynb
+
 # tests/coverage artifacts
 .coverage
 coverage.xml
