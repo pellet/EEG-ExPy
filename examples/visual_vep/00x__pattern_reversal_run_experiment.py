@@ -1,19 +1,23 @@
 """
 PRVEP Run Experiment
-===============================
+==========================================
 
-This example demonstrates the initiation of an EEG stream with eeg-expy,
-and how to run the Pattern Reversal VEP (PRVEP) experiment.
+Pattern Reversal VEP using PsychoPy on a standard monitor or Meta Quest
+headset (via psychxr / Meta-Link). The EEG device and save-file are owned
+by this script; the stimulus is driven by PsychoPy.
 
-The experiment presents a checkerboard that reverses its black and white squares
-at 2 reversals per second, while the participant fixates a central dot.
-Each reversal elicits a P100 response at occipital electrodes.
+Block schedule: 4 conditions (left/right eye × large/small check) ×
+``reps_per_condition`` reps = 8 blocks, shuffled at startup.
 
-The experiment supports both standard monitor presentation and Meta Quest VR
-presentation via ``use_vr=True``. VR mode is preferred as it provides monocular
-stimulation per eye without manual eye closure, and uses compositor-predicted
-photon timestamps for improved timing accuracy.
+Marker codes:
+    1   — reversal, left-eye  block
+    2   — reversal, right-eye block
 
+    Block-start codes (bit 0 = eye, bit 1 = size class):
+    100 — block_start, left  eye, large check (~60 arcmin / 1 deg)
+    101 — block_start, right eye, large check
+    102 — block_start, left  eye, small check (~30 arcmin / 0.5 deg)
+    103 — block_start, right eye, small check
 """
 
 ###################################################################################################
@@ -53,8 +57,8 @@ config = None
 
 # Electrode montage type: "cap" or "mark-iv"
 montage_type = "cap"
-# Ground M1, Ref Fz.
-ch_names = ["CPz", "POz", "T5", "T6", "O1", "O2", "Oz", "Pz"]
+# Ground A2, Ref M1.
+ch_names = ["Fz", "Pz", "P7", "P8", "O1", "O2", "Oz", "M2"]
 
 # Subject and session identifiers
 subject_id = 0
@@ -87,7 +91,7 @@ save_fn = generate_save_fn(eeg_device.device_name,
                            subject_id=subject_id,
                            session_nb=session_nb,
                            data_dir=data_dir)
-print(save_fn)
+print(f"Saving data to: {save_fn}")
 
 ###################################################################################################
 # Run experiment
