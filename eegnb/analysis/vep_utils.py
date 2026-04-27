@@ -1,6 +1,9 @@
 import numpy as np
 from mne import Evoked
 
+ISCEV_CHECK_DEG_LARGE = 1.0
+ISCEV_CHECK_DEG_SMALL = 0.25
+
 
 def print_latency(peak_name, peak_latency, peak_channel, uv):
     peak_latency = round(peak_latency * 1e3, 2)  # convert to milliseconds
