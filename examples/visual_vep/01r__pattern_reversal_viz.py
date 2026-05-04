@@ -492,7 +492,7 @@ CHECK_SIZE_ARCMIN = {
 # with the recorded M2, giving Oz-(M1+M2)/2 after the algebra.
 #
 
-REF_SCHEME = 'Mastoid M2'  # 'Fz (ISCEV)', 'Linked Mastoid M1+M2', or 'Mastoid M2'
+REF_SCHEME = 'Fz (ISCEV)'  # 'Fz (ISCEV)'  or  'Linked Mastoid M1+M2'
 
 if REF_SCHEME == 'Fz (ISCEV)':
     raw_ref = raw.copy()
@@ -513,11 +513,6 @@ elif REF_SCHEME == 'Linked Mastoid M1+M2':
         raw_ref.add_channels([m1_zero])
     # M1 is a real recorded channel (session 016+) or the synthesised zero above
     raw_ref.set_eeg_reference(ref_channels=['M1', 'M2'])
-elif REF_SCHEME == 'Mastoid M2':
-    raw_ref = raw.copy()
-    # Note: For Session 016, M1 was too noisy for re-referencing to do linked mastoids, 
-    # so just one mastoid (M2) re-ref is used here to allow the Halliday Fz inversion check.
-    raw_ref.set_eeg_reference(ref_channels=['M2'])
 else:
     raise ValueError(f'Unknown REF_SCHEME: {REF_SCHEME!r}')
 
@@ -1774,80 +1769,80 @@ if 'Left Eye' in composite_p100 and 'Right Eye' in composite_p100:
 #
 
 results['topology'] = None
-if 'linked' in ref_label.lower() or 'mastoid' in ref_label.lower():
-    print("\n--- BM12: Topology QC (Pz gradient + Fz Halliday inversion) ---")
+print("\n--- BM12: Topology QC (Pz gradient + Fz Halliday inversion) ---")
 
-    topology_results = {}
-    for eye_name, ev_avg, oz_p100 in [
-        ('Left Eye',  evoked_left_corr_avg,  p100_left),
-        ('Right Eye', evoked_right_corr_avg, p100_right),
-    ]:
-        if ev_avg is None or oz_p100 is None:
-            print(f"[BM12 {eye_name}] Oz P100 not detected — skipping")
-            continue
+topology_results = {}
+for eye_name, ev_avg, oz_p100 in [
+    ('Left Eye',  evoked_left_corr_avg,  p100_left),
+    ('Right Eye', evoked_right_corr_avg, p100_right),
+]:
+    if ev_avg is None or oz_p100 is None:
+        print(f"[BM12 {eye_name}] Oz P100 not detected — skipping")
+        continue
 
-        oz_lat_s  = oz_p100['latency']
-        oz_amp_uv = oz_p100['amplitude'] * 1e6
-        t_idx = int(round((oz_lat_s - ev_avg.tmin) * ev_avg.info['sfreq']))
-        t_idx = max(0, min(t_idx, ev_avg.data.shape[1] - 1))
+    oz_lat_s  = oz_p100['latency']
+    t_idx = int(round((oz_lat_s - ev_avg.tmin) * ev_avg.info['sfreq']))
+    t_idx = max(0, min(t_idx, ev_avg.data.shape[1] - 1))
 
-        entry = {'oz_amp_uv': _f(oz_amp_uv), 'pz_amp_uv': None, 'fz_amp_uv': None,
-                 'pz_gradient_ok': None, 'fz_inversion_ok': None}
+    oz_val = ev_avg.data[ev_avg.ch_names.index('Oz'), t_idx] * 1e6
+    pz_val = ev_avg.data[ev_avg.ch_names.index('Pz'), t_idx] * 1e6 if 'Pz' in ev_avg.ch_names else None
+    fz_val = ev_avg.data[ev_avg.ch_names.index('Fz'), t_idx] * 1e6 if 'Fz' in ev_avg.ch_names else 0.0
 
-        if 'Pz' in ev_avg.ch_names:
-            pz_amp = ev_avg.data[ev_avg.ch_names.index('Pz'), t_idx] * 1e6
-            pz_ok  = 0 < pz_amp < oz_amp_uv
-            pz_str = 'OK (positive, < Oz)' if pz_ok else 'FLAG: gradient broken'
-            print(f"[BM12 {eye_name}] Pz @ {oz_lat_s*1000:.1f} ms: {pz_amp:+.2f} µV  "
-                  f"(Oz = {oz_amp_uv:+.2f} µV)  [{pz_str}]")
-            entry['pz_amp_uv']       = _f(pz_amp)
-            entry['pz_gradient_ok']  = bool(pz_ok)
+    if 'M2' in ev_avg.ch_names:
+        m2_val = ev_avg.data[ev_avg.ch_names.index('M2'), t_idx] * 1e6
+        oz_val -= m2_val
+        if pz_val is not None:
+            pz_val -= m2_val
+        fz_val -= m2_val
+        ref_note = "re-referenced to M2"
+    else:
+        ref_note = "using current ref"
 
-        if 'Fz' in ev_avg.ch_names:
-            fz_amp = ev_avg.data[ev_avg.ch_names.index('Fz'), t_idx] * 1e6
-            if abs(fz_amp) < 0.2:
-                print(f"[BM12 {eye_name}] Fz: {fz_amp:+.2f} µV  "
-                      f"[INACTIVE — Fz is the reference]")
-                entry['fz_amp_uv']       = _f(fz_amp)
-                entry['fz_inversion_ok'] = None
-            else:
-                fz_ok  = fz_amp < 0
-                fz_str = ('OK (inverted ⇒ V1 generator confirmed)'
-                          if fz_ok else 'FLAG: same-sign as Oz')
-                print(f"[BM12 {eye_name}] Fz @ {oz_lat_s*1000:.1f} ms: {fz_amp:+.2f} µV  "
-                      f"(Oz = {oz_amp_uv:+.2f} µV)  [{fz_str}]")
-                entry['fz_amp_uv']       = _f(fz_amp)
-                entry['fz_inversion_ok'] = bool(fz_ok)
+    entry = {'oz_amp_uv': _f(oz_val), 'pz_amp_uv': None, 'fz_amp_uv': None,
+             'pz_gradient_ok': None, 'fz_inversion_ok': None}
 
-        topology_results[eye_name] = entry
+    if pz_val is not None:
+        pz_ok  = 0 < pz_val < oz_val
+        pz_str = 'OK (positive, < Oz)' if pz_ok else 'FLAG: gradient broken'
+        print(f"[BM12 {eye_name}] Pz @ {oz_lat_s*1000:.1f} ms: {pz_val:+.2f} µV  "
+              f"(Oz = {oz_val:+.2f} µV)  [{pz_str}, {ref_note}]")
+        entry['pz_amp_uv']       = _f(pz_val)
+        entry['pz_gradient_ok']  = bool(pz_ok)
 
-    results['topology'] = topology_results
+    fz_ok  = fz_val < 0
+    fz_str = ('OK (inverted ⇒ V1 generator confirmed)'
+              if fz_ok else 'FLAG: same-sign as Oz')
+    print(f"[BM12 {eye_name}] Fz @ {oz_lat_s*1000:.1f} ms: {fz_val:+.2f} µV  "
+          f"(Oz = {oz_val:+.2f} µV)  [{fz_str}, {ref_note}]")
+    entry['fz_amp_uv']       = _f(fz_val)
+    entry['fz_inversion_ok'] = bool(fz_ok)
 
-    if topology_results:
-        fig_bm12, ax_bm12 = plt.subplots(figsize=(8, 5))
-        eyes_t = list(topology_results.keys())
-        x_t    = np.arange(len(eyes_t))
-        w_t    = 0.22
-        ch_order  = [('oz_amp_uv', 'Oz',   'black'),
-                     ('pz_amp_uv', 'Pz',   '#2ca02c'),
-                     ('fz_amp_uv', 'Fz',   '#ff7f0e')]
-        for i, (key, label, color) in enumerate(ch_order):
-            vals = [topology_results.get(eye, {}).get(key) or 0 for eye in eyes_t]
-            ax_bm12.bar(x_t + (i - 1) * w_t, vals, w_t,
-                        color=color, alpha=0.75, label=label)
-        ax_bm12.axhline(0, color='black', lw=0.8)
-        ax_bm12.set_xticks(x_t)
-        ax_bm12.set_xticklabels(eyes_t)
-        ax_bm12.set_ylabel('Amplitude at Oz-P100 latency (µV)')
-        ax_bm12.set_title(f'[{ref_label}] BM12: Topology QC\n'
-                          'Oz > 0, Pz > 0 (gradient), Fz < 0 (Halliday inversion)')
-        ax_bm12.legend()
-        ax_bm12.grid(axis='y', alpha=0.3)
-        fig_bm12.tight_layout()
-        plt.show()
-else:
-    print("\n[BM12] Topology QC skipped — requires Linked Mastoid reference "
-          "(run again with REF_SCHEME = 'Linked Mastoid M1+M2')")
+    topology_results[eye_name] = entry
+
+results['topology'] = topology_results
+
+if topology_results:
+    fig_bm12, ax_bm12 = plt.subplots(figsize=(8, 5))
+    eyes_t = list(topology_results.keys())
+    x_t    = np.arange(len(eyes_t))
+    w_t    = 0.22
+    ch_order  = [('oz_amp_uv', 'Oz',   'black'),
+                 ('pz_amp_uv', 'Pz',   '#2ca02c'),
+                 ('fz_amp_uv', 'Fz',   '#ff7f0e')]
+    for i, (key, label, color) in enumerate(ch_order):
+        vals = [topology_results.get(eye, {}).get(key) or 0 for eye in eyes_t]
+        ax_bm12.bar(x_t + (i - 1) * w_t, vals, w_t,
+                    color=color, alpha=0.75, label=label)
+    ax_bm12.axhline(0, color='black', lw=0.8)
+    ax_bm12.set_xticks(x_t)
+    ax_bm12.set_xticklabels(eyes_t)
+    ax_bm12.set_ylabel('Amplitude at Oz-P100 latency (µV)')
+    ax_bm12.set_title(f'[{ref_label}] BM12: Topology QC (M2 referenced)\n'
+                      'Oz > 0, Pz > 0 (gradient), Fz < 0 (Halliday inversion)')
+    ax_bm12.legend()
+    ax_bm12.grid(axis='y', alpha=0.3)
+    fig_bm12.tight_layout()
+    plt.show()
 
 # =========================================================================
 # SUMMARY
