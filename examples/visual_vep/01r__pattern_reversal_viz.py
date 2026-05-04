@@ -492,7 +492,7 @@ CHECK_SIZE_ARCMIN = {
 # with the recorded M2, giving Oz-(M1+M2)/2 after the algebra.
 #
 
-REF_SCHEME = 'Fz (ISCEV)'  # 'Fz (ISCEV)'  or  'Linked Mastoid M1+M2'
+REF_SCHEME = 'Mastoid M2'  # 'Fz (ISCEV)', 'Linked Mastoid M1+M2', or 'Mastoid M2'
 
 if REF_SCHEME == 'Fz (ISCEV)':
     raw_ref = raw.copy()
@@ -513,6 +513,11 @@ elif REF_SCHEME == 'Linked Mastoid M1+M2':
         raw_ref.add_channels([m1_zero])
     # M1 is a real recorded channel (session 016+) or the synthesised zero above
     raw_ref.set_eeg_reference(ref_channels=['M1', 'M2'])
+elif REF_SCHEME == 'Mastoid M2':
+    raw_ref = raw.copy()
+    # Note: For Session 016, M1 was too noisy for re-referencing to do linked mastoids, 
+    # so just one mastoid (M2) re-ref is used here to allow the Halliday Fz inversion check.
+    raw_ref.set_eeg_reference(ref_channels=['M2'])
 else:
     raise ValueError(f'Unknown REF_SCHEME: {REF_SCHEME!r}')
 
@@ -683,35 +688,54 @@ def plot_ch(ax, data, color, eye_label, sem=None, data_mean_corr=None, times_mea
     ax.axhline(y=0, color='black', linestyle='-', alpha=0.3)
     ax.axvline(x=0, color='black', linestyle='--', alpha=0.5)
 
-fig, (ax_large, ax_small) = plt.subplots(1, 2, figsize=(16, 6), sharey=True)
+fig_large, (ax_left_large, ax_right_large) = plt.subplots(1, 2, figsize=(16, 6), sharey=True)
 
-plot_ch(ax_large, left_corr_large,  'blue', 'Left Eye',  sem=left_sem_large,
+plot_ch(ax_left_large, left_corr_large,  'blue', 'Left Eye',  sem=left_sem_large,
         data_mean_corr=left_data_large,  times_mean_corr=times_mean_corr)
-plot_ch(ax_large, right_corr_large, 'red',  'Right Eye', sem=right_sem_large,
+for ms, col, lbl in zip(LANDMARK_MS, LANDMARK_COLORS, LANDMARK_LABELS):
+    ax_left_large.axvline(x=ms, color=col, linestyle='--', alpha=0.6, label=lbl)
+ax_left_large.set_title(f'[{ref_label}] Large Checks: Left Eye — {PICK_CH}')
+handles, lbls = ax_left_large.get_legend_handles_labels()
+ax_left_large.legend(dict(zip(lbls, handles)).values(), dict(zip(lbls, handles)).keys(),
+                fontsize=10, loc='upper right')
+
+plot_ch(ax_right_large, right_corr_large, 'red',  'Right Eye', sem=right_sem_large,
         data_mean_corr=right_data_large, times_mean_corr=times_mean_corr)
-
 for ms, col, lbl in zip(LANDMARK_MS, LANDMARK_COLORS, LANDMARK_LABELS):
-    ax_large.axvline(x=ms, color=col, linestyle='--', alpha=0.6, label=lbl)
-
-ax_large.set_title(f'[{ref_label}] Large Checks: Left vs Right Eye — {PICK_CH}')
-handles, lbls = ax_large.get_legend_handles_labels()
-ax_large.legend(dict(zip(lbls, handles)).values(), dict(zip(lbls, handles)).keys(),
+    ax_right_large.axvline(x=ms, color=col, linestyle='--', alpha=0.6, label=lbl)
+ax_right_large.set_title(f'[{ref_label}] Large Checks: Right Eye — {PICK_CH}')
+handles, lbls = ax_right_large.get_legend_handles_labels()
+ax_right_large.legend(dict(zip(lbls, handles)).values(), dict(zip(lbls, handles)).keys(),
                 fontsize=10, loc='upper right')
 
-plot_ch(ax_small, left_corr_small,  'blue', 'Left Eye',  sem=left_sem_small,
+fig_large.tight_layout()
+plt.show()
+
+###############################################################################
+# ## Oz evoked: small checks
+#
+
+fig_small, (ax_left_small, ax_right_small) = plt.subplots(1, 2, figsize=(16, 6), sharey=True)
+
+plot_ch(ax_left_small, left_corr_small,  'blue', 'Left Eye',  sem=left_sem_small,
         data_mean_corr=left_data_small,  times_mean_corr=times_mean_corr)
-plot_ch(ax_small, right_corr_small, 'red',  'Right Eye', sem=right_sem_small,
-        data_mean_corr=right_data_small, times_mean_corr=times_mean_corr)
-
 for ms, col, lbl in zip(LANDMARK_MS, LANDMARK_COLORS, LANDMARK_LABELS):
-    ax_small.axvline(x=ms, color=col, linestyle='--', alpha=0.6, label=lbl)
-
-ax_small.set_title(f'[{ref_label}] Small Checks: Left vs Right Eye — {PICK_CH}')
-handles, lbls = ax_small.get_legend_handles_labels()
-ax_small.legend(dict(zip(lbls, handles)).values(), dict(zip(lbls, handles)).keys(),
+    ax_left_small.axvline(x=ms, color=col, linestyle='--', alpha=0.6, label=lbl)
+ax_left_small.set_title(f'[{ref_label}] Small Checks: Left Eye — {PICK_CH}')
+handles, lbls = ax_left_small.get_legend_handles_labels()
+ax_left_small.legend(dict(zip(lbls, handles)).values(), dict(zip(lbls, handles)).keys(),
                 fontsize=10, loc='upper right')
 
-fig.tight_layout()
+plot_ch(ax_right_small, right_corr_small, 'red',  'Right Eye', sem=right_sem_small,
+        data_mean_corr=right_data_small, times_mean_corr=times_mean_corr)
+for ms, col, lbl in zip(LANDMARK_MS, LANDMARK_COLORS, LANDMARK_LABELS):
+    ax_right_small.axvline(x=ms, color=col, linestyle='--', alpha=0.6, label=lbl)
+ax_right_small.set_title(f'[{ref_label}] Small Checks: Right Eye — {PICK_CH}')
+handles, lbls = ax_right_small.get_legend_handles_labels()
+ax_right_small.legend(dict(zip(lbls, handles)).values(), dict(zip(lbls, handles)).keys(),
+                fontsize=10, loc='upper right')
+
+fig_small.tight_layout()
 plt.show()
 
 ###############################################################################
