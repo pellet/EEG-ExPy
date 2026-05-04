@@ -23,6 +23,7 @@ import numpy as np
 from pandas import DataFrame
 
 from eegnb import generate_save_fn
+from eegnb.experiments import diagnostics
 
 
 class BaseExperiment(ABC):
@@ -76,6 +77,10 @@ class BaseExperiment(ABC):
 
         self.use_fullscr = use_fullscr
         self.window_size = [1600,800]
+
+        # Diagnostic results — populated by run()/setup(), read by show_diagnostics()
+        self.signal_check = None
+        self.display_check = None
 
         # Initializing the marker names
         self.markernames = [1, 2]
@@ -135,18 +140,37 @@ class BaseExperiment(ABC):
         """
         self.window.flip()
 
+    def _draw_blank_frame(self):
+        """Draw a blank frame and flip — used for display rate measurement."""
+        self._draw(self.window.flip)
+
     def setup(self, instructions=True):
         # Setting up Graphics
-        self.window = (
-            self.vr if self.use_vr
-            else visual.Window(self.window_size, monitor="testMonitor", units="deg", 
-                               screen = self.screen_num, fullscr=self.use_fullscr))
-        
+        if self.use_vr:
+            self.window = self.vr
+            self.display_check = self.vr.validate_frame_rate(self._draw_blank_frame)
+        else:
+            self.window = visual.Window(self.window_size,
+                                        monitor=diagnostics.build_flat_monitor(self.screen_num),
+                                        units="deg",
+                                        screen=self.screen_num,
+                                        fullscr=self.use_fullscr)
+            actual_hz = self.window.getActualFrameRate(nFrames=20)
+            self.display_check = {
+                'target_hz': round(actual_hz, 1) if actual_hz else None,
+                'actual_hz': round(actual_hz, 1) if actual_hz else None,
+                'deviation_pct': 0.0,
+                'ok': actual_hz is not None,
+            }
+            self.window.mouseVisible = False
+
         # Loading the stimulus from the specific experiment, throws an error if not overwritten in the specific experiment
         self.stim = self.load_stimulus()
-        
-        # Show Instruction Screen if not skipped by the user
+
+        # Show diagnostics screen first if anything's wrong, then instructions.
         if instructions:
+            if not self.show_diagnostics():
+                return False
             if not self.show_instructions():
                 return False
 
@@ -176,9 +200,6 @@ class BaseExperiment(ABC):
         if '%s' in self.instruction_text:
             self.instruction_text = self.instruction_text % self.duration
 
-        # Disabling the cursor during display of instructions
-        self.window.mouseVisible = False
-
         # clear/reset any old key/controller events
         self._clear_user_input()
 
@@ -188,12 +209,96 @@ class BaseExperiment(ABC):
             text = visual.TextStim(win=self.window, text=self.instruction_text, color=[-1, -1, -1])
             self._draw(lambda: self.__draw_instructions(text))
 
-            # Enabling the cursor again
-            self.window.mouseVisible = True
-
             if self._user_input('cancel'):
                 return False
         return True
+
+    def show_diagnostics(self):
+        """Display a pre-experiment diagnostics screen — only when flagged.
+
+        Shows synthetic-device warning, degraded-framerate warning, and
+        noisey electrode warning. If none are flagged the screen is skipped
+        entirely so the experimenter goes straight to the instructions.
+        Returns True to continue, False if the user cancels.
+        """
+        warnings = diagnostics.format_diagnostic_warnings(
+            device_name=self.eeg.device_name if self.eeg else None,
+            display=self.display_check,
+            signal_check=self.signal_check,
+        )
+        if not warnings:
+            return True
+
+        body = "\n\n".join(warnings)
+        body += "\n\nFix the issues above, or press spacebar / index trigger to continue anyway."
+
+        self._clear_user_input()
+
+        while not self._user_input('start'):
+            text = visual.TextStim(
+                win=self.window, text=body,
+                color=[1, 1, 1], font='Courier New',
+                height=0.04, wrapWidth=1.8, units='norm',
+                anchorHoriz='center', anchorVert='center',
+            )
+            self._draw(lambda: self.__draw_instructions(text))
+            if self._user_input('cancel'):
+                return False
+        return True
+
+    def show_results(self, text):
+        """Display a results / summary screen after the experiment.
+
+        Mirrors ``show_instructions``: loops the render loop until user input. Uses a
+        monospaced font so tabular output (e.g. recording quality reports)
+        aligns correctly.
+
+        Args:
+            text (str): Text to display. Long lines are wrapped automatically.
+        """
+        self._clear_user_input()
+
+        stim = visual.TextStim(
+            win=self.window, text=text,
+            color=[1, 1, 1],          # white on black background
+            font='Courier New',
+            height=0.04,
+            wrapWidth=1.8,
+            units='norm',
+            anchorHoriz='center', anchorVert='center',
+        )
+
+        while not self._user_input('start'):
+            self._draw(lambda: self.__draw_results(stim))
+            if self._user_input('cancel'):
+                break
+
+    def __draw_results(self, stim):
+        if self.use_vr and self.stereoscopic:
+            for eye, x_pos in [("left", self.left_eye_x_pos),
+                                ("right", self.right_eye_x_pos)]:
+                self.window.setBuffer(eye)
+                stim.pos = (x_pos, 0)
+                stim.draw()
+        else:
+            stim.draw()
+        self.window.flip()
+
+    def post_run(self):
+        """Called after the trial loop ends, before the window closes.
+
+        Default: display a recording quality report so the experimenter can
+        decide whether to re-record before removing the electrodes. Override in a
+        subclass or reassign on the instance to replace this behaviour.
+        """
+        if not self.save_fn:
+            return
+        try:
+            text = diagnostics.post_session_report(self.save_fn)
+            text += "\n\nPress spacebar or index trigger to close."
+            self.show_results(text)
+        except Exception as e:
+            print(f"[post_run] Could not display quality report: {e}")
 
     def _user_input(self, input_type):
         if input_type == 'start':
@@ -388,6 +493,7 @@ class BaseExperiment(ABC):
 
     def run(self, instructions=True):
         """ Run the experiment """
+        self.signal_check = diagnostics.check_signal_quality(self.eeg)
 
         # Setup the experiment
         self.setup(instructions)
@@ -425,6 +531,9 @@ class BaseExperiment(ABC):
 
         if self.use_vr:
             self.vr.save_telemetry(self.save_fn)
+
+        # Post-run hook (e.g. show a summary / quality report screen)
+        self.post_run()
 
         # Closing the window
         self.window.close()

@@ -57,12 +57,13 @@ config = None
 
 # Electrode montage type: "cap" or "mark-iv"
 montage_type = "cap"
-# Ground A2, Ref M1.
-ch_names = ["Fz", "Pz", "P7", "P8", "O1", "O2", "Oz", "M2"]
+
+# Ground A2, Ref Fz.
+ch_names = ["M1", "Pz", "P7", "P8", "O1", "O2", "Oz", "M2"]
 
 # Subject and session identifiers
 subject_id = 0
-session_nb = 10
+session_nb = 16
 
 ###################################################################################################
 # Initiate EEG device
@@ -73,17 +74,29 @@ eeg_device = EEG(device, serial_port=serial_port, ch_names=ch_names, config=conf
 #eeg_device = EEG(device="synthetic")
 
 ###################################################################################################
-# Display and save path setup
+# Build experiment object and detect display settings
 # ---------------------
+#
+# The experiment is constructed before the save path so the Rift session is
+# already open and we can read the actual refresh rate from the runtime rather
+# than hardcoding it. The save path is then built from the real Hz and set on
+# the experiment before run() is called.
+
+pattern_reversal_vep = VisualPatternReversalVEP(
+    eeg=eeg_device,
+    use_vr=use_vr
+)
 
 if use_vr:
-    refresh_rate = 120
-    display = "quest-2_{}Hz".format(refresh_rate)
+    _QUEST_HZ = [72, 90, 120]  # nominal Meta Quest refresh rates
+    _raw_hz = pattern_reversal_vep.vr.displayRefreshRate
+    refresh_rate = min(_QUEST_HZ, key=lambda h: abs(h - _raw_hz))
+    display = f"quest-2_{refresh_rate}Hz"
 else:
-    refresh_rate = 100
-    display = "acer-34-predator_{}Hz".format(refresh_rate)
+    refresh_rate = 100   # flat display fallback — update for your monitor
+    display = f"acer-34-predator_{refresh_rate}Hz"
 
-site="{}_{}".format(display, montage_type)
+site = f"{display}_{montage_type}"
 data_dir = getenv("DATA_DIR")
 save_fn = generate_save_fn(eeg_device.device_name,
                            experiment="visual-PRVEP",
@@ -91,19 +104,7 @@ save_fn = generate_save_fn(eeg_device.device_name,
                            subject_id=subject_id,
                            session_nb=session_nb,
                            data_dir=data_dir)
-print(f"Saving data to: {save_fn}")
+print(f"Saving data to: {save_fn}  (detected {refresh_rate} Hz)")
+pattern_reversal_vep.save_fn = save_fn
 
-###################################################################################################
-# Run experiment
-# ---------------------
-#
-# Run the Pattern Reversal VEP. The experiment will present alternating checkerboard
-# blocks for each eye (or for both eyes on monitor). Press spacebar/controller trigger
-# at each block instruction prompt to begin that block.
-
-pattern_reversal_vep = VisualPatternReversalVEP(
-    eeg=eeg_device,
-    save_fn=save_fn,
-    use_vr=use_vr
-)
 pattern_reversal_vep.run()

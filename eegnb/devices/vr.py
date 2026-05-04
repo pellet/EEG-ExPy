@@ -1,7 +1,33 @@
 import logging
 import numpy as np
 from time import time
+from psychopy import core, monitors
 from psychopy.visual.rift import Rift
+
+
+# Frame-rate deviation above this percentage triggers a user-facing warning.
+# Set high (50%) because VR jitter is recoverable per-trial via the timing
+# sidecar (app_motion_to_photon_latency_s). The warning catches fundamentally
+# broken setups (wrong GPU, no acceleration), not borderline cases.
+DISPLAY_DEVIATION_FLAG_PCT = 50.0
+
+
+def _build_placeholder_monitor():
+    """Programmatic Monitor passed to the Rift constructor.
+    Display geometry comes from the HMD runtime, not this object.
+    Logger is silenced during construction because Monitor.__init__ emits an
+    unconditional 'Monitor specification not found' warning for any name not
+    present in the user's saved calibration database."""
+    from psychopy import logging as psy_logging
+    prev_level = psy_logging.console.level
+    psy_logging.console.setLevel(psy_logging.ERROR)
+    try:
+        mon = monitors.Monitor('eegnb_vr_placeholder', autoLog=False)
+        mon.setDistance(60)
+        mon.setSizePix([1920, 1080])
+    finally:
+        psy_logging.console.setLevel(prev_level)
+    return mon
 
 class VR(Rift):
     """
@@ -10,8 +36,56 @@ class VR(Rift):
     and per-trial compositor telemetry buffering.
     """
     def __init__(self, *args, **kwargs):
+        # Provide a placeholder monitor so PsychoPy doesn't emit
+        # 'Monitor specification not found' on first flip. The values are not
+        # used by the Rift compositor — display geometry comes from the HMD
+        # runtime via libovr — but PsychoPy's Window base class still queries
+        # the monitor object during initialization.
+        kwargs.setdefault('monitor', _build_placeholder_monitor())
         super().__init__(*args, **kwargs)
         self.libovr_to_wallclock_offset = None
+
+    def validate_frame_rate(self, draw_blank, n_frames=60, warmup=10):
+        """Measure actual frame delivery rate and compare to the runtime target.
+
+        Specific to VR because Quest Link's encoded transport pipeline can
+        silently degrade (wrong GPU, encode bottleneck) even though the runtime
+        still advertises its nominal refresh rate.
+
+        Args:
+            draw_blank: callable that draws a frame and flips the window.
+                Caller decides eye-buffer logic.
+            n_frames: measurement window. 60 frames ≈ 0.5s at 120 Hz.
+            warmup: discarded frames so the compositor reaches steady state.
+
+        Returns:
+            Dict with ``target_hz``, ``actual_hz``, ``deviation_pct``, ``ok``
+            (True iff deviation ≤ ``DISPLAY_DEVIATION_FLAG_PCT``).
+        """
+        target_hz = float(self.displayRefreshRate)
+
+        for _ in range(warmup):
+            draw_blank()
+
+        t0 = core.getTime()
+        for _ in range(n_frames):
+            draw_blank()
+        elapsed = core.getTime() - t0
+
+        actual_hz = n_frames / elapsed
+        deviation = abs(actual_hz - target_hz) / target_hz * 100.0
+
+        result = {
+            'target_hz':     round(target_hz, 1),
+            'actual_hz':     round(actual_hz, 1),
+            'deviation_pct': round(deviation, 1),
+            'ok':            deviation <= DISPLAY_DEVIATION_FLAG_PCT,
+        }
+
+        status = 'OK' if result['ok'] else 'DEGRADED — check GPU assignment'
+        print(f"[vr] Target: {target_hz:.0f} Hz  Measured: {actual_hz:.1f} Hz  "
+              f"Deviation: {deviation:.1f}%  [{status}]")
+        return result
 
     def compute_optical_axis_offsets(self):
         """

@@ -13,8 +13,7 @@ from stimupy.stimuli.checkerboards import contrast_contrast
 ISCEV_FIELD_DEG = 16.0
 ISCEV_MEAN_LUM = 0.0
 
-# Block conditions, indexed by label 0-3. Label encoding: bit 0 = eye, bit 1 = size class.
-# CONDITIONS[label] is also (size_idx, eye_idx) flattened: size_idx = label >> 1, eye_idx = label & 1.
+# Block conditions: 4 possible combinations of (eye, size)
 CONDITIONS = [
     {'eye': 'left',  'size_name': 'large', 'size_idx': 0, 'check_deg': ISCEV_CHECK_DEG_LARGE},
     {'eye': 'right', 'size_name': 'large', 'size_idx': 0, 'check_deg': ISCEV_CHECK_DEG_LARGE},
@@ -65,15 +64,24 @@ class VisualPatternReversalVEP(BlockExperiment):
             f"Press spacebar or trigger to continue."
         )
 
-        # Build and shuffle the block schedule.
-        block_labels = list(range(n_conditions)) * reps_per_condition
-        random.shuffle(block_labels)
-        self.block_labels = block_labels
-        logging.info("[PRVEP] block schedule: %s", block_labels)
+        # Build block schedule grouped by eye.
+        left_eye_blocks  = [i for i, c in enumerate(CONDITIONS) if c['eye'] == 'left']  * reps_per_condition
+        right_eye_blocks = [i for i, c in enumerate(CONDITIONS) if c['eye'] == 'right'] * reps_per_condition
+        
+        random.shuffle(left_eye_blocks)
+        random.shuffle(right_eye_blocks)
+        
+        # Randomize which eye goes first
+        if random.random() < 0.5:
+            self.block_labels = left_eye_blocks + right_eye_blocks
+        else:
+            self.block_labels = right_eye_blocks + left_eye_blocks
+            
+        logging.info("[PRVEP] block schedule: %s", self.block_labels)
 
         # Expand into a per-trial parameter array.
         self.parameter = np.array(
-            [lbl for lbl in block_labels for _ in range(block_trial_size)]
+            [lbl for lbl in self.block_labels for _ in range(block_trial_size)]
         )
 
     # ------------------------------------------------------------------
@@ -134,19 +142,30 @@ class VisualPatternReversalVEP(BlockExperiment):
                 units='pix', size=stim_size_px, color='white', pos=pos,
             )
 
-        # Fixation cross sized in degrees so it stays sub-check at every
-        # check-size variant. Clinical PR-VEP uses ~10–20 arcmin marks; 0.25°
-        # = 15 arcmin keeps it well below the 30 arcmin small check and the
-        # 60 arcmin large check, so foveal stimulation isn't masked.
-        FIX_SIZE_DEG = 0.25
-        fix_size_px = max(2, int(round(FIX_SIZE_DEG * ppd)))
+        # Fixation cross: explicit '+' polygon so arm length and arm width are
+        # independent.  At low VR ppd (~20) the old single-size ShapeStim
+        # rendered as a ~5 px blob that looked like a diamond and connected
+        # visually with nearby checkerboard corners (scintillating-grid effect).
+        # Arm half-length 0.3° keeps the cross inside one check cell at the
+        # small-check size (0.5°); arm width 0.12° gives a clearly legible
+        # stroke at VR ppd without occluding foveal stimulation.
+        FIX_ARM_DEG = 0.30   # half-length from centre to each arm tip
+        FIX_W_DEG   = 0.12   # arm width (stroke thickness)
+        arm_px = max(6, int(round(FIX_ARM_DEG * ppd)))
+        w_px   = max(2, int(round(FIX_W_DEG   * ppd)))
+
+        def _cross_verts(a, w):
+            h = w / 2
+            return [(-h, a), (h, a), (h, h), (a, h), (a, -h),
+                    (h, -h), (h, -a), (-h, -a), (-h, -h), (-a, -h),
+                    (-a, h), (-h, h)]
 
         def make_fixation(pos_px):
             return visual.ShapeStim(
                 win=self.window, pos=pos_px,
-                vertices='cross', size=fix_size_px,
-                units='pix',
-                fillColor=[1, -1, -1], lineColor=[1, -1, -1],
+                vertices=_cross_verts(arm_px, w_px),
+                units='pix', closeShape=True,
+                fillColor=[1, -1, -1], lineColor=[-1, -1, -1], lineWidth=1,
             )
 
         self.instruction_stim = visual.TextStim(
@@ -195,25 +214,50 @@ class VisualPatternReversalVEP(BlockExperiment):
     def present_block_instructions(self, current_block: int) -> None:
         open_eye, size_name = self.block_eye_and_size(current_block)
         closed_eye = 'right' if open_eye == 'left' else 'left'
+        
+        # Check if the eye just switched so we can prompt them to move the patch
+        is_first_block_for_eye = (current_block == 0) or (self.block_eye_and_size(current_block - 1)[0] != open_eye)
+        
+        patch_prompt = f"*** MOVE PATCH TO {closed_eye.upper()} EYE NOW ***\n" if is_first_block_for_eye else ""
 
         if self.use_vr:
-            self.instruction_stim.text = (
-                f"Block {current_block + 1}/{self.n_blocks} — "
-                f"{open_eye} eye, {size_name} checks\n\n"
-                "Focus on the red dot.\n"
-                "Try not to blink while the squares are animating.\n"
-                "Press spacebar or trigger when ready."
-            )
-            self.window.setBuffer(open_eye)
-            self.grey_background.draw()
-            self.instruction_stim.draw()
-            self.stim[open_eye]['fixation'].draw()
-            self.window.setBuffer(closed_eye)
-            self.black_background.draw()
+            # Re-assert height each call — VR state changes (calcEyePoses /
+            # setBuffer projection) can corrupt the cached norm-unit size on
+            # the shared instruction_stim, causing oversized text from block 2
+            # onwards.  Setting .height forces PsychoPy to recompute the glyph
+            # layout before draw, keeping it consistent across all blocks.
+            self.instruction_stim.height = 0.08
+            self.instruction_stim.wrapWidth = 1.8
+            for eye in ['left', 'right']:
+                self.window.setBuffer(eye)
+
+                if eye == closed_eye:
+                    self.black_background.draw()
+                    self.instruction_stim.color = [1, 1, 1]
+                else:
+                    self.grey_background.draw()
+                    self.instruction_stim.color = [-1, -1, -1]
+
+                self.instruction_stim.text = (
+                    f"Block {current_block + 1}/{self.n_blocks} — "
+                    f"{open_eye} eye, {size_name} checks\n\n"
+                    f"{patch_prompt}"
+                    f"Please ensure your {closed_eye} eye is physically covered (e.g. tissue/patch),\n"
+                    f"but keep BOTH eyes open underneath to prevent muscle artifacts.\n\n"
+                    "Focus on the red dot.\n"
+                    "Try not to blink while the squares are animating.\n"
+                    "Press spacebar or trigger when ready."
+                )
+
+                self.instruction_stim.draw()
+
+                if eye == open_eye:
+                    self.stim[eye]['fixation'].draw()
         else:
             text = (
                 f"Block {current_block + 1}/{self.n_blocks}\n\n"
-                f"Close your {closed_eye} eye.\n"
+                f"{patch_prompt}"
+                f"Cover your {closed_eye} eye with a patch (keep both eyes open).\n"
                 f"Focus on the red dot with your {open_eye} eye.\n"
                 f"Check size: {size_name} ({ISCEV_CHECK_DEG_LARGE if size_name == 'large' else ISCEV_CHECK_DEG_SMALL}°)\n\n"
                 "Press spacebar when ready."
