@@ -419,20 +419,11 @@ COND_TO_INT = {
     ('left_eye',  'small'): 3,
     ('right_eye', 'small'): 4,
 }
-BLOCK_START_CODES = {
-    100: ('left_eye',  'large'),
-    101: ('right_eye', 'large'),
-    102: ('left_eye',  'small'),
-    103: ('right_eye', 'small'),
-}
 
 # Drop block-start markers (100-103), keeping only the actual reversal markers (1-4).
 mask = np.isin(events[:, 2], list(COND_TO_INT.values()))
-recoded_events = events[mask]
+events = events[mask]
 events_corrected = events_corrected[mask]
-
-# Keep backward-compat alias so later cells can use `events` for per-trial lag.
-events = recoded_events
 
 ###############################################################################
 # ## Epoching parameters
@@ -440,7 +431,7 @@ events = recoded_events
 
 event_id = {f"{eye}/{size}": code for (eye, size), code in COND_TO_INT.items()}
 for cond, cid in event_id.items():
-    n = int((recoded_events[:, 2] == cid).sum())
+    n = int((events[:, 2] == cid).sum())
     print(f"[events] {cond}: {n}")
 
 PICK_CH = 'Oz'  # ISCEV-standard electrode
@@ -458,7 +449,7 @@ LATERAL_CHANNELS = ['P7', 'P8']  # Lateral extrastriate (V2/V3/MT). Generators o
 # Topology QC channels: Pz gradient + Fz Halliday inversion.  Fz is absent
 # when it is the hardware reference (session 016+), so filter against what's
 # actually recorded to avoid pick errors downstream.
-TOPOLOGY_CHANNELS = [ch for ch in ['Pz', 'Fz'] if ch in raw_ref.ch_names]
+TOPOLOGY_CHANNELS = [ch for ch in ['Pz', 'Fz'] if ch in raw.ch_names]
 ALL_PICK_CHANNELS = [PICK_CH] + HEMI_CHANNELS + LATERAL_CHANNELS + TOPOLOGY_CHANNELS
 REJECT_UV = 150e-6
 BASELINE = (-0.1, 0)
@@ -535,7 +526,7 @@ raw_ref.compute_psd(fmin=hp, fmax=lp).plot()
 # ## Epoching
 #
 
-ch_epochs = Epochs(raw_ref, events=recoded_events, event_id=event_id,
+ch_epochs = Epochs(raw_ref, events=events, event_id=event_id,
                    tmin=-0.1, tmax=0.4, baseline=BASELINE,
                    reject={'eeg': REJECT_UV},
                    preload=True, verbose=False, picks=ALL_PICK_CHANNELS,
@@ -543,14 +534,14 @@ ch_epochs = Epochs(raw_ref, events=recoded_events, event_id=event_id,
 ch_epochs.shift_time(-link_panel_lag)
 
 n_total = len(ch_epochs)
-drop_pct = (1 - n_total / len(recoded_events)) * 100
+drop_pct = (1 - n_total / len(events)) * 100
 print(f"\n[{PICK_CH}] reject ptp={REJECT_UV * 1e6:.0f} uV  "
-      f"kept {n_total}/{len(recoded_events)} ({drop_pct:.1f}% dropped)")
-results['n_trials_total'] = int(len(recoded_events))
+      f"kept {n_total}/{len(events)} ({drop_pct:.1f}% dropped)")
+results['n_trials_total'] = int(len(events))
 results['n_trials_kept'] = int(n_total)
 results['drop_pct'] = _f(drop_pct)
 results['n_per_condition'] = {
-    cond: int((recoded_events[:, 2] == cid).sum()) for cond, cid in event_id.items()
+    cond: int((events[:, 2] == cid).sum()) for cond, cid in event_id.items()
 }
 
 # Corrected-events epochs on the same kept trials.
@@ -600,18 +591,7 @@ for ch, rms in zip(ch_names_ep, baseline_rms):
 # Oz SNR: best detected P100 / Oz baseline RMS
 oz_idx = ch_names_ep.index('Oz')
 oz_rms = baseline_rms[oz_idx]
-best_p100_uv = max(
-    (abs(p['amplitude']) * 1e6 for p in [p100_left, p100_right] if p is not None),
-    default=None
-)
 print(f"\nOz baseline RMS = {oz_rms:.2f} µV   group median = {med_rms:.2f} µV")
-if best_p100_uv is not None:
-    oz_snr = best_p100_uv / oz_rms
-    snr_ok = oz_snr >= OZ_SNR_MIN
-    print(f"Oz P100 SNR = {oz_snr:.2f}  (recommended ≥ {OZ_SNR_MIN})  "
-          f"[{'ok' if snr_ok else '⚑ LOW — collect more trials'}]")
-else:
-    print("Oz SNR: cannot compute — P100 not detected at Oz")
 
 flagged_chs = [ch for ch, v in quality_flags.items() if v['flag']]
 if flagged_chs:
