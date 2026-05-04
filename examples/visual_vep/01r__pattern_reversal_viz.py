@@ -407,18 +407,12 @@ fig_lag.subplots_adjust(bottom=0.38)
 ###############################################################################
 # ## Condition decoding
 #
-# Marker scheme. Two recording-format generations exist:
+# Marker scheme:
+# Reversal codes carry both eye and size (1–4).
+# Block-start markers (100-103) are pushed at the start of each block but are redundant for trial epoching.
 #
-#   v1 (legacy): reversal codes carry only eye (1 = left, 2 = right). Size
-#       must be recovered from the surrounding block-start marker (100–103).
-#   v2 (current): reversal codes carry both eye and size (1–4), matching the
-#       block-start codes 1:1. Block-start markers are still pushed but are
-#       now redundant for recoding.
-#
-# Block-start codes (unchanged across versions):
-#   100 = left/large, 101 = right/large, 102 = left/small, 103 = right/small
-#
-# Target condition codes (== v2 reversal codes; v1 is recoded into this space):
+# Condition codes:
+
 COND_TO_INT = {
     ('left_eye',  'large'): 1,
     ('right_eye', 'large'): 2,
@@ -432,29 +426,10 @@ BLOCK_START_CODES = {
     103: ('right_eye', 'small'),
 }
 
-# Detect format from the codes actually present in the recording.
-reversal_codes_present = set(events[:, 2]) - set(BLOCK_START_CODES)
-is_v2 = bool(reversal_codes_present - {1, 2})  # any code > 2 ⇒ v2
-print(f"[events] marker scheme detected: {'v2 (per-condition reversals)' if is_v2 else 'v1 (eye-only reversals, recoding via block-start)'}")
-
-# Walk the raw event array; emit one fully-labeled reversal per input reversal.
-recoded = []
-recoded_corr = []
-cur_cond = None
-for (samp, _, code), (samp_corr, _, _) in zip(events, events_corrected):
-    if code in BLOCK_START_CODES:
-        cur_cond = COND_TO_INT[BLOCK_START_CODES[code]]
-    elif is_v2 and code in COND_TO_INT.values():
-        recoded.append([samp, 0, code])
-        recoded_corr.append([samp_corr, 0, code])
-    elif (not is_v2) and code in (1, 2) and cur_cond is not None:
-        recoded.append([samp, 0, cur_cond])
-        recoded_corr.append([samp_corr, 0, cur_cond])
-
-recoded_events = (np.array(recoded, dtype=int)
-                  if recoded else np.zeros((0, 3), dtype=int))
-events_corrected = (np.array(recoded_corr, dtype=int)
-                    if recoded_corr else np.zeros((0, 3), dtype=int))
+# Drop block-start markers (100-103), keeping only the actual reversal markers (1-4).
+mask = np.isin(events[:, 2], list(COND_TO_INT.values()))
+recoded_events = events[mask]
+events_corrected = events_corrected[mask]
 
 # Keep backward-compat alias so later cells can use `events` for per-trial lag.
 events = recoded_events
