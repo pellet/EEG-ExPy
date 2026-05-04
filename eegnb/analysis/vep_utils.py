@@ -24,22 +24,31 @@ def get_peak(erp_name, evoked_potential, peak_time_min, peak_time_max, mode):
     resolution to the sample interval (4 ms at 250 Hz).  A parabolic fit
     through the peak sample and its two neighbours recovers the true peak
     location between samples, giving ~0.5 ms precision at 250 Hz.
+    
+    This implementation avoids MNE's strict positive/negative threshold 
+    requirements to support waveforms with large baseline shifts.
     """
-    # Step 1: find the sample-level peak via MNE
-    try:
-        peak_channel, sample_latency, _ = evoked_potential.get_peak(
-            tmin=peak_time_min, tmax=peak_time_max,
-            mode=mode, return_amplitude=True)
-    except ValueError as e:
-        print(f'{erp_name}: could not find peak ({e})')
+    # Step 1: find the sample-level peak
+    time_mask = (evoked_potential.times >= peak_time_min) & (evoked_potential.times <= peak_time_max)
+    if not np.any(time_mask):
+        print(f'{erp_name}: no samples in window {peak_time_min}-{peak_time_max}')
         return None
+        
+    data_win = evoked_potential.data[:, time_mask]
+    if mode == 'pos':
+        ch_idx, t_idx_win = np.unravel_index(np.argmax(data_win), data_win.shape)
+    elif mode == 'neg':
+        ch_idx, t_idx_win = np.unravel_index(np.argmin(data_win), data_win.shape)
+    else:
+        ch_idx, t_idx_win = np.unravel_index(np.argmax(np.abs(data_win)), data_win.shape)
+        
+    peak_channel = evoked_potential.ch_names[ch_idx]
+    peak_sample = np.where(time_mask)[0][t_idx_win]
+    sample_latency = evoked_potential.times[peak_sample]
 
     # Step 2: parabolic interpolation around the peak sample
-    ch_idx = evoked_potential.ch_names.index(peak_channel)
     times = evoked_potential.times
     data = evoked_potential.data[ch_idx]
-
-    peak_sample = np.argmin(np.abs(times - sample_latency))
 
     # Need at least one sample on each side for the fit
     if 0 < peak_sample < len(times) - 1:
