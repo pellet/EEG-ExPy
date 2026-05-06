@@ -66,9 +66,9 @@ class BaseExperiment(ABC):
             # VR extends psychopy's VR with clock sync, per-trial telemetry buffering, and telemetry CSV saving.
             self.vr: VR = VR(monoscopic=not stereoscopic, headLocked=True)
 
-        # Shift content onto each lens's optical axis. VR HMDs use canted
-        # asymmetric frustums, so NDC (0,0) is off-axis and binocular content
-        # there forces inward vergence ("cross-eyed" feel).
+        # Shift the display so it aligns perfectly with the center of each eye. 
+        # VR headsets have angled screens, so if we draw everything strictly at 
+        # the center of the display (0,0), it makes the user feel cross-eyed.
         if use_vr and stereoscopic:
             self.left_eye_x_pos, self.right_eye_x_pos = self.vr.compute_optical_axis_offsets()
         else:
@@ -127,13 +127,11 @@ class BaseExperiment(ABC):
         """
         Method called each frame during the SOA wait (stimulus-on period between trial transitions).
 
-        VR compositors require continuous frame submission (~120 Hz) or they emit
-        "failed to meet deadline" warnings and force half-rate reprojection. The default
-        implementation just flips; VR-capable subclasses should override to redraw the
-        stimulus for trial `idx` without side effects (no EEG markers, no timing rows).
-
-        A bare window.flip() submits a stale/undefined frame and is not sufficient for
-        Quest / OpenXR compositors under load.
+        Recommended for VR: override this to redraw the stimulus for trial `idx`. VR compositors
+        prefer a freshly drawn frame each submission; submitting only a flip leads
+        the compositor to treat frames as stale, which can drop to half-rate
+        reprojection and increase dropped/late frames. Overriding gives smoother
+        presentation and more accurate frame timing.
 
         idx : Trial index of the most recently presented stimulus — same value that was
               passed to the preceding present_stimulus call.

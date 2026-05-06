@@ -31,9 +31,9 @@ def test_synthetic_acquisition(tmp_path):
     time.sleep(record_duration)
     
     # Push a few synthetic markers
-    eeg.push_sample(marker=1)
+    eeg.push_sample(marker=1, timestamp=time.time())
     time.sleep(0.1)
-    eeg.push_sample(marker=2)
+    eeg.push_sample(marker=2, timestamp=time.time())
     
     # Stop recording and release session
     eeg.stop()
