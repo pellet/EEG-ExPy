@@ -149,11 +149,11 @@ class BaseExperiment(ABC):
             self.display_check = self.vr.validate_frame_rate(self._draw_blank_frame)
         else:
             self.window = visual.Window(self.window_size,
-                                        monitor=diagnostics.build_flat_monitor(self.screen_num),
+                                        monitor="testMonitor",
                                         units="deg",
                                         screen=self.screen_num,
                                         fullscr=self.use_fullscr)
-            actual_hz = self.window.getActualFrameRate(nFrames=20)
+            actual_hz = self.window.getActualFrameRate()
             self.display_check = {
                 'target_hz': round(actual_hz, 1) if actual_hz else None,
                 'actual_hz': round(actual_hz, 1) if actual_hz else None,

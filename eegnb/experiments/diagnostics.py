@@ -17,54 +17,6 @@ import numpy as np
 
 
 # ---------------------------------------------------------------------------
-# Monitor (flat display)
-# ---------------------------------------------------------------------------
-
-def build_flat_monitor(screen_num=0):
-    """Create a PsychoPy ``Monitor`` from detected screen properties.
-
-    Avoids the 'Monitor specification not found' warning that PsychoPy emits
-    when a flat ``visual.Window`` can't locate a saved calibration file.
-
-    Note: there is no equivalent ``measure_frame_rate`` for monitors — flat
-    displays deliver their nominal rate reliably (no encoded transport
-    pipeline), and PsychoPy's ``Window.getActualFrameRate`` already provides
-    the measurement when needed. Frame-rate validation lives on the ``VR``
-    class because it's only informative where target Hz is decoupled from
-    actual delivery (Quest Link).
-    """
-    import logging
-    from psychopy import monitors
-    from psychopy import logging as psy_logging
-
-    # Temporarily elevate console logger to ERROR to suppress the
-    # "Monitor specification not found" warning during initialization.
-    if hasattr(psy_logging, 'console') and psy_logging.console:
-        old_level = psy_logging.console.level
-        psy_logging.console.setLevel(logging.ERROR)
-    else:
-        old_level = None
-
-    try:
-        mon = monitors.Monitor('eegnb_auto', autoLog=False)
-    finally:
-        if old_level is not None:
-            psy_logging.console.setLevel(old_level)
-
-    mon.setDistance(60)
-    try:
-        import pyglet
-        screen = pyglet.canvas.Display().get_screens()[screen_num]
-        mon.setSizePix([screen.width, screen.height])
-    except Exception:
-        mon.setSizePix([1920, 1080])
-    
-    # Persist the monitor specification so PsychoPy finds it on disk next time
-    mon.save()
-    return mon
-
-
-# ---------------------------------------------------------------------------
 # Pre-experiment signal quality check
 #
 # A brief read of the EEG amplifier's incoming signal to catch obviously
