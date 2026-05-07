@@ -84,6 +84,12 @@ class VisualPatternReversalVEP(BlockExperiment):
             [lbl for lbl in self.block_labels for _ in range(block_trial_size)]
         )
 
+        # Photodiode trigger: number of frames a white flash is rendered into
+        # the occluded-eye buffer on each reversal. Set to N at every reversal
+        # in present_stimulus(), counts down in draw_frame().
+        self._flash_frames_remaining = 0
+        self._flash_frames_per_reversal = 3
+
     # ------------------------------------------------------------------
     # Stimulus creation helpers
     # ------------------------------------------------------------------
@@ -133,6 +139,16 @@ class VisualPatternReversalVEP(BlockExperiment):
             self.window,
             width=self.window.size[0], height=self.window.size[1],
             fillColor='black',
+        )
+        # Photodiode target: small white square in the bottom-outer corner of
+        # the occluded-eye buffer. Position is set per-frame in draw_frame()
+        # so the flash sits on the ear-side of whichever eye is occluded.
+        self._flash_size_px = 200
+        self.white_flash = visual.Rect(
+            self.window,
+            width=self._flash_size_px, height=self._flash_size_px,
+            fillColor='white',
+            units='pix',
         )
 
         def make_checker_stim(intensity_checks, check_deg, pos):
@@ -218,7 +234,7 @@ class VisualPatternReversalVEP(BlockExperiment):
         # Check if the eye just switched so we can prompt them to move the patch
         is_first_block_for_eye = (current_block == 0) or (self.block_eye_and_size(current_block - 1)[0] != open_eye)
         
-        patch_prompt = f"*** MOVE PATCH TO {closed_eye.upper()} EYE NOW ***\n" if is_first_block_for_eye else ""
+        patch_prompt = f"*** MOVE PHOTODIODE TO {closed_eye.upper()} LENS NOW ***\n" if is_first_block_for_eye else ""
 
         if self.use_vr:
             # Re-assert height each call — VR state changes (calcEyePoses /
@@ -280,6 +296,8 @@ class VisualPatternReversalVEP(BlockExperiment):
                 EVENTS[f"block/{c['eye']}/{c['size_name']}"],
                 self.current_block_index * self.block_trial_size,
             )
+        # Arm the photodiode flash for this reversal; draw_frame() decrements.
+        self._flash_frames_remaining = self._flash_frames_per_reversal
         self.draw_frame(idx)
         self.push_marker(idx)
 
@@ -296,7 +314,22 @@ class VisualPatternReversalVEP(BlockExperiment):
             self.stim[eye]['checkerboards'][size_idx][phase].draw()
             self.stim[eye]['fixation'].draw()
             self.window.setBuffer(closed_eye)
-            self.black_background.draw()
+            if self._flash_frames_remaining > 0:
+                self.black_background.draw()
+                # Bottom of the buffer, slightly off-centre on the ear side.
+                # Quest 2 lenses clip the buffer corners aggressively, so
+                # `bottom-edge corner` is invisible; sit the flash 25% in from
+                # the edge along x and 25% up from the bottom along y.
+                bw, bh = self.window.size[0], self.window.size[1]
+                sign = -1 if closed_eye == 'left' else +1
+                self.white_flash.pos = (
+                    sign * (bw * 0.25),
+                    -bh * 0.25,
+                )
+                self.white_flash.draw()
+                self._flash_frames_remaining -= 1
+            else:
+                self.black_background.draw()
         else:
             self.grey_background.draw()
             self.stim['monoscopic']['checkerboards'][size_idx][phase].draw()

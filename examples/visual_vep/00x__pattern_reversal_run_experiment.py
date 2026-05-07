@@ -10,14 +10,10 @@ Block schedule: 4 conditions (left/right eye × large/small check) ×
 ``reps_per_condition`` reps = 8 blocks, shuffled at startup.
 
 Marker codes:
-    1   — reversal, left-eye  block
-    2   — reversal, right-eye block
-
-    Block-start codes (bit 0 = eye, bit 1 = size class):
-    100 — block_start, left  eye, large check (~60 arcmin / 1 deg)
-    101 — block_start, right eye, large check
-    102 — block_start, left  eye, small check (~30 arcmin / 0.5 deg)
-    103 — block_start, right eye, small check
+    1 — block_start, left  eye, large check (~60 arcmin / 1 deg)
+    2 — block_start, right eye, large check
+    3 — block_start, left  eye, small check (~30 arcmin / 0.5 deg)
+    4 — block_start, right eye, small check
 """
 
 ###################################################################################################
@@ -53,17 +49,17 @@ device = "cyton"
 serial_port = "COM3"
 
 # Config: CYTON_CONFIG_GAIN_4X needed for Thinkpulse active electrodes, otherwise leave as None.
-config = None
+config = CYTON_CONFIG_GAIN_4X
 
 # Electrode montage type: "cap" or "mark-iv"
-montage_type = "cap"
+montage_type = "mark-iv"
 
 # Ground A2, Ref Fz.
-ch_names = ["M1", "Pz", "P7", "P8", "O1", "O2", "Oz", "M2"]
+ch_names = ["A1", "A2", "PO7", "PO8", "Oz", "Oz", "O1", "O2"]
 
 # Subject and session identifiers
 subject_id = 0
-session_nb = 16
+session_nb = 17
 
 ###################################################################################################
 # Initiate EEG device
