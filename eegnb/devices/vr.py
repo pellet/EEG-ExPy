@@ -1,4 +1,5 @@
 import logging
+import csv
 import numpy as np
 from time import time
 from psychopy import core, monitors
@@ -44,6 +45,8 @@ class VR(Rift):
         kwargs.setdefault('monitor', _build_placeholder_monitor())
         super().__init__(*args, **kwargs)
         self.libovr_to_wallclock_offset = None
+        self.libovr_to_wallclock_bracket = None
+        self.timing_data = []
 
     def validate_frame_rate(self, draw_blank, n_frames=60, warmup=10):
         """Measure actual frame delivery rate and compare to the runtime target.
@@ -138,6 +141,7 @@ class VR(Rift):
             )
             
             self.libovr_to_wallclock_offset = best_offset
+            self.libovr_to_wallclock_bracket = best_bracket
             return best_offset
         except Exception as e:
             logging.warning(f"[VR] LibOVR clock sync failed: {e}")
@@ -163,8 +167,6 @@ class VR(Rift):
                 f"res={self.displayResolution}  eye_buf={self.size}"
             )
 
-            if not hasattr(self, 'timing_data'):
-                self.timing_data = []
             self.timing_data.insert(0, ['# ipd_mm', ipd_mm, 'ppd', ppd, f'ppd_h={ppd_h:.1f} ppd_v={ppd_v:.1f}'])
 
             return ppd, ipd_mm
@@ -191,9 +193,6 @@ class VR(Rift):
                 time_to_vsync_s = stat.timeToVsync
         except Exception:
             pass
-        
-        if not hasattr(self, 'timing_data'):
-            self.timing_data = []
             
         self.timing_data.append([
             trial_idx, software_time,
@@ -202,13 +201,12 @@ class VR(Rift):
         ])
 
     def save_telemetry(self, save_fn):
-        """Saves memory-buffered VR timing telemetry to a CSV sidecar."""
-        timing_data = getattr(self, 'timing_data', [])
-        if not timing_data:
+        """Saves memory-buffered VR timing telemetry to a CSV sidecar.
+        """
+        if save_fn is None:
             return
-            
-        import csv
-        timing_path = save_fn.with_name(save_fn.stem + '_timing.csv') if save_fn else 'vr_timing.csv'
+
+        timing_path = save_fn.with_name(save_fn.stem + '_timing.csv')
         with open(timing_path, 'w', newline='') as f:
             writer = csv.writer(f)
             writer.writerow([
@@ -217,10 +215,9 @@ class VR(Rift):
                 'app_motion_to_photon_latency_s', 'compositor_latency_s',
                 'time_to_vsync_s'
             ])
-            
-            # Log the clock offset if calculated
+
             if self.libovr_to_wallclock_offset is not None:
-                 writer.writerow(['# libovr_to_wallclock_offset_s', self.libovr_to_wallclock_offset, 'bracket_ms', 0])
-                 
-            writer.writerows(timing_data)
+                writer.writerow(['# libovr_to_wallclock_offset_s', self.libovr_to_wallclock_offset, 'bracket_ms', self.libovr_to_wallclock_bracket * 1000])
+
+            writer.writerows(self.timing_data)
         print(f"  Saved VR timing telemetry to {timing_path}")
