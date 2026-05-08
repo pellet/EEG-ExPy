@@ -113,17 +113,9 @@ class RestEyesOpenCloseAlternating(Experiment.BaseExperiment):
             timestamp = time()
             self.trials.at[idx, "timestamp"] = timestamp
             self.outlet.push_sample([self.markernames[label]], timestamp)
-            
-            if self.eeg:
-              if self.eeg.backend == "muselsl":
-                  marker = [self.markernames[label]]
-              else:
-                  marker = self.markernames[label]
-              self.eeg.push_sample(marker=marker, timestamp=timestamp)
-            
-            if self.devices:
-              marker = self.markernames[label]
-              self.send_triggers(marker)
+
+            if self.eeg or self.devices:
+                self.push_marker(self.markernames[label], idx)
 
             if self.serial:
                 try:

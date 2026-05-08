@@ -15,6 +15,7 @@ from eegnb.devices.vr import VR
 from psychopy import prefs, visual, event, core
 
 import gc
+import logging
 from time import time
 import random
 import json
@@ -25,11 +26,13 @@ from pandas import DataFrame
 from eegnb import generate_save_fn
 from eegnb.experiments import diagnostics
 
+logger = logging.getLogger(__name__)
+
 
 class BaseExperiment(ABC):
 
     def __init__(self, exp_name, duration, eeg, save_fn, n_trials: int, iti: float, soa: float, jitter: float,
-                 use_vr=False, use_fullscr = True, screen_num=0, stereoscopic = False, devices = list):
+                 use_vr=False, use_fullscr = True, screen_num=0, stereoscopic = False, devices=None):
         """ Initializer for the Base Experiment Class
 
         Args:
@@ -52,7 +55,7 @@ class BaseExperiment(ABC):
         Press spacebar to continue. \n""".format(self.exp_name)
         self.duration = duration
         self.eeg: EEG = eeg
-        self.devices = devices
+        self.devices = devices if devices is not None else []
         self.save_fn = save_fn
         self.n_trials = n_trials
         self.iti = iti
@@ -78,6 +81,14 @@ class BaseExperiment(ABC):
         # Diagnostic results — populated by run()/setup(), read by show_diagnostics()
         self.signal_check = None
         self.display_check = None
+
+        # Marker observers: callables (trial_idx, timestamp) invoked on every
+        # push_marker(). Used by integrations that want timing context but
+        # don't emit a hardware/software marker themselves (e.g. VR compositor
+        # telemetry, eyetracker fixation logs, photodiode metadata sidecars).
+        # Hardware/software *emitters* (Cyton, XID, kernelflow, etc.) live in
+        # self.devices and are dispatched via push_sample, not this list.
+        self.marker_listeners: list = []
 
         # Initializing the marker names
         self.markernames = [1, 2]
@@ -144,6 +155,8 @@ class BaseExperiment(ABC):
         if self.use_vr:
             self.window = self.vr
             self.display_check = self.vr.validate_frame_rate(self._draw_blank_frame)
+            # Capture per-marker compositor stats alongside each EEG trigger.
+            self.marker_listeners.append(self.vr.log_telemetry)
         else:
             self.window = visual.Window(self.window_size,
                                         monitor="testMonitor",
@@ -536,24 +549,28 @@ class BaseExperiment(ABC):
 
 
 
-    def push_vr_marker(self, marker, trial_idx):
-        """
-        Pushes the marker to EEG and delegates high-resolution LibOVR 
-        compositor stats to the VR hardware object.
-        """
-        software_time = time()
-        
-        if not self.eeg.push_sample(marker=marker):
-            return
+    def push_marker(self, marker, trial_idx):
+        """Push a trigger to the primary EEG and every additional device in
+        self.devices, then notify any registered marker_listeners with
+        (trial_idx, timestamp).
 
-        if self.use_vr:
-            self.vr.log_telemetry(trial_idx, software_time)
-
-    def send_triggers(self, marker):
-        """Send timing triggers to recording device[s]"""
+        Emitters (self.eeg, self.devices) record the marker value into their
+        respective streams — Cyton's marker channel, XID's TTL output,
+        muselsl's lsl marker stream, etc.
+        Listeners (self.marker_listeners) receive only the timing context —
+        they're observers that capture additional state at marker time
+        (VR compositor telemetry, eyetracker fixation, photodiode metadata).
+        """
+        timestamp = time()
+        if self.eeg:
+            self.eeg.push_sample(marker=marker, timestamp=timestamp)
         for dev in self.devices:
-            timestamp = time()
             dev.push_sample(marker=marker, timestamp=timestamp)
+        for listener in self.marker_listeners:
+            try:
+                listener(trial_idx, timestamp)
+            except Exception:
+                logger.exception("marker listener failed: %s", listener)
 
     @property
     def name(self) -> str:
