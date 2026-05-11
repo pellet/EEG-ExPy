@@ -22,6 +22,7 @@ Marker codes:
 #
 # Imports
 
+import os
 import platform
 from os import getenv
 from dotenv import load_dotenv
@@ -31,6 +32,7 @@ from eegnb import generate_save_fn
 from eegnb.devices import CYTON_CONFIG_GAIN_4X
 from eegnb.devices.eeg import EEG
 from eegnb.experiments.visual_vep import VisualPatternReversalVEP
+from eegnb.utils.display import snap_refresh_rate
 
 ###################################################################################################
 # Configuration
@@ -40,7 +42,7 @@ from eegnb.experiments.visual_vep import VisualPatternReversalVEP
 #
 
 # Display: set use_vr=True for Meta Quest, False for monitor
-use_vr = True
+use_vr = False
 
 # Device: "cyton", "unicorn", "muse2", etc.
 device = "cyton"
@@ -48,26 +50,41 @@ device = "cyton"
 # Serial port: "COM3" for Windows, "/dev/ttyUSB0" for Linux
 serial_port = "COM3"
 
-# Config: CYTON_CONFIG_GAIN_4X needed for Thinkpulse active electrodes, otherwise leave as None.
-config = CYTON_CONFIG_GAIN_4X
+# Per-cap channel names, in Cyton input order (1..8). Personal hardware,
+# not part of the shared library. Add a new entry when you set up a new cap.
+MONTAGES = {
+    # 3D-printed mark-iv occipital array. Ground A2, Ref Fz.
+    "thinkpulse-mark-iv": ["P7", "P8", "PO3", "PO4", "O1", "O2", "POz", "Oz"],
+    # Standard 10-20 cap (Tencom 20-ch). Ground A2, Ref Fz.
+    "tencom-20-cap":     ["P3", "P4", "P7", "P8", "Pz", "Oz", "O1",  "O2"],
+}
 
-# Electrode montage type: "cap" or "mark-iv"
-montage_type = "mark-iv"
+# Personal monitor specs — refresh rate is used for the save path and for
+# the integer-multiple assertion in load_stimulus().
+MONITORS = {
+    "acer-34-predator": {"hz": 100},
+}
 
-# Ground A2, Ref Fz.
-ch_names = ["A1", "A2", "PO7", "PO8", "Oz", "Oz", "O1", "O2"]
+# ---- pick montage and monitor for this session --------------------------
+montage_type = "thinkpulse-mark-iv"
+config = CYTON_CONFIG_GAIN_4X if montage_type == "thinkpulse-mark-iv" else None
+
+monitor_name = "acer-34-predator"
+ch_names = MONTAGES[montage_type]
 
 # Subject and session identifiers
 subject_id = 0
-session_nb = 17
+session_nb = 18
 
 ###################################################################################################
 # Initiate EEG device
 # ---------------------
 #
 # Start EEG device based on configuration above.
-eeg_device = EEG(device, serial_port=serial_port, ch_names=ch_names, config=config)
-#eeg_device = EEG(device="synthetic")
+eeg_device = EEG(device, serial_port=serial_port, ch_names=ch_names, 
+                 config=config,
+                 analog_mode=True)  # stream AUX (A5-A7) for photodiode trigger
+# eeg_device = EEG(device="synthetic")
 
 ###################################################################################################
 # Build experiment object and detect display settings
@@ -76,21 +93,20 @@ eeg_device = EEG(device, serial_port=serial_port, ch_names=ch_names, config=conf
 # The experiment is constructed before the save path so the Rift session is
 # already open and we can read the actual refresh rate from the runtime rather
 # than hardcoding it. The save path is then built from the real Hz and set on
-# the experiment before run() is called.
+# the experiment before run() is called.   
 
 pattern_reversal_vep = VisualPatternReversalVEP(
     eeg=eeg_device,
-    use_vr=use_vr
+    use_vr=use_vr,
+    use_fullscr=True
 )
 
 if use_vr:
-    _QUEST_HZ = [72, 90, 120]  # nominal Meta Quest refresh rates
-    _raw_hz = pattern_reversal_vep.vr.displayRefreshRate
-    refresh_rate = min(_QUEST_HZ, key=lambda h: abs(h - _raw_hz))
+    refresh_rate = snap_refresh_rate(pattern_reversal_vep.vr.displayRefreshRate)
     display = f"quest-2_{refresh_rate}Hz"
 else:
-    refresh_rate = 100   # flat display fallback — update for your monitor
-    display = f"acer-34-predator_{refresh_rate}Hz"
+    refresh_rate = MONITORS[monitor_name]["hz"]
+    display = f"{monitor_name}_{refresh_rate}Hz"
 
 site = f"{display}_{montage_type}"
 data_dir = getenv("DATA_DIR")

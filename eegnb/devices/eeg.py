@@ -88,6 +88,7 @@ class EEG:
         ip_addr=None,
         ch_names=None,
         config=None,
+        analog_mode=False,
         make_logfile=False):
         """The initialization function takes the name of the EEG device and determines whether or not
         the device belongs to the Muse or Brainflow families and initializes the appropriate backend.
@@ -107,6 +108,12 @@ class EEG:
         self.ip_addr = ip_addr
         self.other = other
         self.config = config
+        # Cyton-only: switch the board into analog read mode (firmware cmd /2)
+        # so the AUX header pins (A5-A7) stream alongside the EEG channels.
+        # Tradeoff: analog mode replaces the on-board accelerometer data with
+        # the analog reads. Use when you have a photodiode / external sensor
+        # wired to AUX and don't need accel.
+        self.analog_mode = analog_mode
         self.make_logfile = make_logfile # currently only used for kf
         self.backend = self._get_backend(self.device_name)
         self.initialize_backend()
@@ -354,6 +361,12 @@ class EEG:
                 response = self.board.config_board(self.config)
                 print(f"[config_board] {self.config!r} -> {response!r}")
 
+        # Cyton: enable analog read mode so AUX header pins (A5-A7) stream
+        # alongside the EEG channels. Replaces accelerometer data.
+        if self.analog_mode and 'cyton' in (self.device_name or ''):
+            response = self.board.config_board('/2')
+            print(f"[cyton analog mode] /2 -> {response!r}")
+
     def _start_brainflow(self):
         # only start stream if non exists
         if not self.stream_started:
@@ -437,6 +450,19 @@ class EEG:
             actual_gain = gain_multipliers.get(gain_code, brainflow_assumed_gain)
             if actual_gain != brainflow_assumed_gain:
                 eeg_data = eeg_data * (brainflow_assumed_gain / actual_gain)
+
+        # Append analog (AUX) channels when Cyton is in analog mode. Useful
+        # for photodiode triggers and other external sensors that need to be
+        # sampled in lockstep with the EEG.
+        if self.analog_mode:
+            try:
+                analog_idx = BoardShim.get_analog_channels(self.brainflow_id)
+                if len(analog_idx):
+                    aux_data = data[:, analog_idx]
+                    eeg_data = np.append(eeg_data, aux_data, axis=1)
+                    ch_names = list(ch_names) + [f"AUX{i}" for i in range(len(analog_idx))]
+            except Exception as e:
+                logger.warning("could not read analog channels: %s", e)
 
         return ch_names, eeg_data, timestamps
 

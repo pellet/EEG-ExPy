@@ -84,11 +84,6 @@ class VisualPatternReversalVEP(BlockExperiment):
             [lbl for lbl in self.block_labels for _ in range(block_trial_size)]
         )
 
-        # Photodiode trigger: number of frames a white flash is rendered into
-        # the occluded-eye buffer on each reversal. Set to N at every reversal
-        # in present_stimulus(), counts down in draw_frame().
-        self._flash_frames_remaining = 0
-        self._flash_frames_per_reversal = 3
 
     # ------------------------------------------------------------------
     # Stimulus creation helpers
@@ -108,10 +103,8 @@ class VisualPatternReversalVEP(BlockExperiment):
         )['img']
 
     def load_stimulus(self) -> Dict[str, Any]:
-        refresh_rate = int(np.round(
-            self.window.displayRefreshRate if self.use_vr
-            else self.window.getActualFrameRate()
-        ))
+        refresh_rate = self.refresh_rate
+
         reversals_per_sec = 1 / self.soa
         assert refresh_rate % reversals_per_sec == 0, (
             f"Frame rate {refresh_rate} Hz must be an integer multiple of "
@@ -140,14 +133,25 @@ class VisualPatternReversalVEP(BlockExperiment):
             width=self.window.size[0], height=self.window.size[1],
             fillColor='black',
         )
-        # Photodiode target: small white square in the bottom-outer corner of
-        # the occluded-eye buffer. Position is set per-frame in draw_frame()
-        # so the flash sits on the ear-side of whichever eye is occluded.
-        self._flash_size_px = 200
-        self.white_flash = visual.Rect(
+        # Photodiode target: square that toggles in lockstep with the
+        # checkerboard reversal phase. Drawn every frame; fillColor, size,
+        # and position are set per-frame in draw_frame(). Reversing (rather
+        # than pulsing) lets the diode trace mirror the reversal directly:
+        # a polarity flip on the diode = a checkerboard reversal at that
+        # exact frame, with no marker-vs-stimulus latency question.
+        #
+        # Flat-monitor patch is small and corner-positioned (visible screen,
+        # mustn't intrude on stimulus). VR patch is large and centred on the
+        # closed-eye buffer — the user can't see it, so a big centred patch
+        # makes diode placement forgiving (any position over the central lens
+        # area picks up the transitions). VR patch uses mid-grey ↔ light-grey
+        # instead of black ↔ white so any eye-pad seal failure exposes the
+        # eye to lower-amplitude reversing luminance.
+        self._flash_size_px = 100      # flat-monitor corner patch (px)
+        self._vr_patch_size_px = 1000  # VR centred patch (px square)
+        self.photodiode_patch = visual.Rect(
             self.window,
             width=self._flash_size_px, height=self._flash_size_px,
-            fillColor='white',
             units='pix',
         )
 
@@ -292,14 +296,12 @@ class VisualPatternReversalVEP(BlockExperiment):
         # encodes the full condition (eye × check-size) for the analysis.
         if idx == 0:
             c = CONDITIONS[self.block_labels[self.current_block_index]]
-            self.push_vr_marker(
+            self.push_marker(
                 EVENTS[f"block/{c['eye']}/{c['size_name']}"],
                 self.current_block_index * self.block_trial_size,
             )
-        # Arm the photodiode flash for this reversal; draw_frame() decrements.
-        self._flash_frames_remaining = self._flash_frames_per_reversal
-        self.draw_frame(idx)
-        self.push_marker(idx)
+        flip_time = self.draw_frame(idx)
+        self._push_reversal_marker(idx, flip_time)
 
     def draw_frame(self, idx: int):
         trial_idx = self.current_block_index * self.block_trial_size + idx
@@ -308,39 +310,48 @@ class VisualPatternReversalVEP(BlockExperiment):
         phase = idx % 2               # alternates 0 / 1 for each reversal
 
         if self.use_vr:
+            # Centred mid-grey ↔ light-grey patch on the closed-eye buffer:
+            # large enough that diode position over the central lens is
+            # uncritical, dim enough that an imperfect eye-pad seal exposes
+            # the eye to mild rather than full-contrast reversing luminance.
+            # PsychoPy normalised colours: -0.4 ≈ 30% grey, +0.4 ≈ 70% grey.
+            self.photodiode_patch.fillColor = (+0.4, +0.4, +0.4) if phase == 0 else (-0.4, -0.4, -0.4)
+            self.photodiode_patch.size = (self._vr_patch_size_px, self._vr_patch_size_px)
+
             closed_eye = 'right' if eye == 'left' else 'left'
             self.window.setBuffer(eye)
             self.grey_background.draw()
             self.stim[eye]['checkerboards'][size_idx][phase].draw()
             self.stim[eye]['fixation'].draw()
             self.window.setBuffer(closed_eye)
-            if self._flash_frames_remaining > 0:
-                self.black_background.draw()
-                # Bottom of the buffer, slightly off-centre on the ear side.
-                # Quest 2 lenses clip the buffer corners aggressively, so
-                # `bottom-edge corner` is invisible; sit the flash 25% in from
-                # the edge along x and 25% up from the bottom along y.
-                bw, bh = self.window.size[0], self.window.size[1]
-                sign = -1 if closed_eye == 'left' else +1
-                self.white_flash.pos = (
-                    sign * (bw * 0.25),
-                    -bh * 0.25,
-                )
-                self.white_flash.draw()
-                self._flash_frames_remaining -= 1
-            else:
-                self.black_background.draw()
+            self.black_background.draw()
+            self.photodiode_patch.pos = (0, 0)  # centred on closed-eye buffer
+            self.photodiode_patch.draw()
         else:
+            # Flat monitor: small corner patch, full black ↔ white modulation
+            # (the diode sees the corner of the actual visible screen, so we
+            # want maximum contrast for SNR; the user fixates centre).
+            self.photodiode_patch.fillColor = 'white' if phase == 0 else 'black'
+            self.photodiode_patch.size = (self._flash_size_px, self._flash_size_px)
+
             self.grey_background.draw()
             self.stim['monoscopic']['checkerboards'][size_idx][phase].draw()
             self.stim['monoscopic']['fixation'].draw()
+            # Bottom-right corner, flush against the screen edge — sit the
+            # photodiode sensor over this region.
+            bw, bh = self.window.size[0], self.window.size[1]
+            self.photodiode_patch.pos = (
+                (bw - self._flash_size_px) / 2,
+                -(bh - self._flash_size_px) / 2,
+            )
+            self.photodiode_patch.draw()
 
         self.window.flip()
 
-    def push_marker(self, idx: int):
+    def _push_reversal_marker(self, idx: int):
         trial_idx = self.current_block_index * self.block_trial_size + idx
         c = CONDITIONS[int(self.parameter[trial_idx])]
-        self.push_vr_marker(EVENTS[f"rev/{c['eye']}/{c['size_name']}"], trial_idx)
+        self.push_marker(EVENTS[f"rev/{c['eye']}/{c['size_name']}"], trial_idx)
 
     def present_soa(self, idx: int):
         # Keep the compositor fed at full frame rate; no marker push.
@@ -354,3 +365,4 @@ class VisualPatternReversalVEP(BlockExperiment):
         else:
             self.grey_background.draw()
         self.window.flip()
+window.flip()

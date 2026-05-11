@@ -19,12 +19,14 @@ import logging
 from time import time
 import random
 import json
+import csv
 
 import numpy as np
 from pandas import DataFrame
 
 from eegnb import generate_save_fn
 from eegnb.experiments import diagnostics
+from eegnb.utils.display import snap_refresh_rate
 
 logger = logging.getLogger(__name__)
 
@@ -89,6 +91,14 @@ class BaseExperiment(ABC):
         # Hardware/software *emitters* (Cyton, XID, kernelflow, etc.) live in
         # self.devices and are dispatched via push_sample, not this list.
         self.marker_listeners: list = []
+        self.monitor_timing_data: list = []
+
+        if not self.use_vr:
+            def _record_monitor_timing(trial_idx, timestamp, flip_time=None):
+                # timestamp is software_time (when marker is pushed)
+                # flip_time is when the frame actually appeared
+                self.monitor_timing_data.append([trial_idx, timestamp, flip_time])
+            self.marker_listeners.append(_record_monitor_timing)
 
         # Initializing the marker names
         self.markernames = [1, 2]
@@ -171,6 +181,11 @@ class BaseExperiment(ABC):
                 'ok': actual_hz is not None,
             }
             self.window.mouseVisible = False
+
+        # Snap the target rate to the nearest standard panel rate so
+        # downstream stimulus code can rely on a clean integer Hz.
+        target = self.display_check.get('target_hz')
+        self.refresh_rate = snap_refresh_rate(target) if target else None
 
         # Loading the stimulus from the specific experiment, throws an error if not overwritten in the specific experiment
         self.stim = self.load_stimulus()
@@ -500,6 +515,18 @@ class BaseExperiment(ABC):
                 }, f, indent=2)
             print(f"  Saved to {stats_path}")
 
+    def _save_monitor_telemetry(self):
+        """Saves memory-buffered monitor timing telemetry to a CSV sidecar."""
+        if self.save_fn is None or not self.monitor_timing_data:
+            return
+
+        timing_path = self.save_fn.with_name(self.save_fn.stem + '_timing.csv')
+        with open(timing_path, 'w', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow(['trial_idx', 'software_time', 'flip_time'])
+            writer.writerows(self.monitor_timing_data)
+        print(f"  Saved monitor timing telemetry to {timing_path}")
+
     def run(self, instructions=True):
         """ Run the experiment """
         self.signal_check = diagnostics.check_signal_quality(self.eeg)
@@ -540,6 +567,8 @@ class BaseExperiment(ABC):
 
         if self.use_vr:
             self.vr.save_telemetry(self.save_fn)
+        else:
+            self._save_monitor_telemetry()
 
         # Post-run hook (e.g. show a summary / quality report screen)
         self.post_run()
@@ -569,6 +598,19 @@ class BaseExperiment(ABC):
         for listener in self.marker_listeners:
             try:
                 listener(trial_idx, timestamp)
+            except Exception:
+                logger.exception("marker listener failed: %s", listener)
+
+    @property
+    def name(self) -> str:
+        """ This experiment's name """
+        return self.exp_name
+ import inspect
+                sig = inspect.signature(listener)
+                if 'flip_time' in sig.parameters:
+                    listener(trial_idx, timestamp, flip_time=flip_time)
+                else:
+                    listener(trial_idx, timestamp)
             except Exception:
                 logger.exception("marker listener failed: %s", listener)
 

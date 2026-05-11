@@ -10,6 +10,13 @@ ISCEV_CHECK_DEG_SMALL = 0.25
 IOLD_FLAG_MS = 8.0          # |L − R P100 latency| above this flags suspected unilateral demyelination
 LOG2_AMP_FLAG = 1.0         # |log2(L/R P100 amplitude)| above this flags inter-ocular drive imbalance
 
+# Minimum amplitude-to-pre-stim-noise ratio for a peak to be reported. Below
+# this, the "peak" returned by argmax in the search window is dominated by
+# noise rather than a real waveform feature, and its latency is unreliable.
+# Particularly relevant for small-check / demyelinated-pathway conditions
+# where P100 amplitude can drop below the per-channel noise floor.
+PEAK_MIN_SNR = 2.0
+
 
 def print_latency(peak_name, peak_latency, peak_channel, uv):
     peak_latency = round(peak_latency * 1e3, 2)  # convert to milliseconds
@@ -17,23 +24,31 @@ def print_latency(peak_name, peak_latency, peak_channel, uv):
     print('{} Peak of {} µV at {} ms in peak_channel {}'.format(peak_name, uv, peak_latency, peak_channel))
 
 
-def get_peak(erp_name, evoked_potential, peak_time_min, peak_time_max, mode):
+def get_peak(erp_name, evoked_potential, peak_time_min, peak_time_max, mode,
+             min_snr=PEAK_MIN_SNR):
     """Find peak latency with sub-sample precision using parabolic interpolation.
 
     MNE's get_peak returns the sample with the largest value, limiting
     resolution to the sample interval (4 ms at 250 Hz).  A parabolic fit
     through the peak sample and its two neighbours recovers the true peak
     location between samples, giving ~0.5 ms precision at 250 Hz.
-    
-    This implementation avoids MNE's strict positive/negative threshold 
+
+    This implementation avoids MNE's strict positive/negative threshold
     requirements to support waveforms with large baseline shifts.
+
+    Pre-stim baseline std is computed per channel and the peak amplitude is
+    only reported when |amp| / noise_std >= ``min_snr``. Below that, the
+    "peak" returned by argmax in the search window is dominated by noise
+    rather than a real waveform feature; returning ``None`` lets callers
+    skip downstream analysis instead of chasing a spurious latency.
+    Set ``min_snr=None`` to disable the gate (returns the peak unconditionally).
     """
     # Step 1: find the sample-level peak
     time_mask = (evoked_potential.times >= peak_time_min) & (evoked_potential.times <= peak_time_max)
     if not np.any(time_mask):
         print(f'{erp_name}: no samples in window {peak_time_min}-{peak_time_max}')
         return None
-        
+
     data_win = evoked_potential.data[:, time_mask]
     if mode == 'pos':
         ch_idx, t_idx_win = np.unravel_index(np.argmax(data_win), data_win.shape)
@@ -41,7 +56,7 @@ def get_peak(erp_name, evoked_potential, peak_time_min, peak_time_max, mode):
         ch_idx, t_idx_win = np.unravel_index(np.argmin(data_win), data_win.shape)
     else:
         ch_idx, t_idx_win = np.unravel_index(np.argmax(np.abs(data_win)), data_win.shape)
-        
+
     peak_channel = evoked_potential.ch_names[ch_idx]
     peak_sample = np.where(time_mask)[0][t_idx_win]
     sample_latency = evoked_potential.times[peak_sample]
@@ -70,21 +85,77 @@ def get_peak(erp_name, evoked_potential, peak_time_min, peak_time_max, mode):
         interp_latency = sample_latency
         interp_uv = data[peak_sample]
 
+    # Step 3: SNR check — pre-stim baseline std as the noise reference
+    pre_mask = evoked_potential.times < 0
+    if pre_mask.any():
+        noise_uv = float(evoked_potential.data[ch_idx, pre_mask].std())
+    else:
+        noise_uv = 0.0
+    snr = abs(interp_uv) / max(noise_uv, 1e-12)
+
+    if min_snr is not None and snr < min_snr:
+        print(f'{erp_name}: SNR={snr:.2f} < {min_snr} '
+              f'(amp={interp_uv*1e6:.2f}µV, noise={noise_uv*1e6:.2f}µV) — peak unreliable')
+        return None
+
     return {
         'name': erp_name,
         'latency': interp_latency,
         'channel': peak_channel,
-        'amplitude': interp_uv
+        'amplitude': interp_uv,
+        'noise_uv': noise_uv,
+        'snr': snr,
     }
 
 
-def get_pr_vep_latencies(evoked_occipital: Evoked):
-    n75 = get_peak(erp_name='N75',   evoked_potential=evoked_occipital,
-             peak_time_min=0.060, peak_time_max=0.090, mode='neg')
+def get_pr_vep_latencies(evoked_occipital: Evoked, min_snr=PEAK_MIN_SNR):
+    """Detect canonical PR-VEP peaks with SNR gating.
+
+    P100 is measured **peak-to-trough** against the preceding N75. Clinical
+    PR-VEP convention: P100 amplitude = P100_peak − N75_trough. This cancels
+    any DC pedestal (slow drift, reference offset, residual baseline bias)
+    that would otherwise suppress the apparent P100 absolute amplitude.
+    The peak-to-trough value is used for SNR gating, so a P100 sitting
+    on top of a deep N75 is correctly recognised as a strong response
+    even when its absolute µV value looks small.
+
+    Each peak is gated by ``min_snr`` (default ``PEAK_MIN_SNR`` = 2.0). A peak
+    whose amplitude (peak-to-trough where applicable) doesn't exceed the
+    per-channel pre-stim noise floor by that factor is returned as ``None``
+    rather than reported as a spurious latency. Particularly important for
+    small-check / demyelinated conditions where P100 absolute amplitude can
+    drop below the noise floor.
+
+    Pass ``min_snr=None`` to disable gating and report whichever sample is
+    largest in each search window (legacy behaviour).
+    """
+    # N75 and N145 are gated by absolute amplitude (no obvious anchor for
+    # peak-to-trough; their clinical role is mostly as landmarks anyway).
+    n75 = get_peak(erp_name='N75', evoked_potential=evoked_occipital,
+                   peak_time_min=0.060, peak_time_max=0.090, mode='neg',
+                   min_snr=min_snr)
+    # P100 is detected raw first (no SNR gate) so we can compute the proper
+    # peak-to-trough metric before deciding whether to keep it.
     p100 = get_peak(erp_name='P100', evoked_potential=evoked_occipital,
-                            peak_time_min=0.080, peak_time_max=0.130, mode='pos')
-    n145 = get_peak(erp_name='N145',  evoked_potential=evoked_occipital,
-             peak_time_min=0.120, peak_time_max=0.170, mode='neg')
+                    peak_time_min=0.080, peak_time_max=0.130, mode='pos',
+                    min_snr=None)
+    if p100 is not None:
+        if n75 is not None:
+            peak_to_trough = p100['amplitude'] - n75['amplitude']
+        else:
+            # Fall back to absolute amplitude if N75 wasn't detectable.
+            peak_to_trough = p100['amplitude']
+        ptt_snr = abs(peak_to_trough) / max(p100['noise_uv'], 1e-12)
+        p100['peak_to_trough'] = peak_to_trough
+        p100['peak_to_trough_snr'] = ptt_snr
+        if min_snr is not None and ptt_snr < min_snr:
+            print(f'P100: peak-to-trough SNR={ptt_snr:.2f} < {min_snr} '
+                  f'(ptt={peak_to_trough*1e6:.2f}µV, noise={p100["noise_uv"]*1e6:.2f}µV) '
+                  '— peak unreliable')
+            p100 = None
+    n145 = get_peak(erp_name='N145', evoked_potential=evoked_occipital,
+                    peak_time_min=0.120, peak_time_max=0.170, mode='neg',
+                    min_snr=min_snr)
 
     return n75, p100, n145
 
@@ -140,11 +211,19 @@ def compute_iold(p100_left, p100_right, flag_threshold_ms=IOLD_FLAG_MS):
     p100_left_ms = p100_left['latency'] * 1000.0
     p100_right_ms = p100_right['latency'] * 1000.0
     iold_ms = p100_left_ms - p100_right_ms
+    # Prefer peak-to-trough amplitude when available (cancels DC pedestal /
+    # baseline drift); fall back to absolute peak value if not.
+    amp_l = p100_left.get('peak_to_trough', p100_left['amplitude'])
+    amp_r = p100_right.get('peak_to_trough', p100_right['amplitude'])
     return {
         'p100_left_ms': json_safe_float(p100_left_ms),
         'p100_right_ms': json_safe_float(p100_right_ms),
-        'p100_left_uv': json_safe_float(p100_left['amplitude'] * 1e6),
-        'p100_right_uv': json_safe_float(p100_right['amplitude'] * 1e6),
+        'p100_left_uv': json_safe_float(amp_l * 1e6),
+        'p100_right_uv': json_safe_float(amp_r * 1e6),
+        'p100_left_snr': json_safe_float(p100_left.get('peak_to_trough_snr',
+                                                        p100_left.get('snr'))),
+        'p100_right_snr': json_safe_float(p100_right.get('peak_to_trough_snr',
+                                                         p100_right.get('snr'))),
         'iold_ms': json_safe_float(iold_ms),
         'flag': bool(abs(iold_ms) > flag_threshold_ms),
     }
@@ -175,9 +254,69 @@ def compute_iold_per_size(epochs, event_id, ch_name,
             ev = trimmed_average(epochs[cond_key]).copy().pick([ch_name])
             _, p100, _ = get_pr_vep_latencies(ev)
             peaks[eye] = p100
-        out[size] = compute_iold(peaks.get('left_eye'), peaks.get('right_eye'),
-                                 flag_threshold_ms=flag_threshold_ms)
+        iold = compute_iold(peaks.get('left_eye'), peaks.get('right_eye'),
+                            flag_threshold_ms=flag_threshold_ms)
+        recovery = compute_p100_recovery(peaks.get('left_eye'),
+                                         peaks.get('right_eye'))
+        out[size] = {**(iold or {}), 'recovery': recovery} if iold else \
+                    {'recovery': recovery}
     return out
+
+
+def compute_p100_recovery(p100_left, p100_right, min_snr=PEAK_MIN_SNR):
+    """Detectable / not-detectable status for longitudinal P100 recovery tracking.
+
+    Distinct from latency: tracks whether the P100 was *measurable at all*
+    against the noise floor. In demyelinating disease the parvocellular
+    (small-check) P100 may sit below noise at baseline and transition to
+    detectable as remyelination progresses. The state transition itself is
+    a clinical biomarker — independent of any latency value.
+
+    Returns per-eye ``{detectable, snr, amp_uv, latency_ms}`` plus a
+    session-level summary that can be plotted longitudinally without
+    losing the "not-detectable" sessions to NaN-holes:
+    - ``eyes_detectable``: 0/1/2 — count of eyes above the SNR gate.
+    - ``mean_snr``: average SNR across detectable eyes (0 if none).
+    - ``recovery_score``: composite score in [0, 1+] suitable for trend
+      plots. Floor 0 = "neither eye detectable"; 1 = "both detectable at
+      threshold SNR"; >1 = "both detectable, with margin above threshold".
+    """
+    def _eye_summary(p):
+        if p is None:
+            return {'detectable': False,
+                    'snr': None,
+                    'amp_uv': None,
+                    'latency_ms': None}
+        snr = p.get('peak_to_trough_snr', p.get('snr'))
+        amp = p.get('peak_to_trough', p['amplitude'])
+        return {
+            'detectable': bool(snr is not None and snr >= min_snr),
+            'snr': json_safe_float(snr),
+            'amp_uv': json_safe_float(amp * 1e6),
+            'latency_ms': json_safe_float(p['latency'] * 1000.0),
+        }
+
+    left = _eye_summary(p100_left)
+    right = _eye_summary(p100_right)
+    detected_snrs = [s for s, d in [(left['snr'], left['detectable']),
+                                     (right['snr'], right['detectable'])]
+                     if d and s is not None]
+    mean_snr = float(np.mean(detected_snrs)) if detected_snrs else 0.0
+    # Composite score: average SNR / threshold across both eyes.
+    # 0 if neither detectable, 1 = both at threshold, >1 = above threshold.
+    eye_scores = [
+        (left['snr'] / min_snr) if (left['detectable'] and left['snr'] is not None) else 0.0,
+        (right['snr'] / min_snr) if (right['detectable'] and right['snr'] is not None) else 0.0,
+    ]
+    recovery_score = float(np.mean(eye_scores))
+    return {
+        'left': left,
+        'right': right,
+        'eyes_detectable': int(left['detectable']) + int(right['detectable']),
+        'mean_snr': json_safe_float(mean_snr),
+        'recovery_score': json_safe_float(recovery_score),
+        'min_snr_threshold': float(min_snr),
+    }
 
 
 def compute_amplitude_ratio(p100_left, p100_right, log2_flag=LOG2_AMP_FLAG):
@@ -188,8 +327,10 @@ def compute_amplitude_ratio(p100_left, p100_right, log2_flag=LOG2_AMP_FLAG):
     """
     if p100_left is None or p100_right is None:
         return None
-    amp_l_uv = abs(p100_left['amplitude']) * 1e6
-    amp_r_uv = abs(p100_right['amplitude']) * 1e6
+    # Peak-to-trough where available (stable against DC pedestal); abs() so
+    # the ratio is sign-invariant in case one trace flipped polarity.
+    amp_l_uv = abs(p100_left.get('peak_to_trough', p100_left['amplitude'])) * 1e6
+    amp_r_uv = abs(p100_right.get('peak_to_trough', p100_right['amplitude'])) * 1e6
     if amp_r_uv <= 0:
         return None
     ratio = amp_l_uv / amp_r_uv
@@ -327,8 +468,9 @@ def compute_hemi_asymmetry(evoked_avg, ch_left, ch_right,
         return None
     lat_l = p100_l['latency'] * 1000.0
     lat_r = p100_r['latency'] * 1000.0
-    amp_l = abs(p100_l['amplitude']) * 1e6
-    amp_r = abs(p100_r['amplitude']) * 1e6
+    # Peak-to-trough where available; abs() to keep ratio sign-invariant.
+    amp_l = abs(p100_l.get('peak_to_trough', p100_l['amplitude'])) * 1e6
+    amp_r = abs(p100_r.get('peak_to_trough', p100_r['amplitude'])) * 1e6
     lat_diff = lat_l - lat_r
     amp_ratio = amp_l / amp_r if amp_r > 0 else float('inf')
     log2_ratio = float(np.log2(amp_ratio)) if amp_r > 0 else float('nan')
@@ -337,6 +479,10 @@ def compute_hemi_asymmetry(evoked_avg, ch_left, ch_right,
         f'lat_{ch_right.lower()}': json_safe_float(lat_r),
         f'amp_{ch_left.lower()}': json_safe_float(amp_l),
         f'amp_{ch_right.lower()}': json_safe_float(amp_r),
+        f'snr_{ch_left.lower()}': json_safe_float(p100_l.get('peak_to_trough_snr',
+                                                              p100_l.get('snr'))),
+        f'snr_{ch_right.lower()}': json_safe_float(p100_r.get('peak_to_trough_snr',
+                                                               p100_r.get('snr'))),
         'lat_diff_ms': json_safe_float(lat_diff),
         'amp_ratio': json_safe_float(amp_ratio),
         'log2_ratio': json_safe_float(log2_ratio),
