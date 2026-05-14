@@ -25,8 +25,7 @@ CONDITIONS = [
 # MNE epoch by partial match (e.g. event_id key 'rev/left' selects both sizes).
 # Kept stable across recordings so analysis can hard-code this dict.
 EVENTS = {
-    **{f"rev/{c['eye']}/{c['size_name']}":   1   + i for i, c in enumerate(CONDITIONS)},
-    **{f"block/{c['eye']}/{c['size_name']}": 100 + i for i, c in enumerate(CONDITIONS)},
+    f"rev/{c['eye']}/{c['size_name']}": 1 + i for i, c in enumerate(CONDITIONS)
 }
 
 
@@ -42,8 +41,9 @@ class VisualPatternReversalVEP(BlockExperiment):
         Pattern Reversal VEP with two check sizes, counterbalanced across blocks.
 
         Block schedule: 4 shuffled conditions (left/right eye, large/small check) ×
-        ``reps_per_condition`` blocks. Block-start markers (100–103) are pushed on 
-        the first reversal of each block to record the condition sequence.
+        ``reps_per_condition`` blocks. Each reversal is marked with a code 1–4
+        identifying the condition; the condition is fully recoverable from the
+        reversal marker stream alone.
         """
         n_conditions   = 4
         n_blocks       = n_conditions * reps_per_condition
@@ -291,17 +291,10 @@ class VisualPatternReversalVEP(BlockExperiment):
     # ------------------------------------------------------------------
 
     def present_stimulus(self, idx: int):
-        # Push block-start marker on the first reversal of each block.
-        # This lands in the EEG file before the first reversal marker and
-        # encodes the full condition (eye × check-size) for the analysis.
-        if idx == 0:
-            c = CONDITIONS[self.block_labels[self.current_block_index]]
-            self.push_marker(
-                EVENTS[f"block/{c['eye']}/{c['size_name']}"],
-                self.current_block_index * self.block_trial_size,
-            )
-        flip_time = self.draw_frame(idx)
-        self._push_reversal_marker(idx, flip_time)
+        self.draw_frame(idx)
+        trial_idx = self.current_block_index * self.block_trial_size + idx
+        c = CONDITIONS[int(self.parameter[trial_idx])]
+        self.push_marker(EVENTS[f"rev/{c['eye']}/{c['size_name']}"], trial_idx)
 
     def draw_frame(self, idx: int):
         trial_idx = self.current_block_index * self.block_trial_size + idx
@@ -348,13 +341,7 @@ class VisualPatternReversalVEP(BlockExperiment):
 
         self.window.flip()
 
-    def _push_reversal_marker(self, idx: int):
-        trial_idx = self.current_block_index * self.block_trial_size + idx
-        c = CONDITIONS[int(self.parameter[trial_idx])]
-        self.push_marker(EVENTS[f"rev/{c['eye']}/{c['size_name']}"], trial_idx)
-
     def present_soa(self, idx: int):
-        # Keep the compositor fed at full frame rate; no marker push.
         self.draw_frame(idx)
 
     def present_iti(self):
@@ -365,4 +352,3 @@ class VisualPatternReversalVEP(BlockExperiment):
         else:
             self.grey_background.draw()
         self.window.flip()
-window.flip()
