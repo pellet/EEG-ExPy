@@ -56,7 +56,7 @@ MONTAGES = {
     # 3D-printed mark-iv occipital array. Ground A2, Ref Fz.
     "thinkpulse-mark-iv": ["P7", "P8", "PO3", "PO4", "O1", "O2", "POz", "Oz"],
     # Standard 10-20 cap (Tencom 20-ch). Ground A2, Ref Fz.
-    "cap":     ["P7", "P8", "P3", "P4" "Pz", "Oz", "O1",  "O2"],
+    "cap":     ["P7", "P8", "P3", "P4", "Pz", "Oz", "O1",  "O2"],
 }
 
 # Personal monitor specs — refresh rate is used for the save path and for

@@ -88,7 +88,7 @@ def _format_report(session_dir: pathlib.Path,
                    per_channel: pd.DataFrame,
                    summary: pd.DataFrame) -> str:
     """Format the structured DataFrames into the text report string."""
-    lines = []
+    lines: list[str] = []
     w = lines.append
 
     if not recs:
