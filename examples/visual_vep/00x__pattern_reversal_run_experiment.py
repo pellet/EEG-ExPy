@@ -42,7 +42,7 @@ from eegnb.utils.display import snap_refresh_rate
 #
 
 # Display: set use_vr=True for Meta Quest, False for monitor
-use_vr = False
+use_vr = True
 
 # Device: "cyton", "unicorn", "muse2", etc.
 device = "cyton"
@@ -56,7 +56,7 @@ MONTAGES = {
     # 3D-printed mark-iv occipital array. Ground A2, Ref Fz.
     "thinkpulse-mark-iv": ["P7", "P8", "PO3", "PO4", "O1", "O2", "POz", "Oz"],
     # Standard 10-20 cap (Tencom 20-ch). Ground A2, Ref Fz.
-    "tencom-20-cap":     ["P3", "P4", "P7", "P8", "Pz", "Oz", "O1",  "O2"],
+    "cap":     ["P7", "P8", "P3", "P4" "Pz", "Oz", "O1",  "O2"],
 }
 
 # Personal monitor specs — refresh rate is used for the save path and for
@@ -66,7 +66,7 @@ MONITORS = {
 }
 
 # ---- pick montage and monitor for this session --------------------------
-montage_type = "thinkpulse-mark-iv"
+montage_type = "cap"
 config = CYTON_CONFIG_GAIN_4X if montage_type == "thinkpulse-mark-iv" else None
 
 monitor_name = "acer-34-predator"
@@ -74,7 +74,7 @@ ch_names = MONTAGES[montage_type]
 
 # Subject and session identifiers
 subject_id = 0
-session_nb = 18
+session_nb = 19
 
 ###################################################################################################
 # Initiate EEG device
