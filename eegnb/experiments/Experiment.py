@@ -605,16 +605,3 @@ class BaseExperiment(ABC):
     def name(self) -> str:
         """ This experiment's name """
         return self.exp_name
- import inspect
-                sig = inspect.signature(listener)
-                if 'flip_time' in sig.parameters:
-                    listener(trial_idx, timestamp, flip_time=flip_time)
-                else:
-                    listener(trial_idx, timestamp)
-            except Exception:
-                logger.exception("marker listener failed: %s", listener)
-
-    @property
-    def name(self) -> str:
-        """ This experiment's name """
-        return self.exp_name
