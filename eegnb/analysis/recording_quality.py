@@ -1,7 +1,17 @@
 """Per-recording contact quality diagnostic for an eegnb session directory.
 
-Can be used programmatically (returns a formatted string or structured dict)
-or from the command line via ``tools/recording_quality.py``.
+Returns structured DataFrames for notebook display alongside a formatted text
+report for console / experiment use.
+
+Notebook usage:
+    result = check_session(session_dir)
+    display(result['per_channel'])         # styled DataFrame, columns aligned
+    display(result['summary'])
+    result['flagged_channels']
+    result['shared_ref_suspect']
+
+Console / experiment usage:
+    print(check_session(session_dir)['report'])
 """
 import pathlib
 
@@ -42,32 +52,48 @@ def _channel_metrics(x: np.ndarray, sfreq: float) -> dict:
     }
 
 
-def check_session(session_dir: pathlib.Path) -> dict:
-    """Return structured quality metrics for a session directory.
+def _build_per_channel_df(rows: list) -> pd.DataFrame:
+    """Build a tidy per-channel DataFrame with relative metrics and flags."""
+    df = pd.DataFrame(rows)
+    if df.empty:
+        return df
 
-    Reads every ``recording_*.csv`` (excluding ``*_timing.csv``) and computes
-    per-channel std / p99 / drift metrics.
+    med_by_rec = df.groupby('rec')[['std', 'drift']].transform('median')
+    df['std_x']    = df['std']   / med_by_rec['std'].where(med_by_rec['std']   > 0, 1.0)
+    df['drift_x']  = df['drift'] / med_by_rec['drift'].where(med_by_rec['drift'] > 0, 1.0)
+    df['flagged']  = (df['std_x'] > NOISE_FACTOR_FLAG) | (df['drift_x'] > NOISE_FACTOR_FLAG)
+    return df[['rec', 'ch', 'std', 'std_x', 'p99', 'max', 'min',
+               'drift', 'drift_x', 'pct_big', 'flagged']]
 
-    Returns a dict with keys:
-      report             : str  — formatted text report (same as report_session())
-      flagged_channels   : list — channel names flagged in any recording
-                                  (std or drift > 1.5× group median)
-      shared_ref_suspect : bool — True when ≥ half of channels are flagged,
-                                  indicating M1/SRB loose rather than isolated
-                                  electrode contacts
-    """
-    session_dir = pathlib.Path(session_dir).expanduser().resolve()
-    recs = sorted(
-        p for p in session_dir.glob('recording_*.csv')
-        if not p.stem.endswith('_timing') and not p.name.endswith('.excluded')
+
+def _build_summary_df(per_channel: pd.DataFrame) -> pd.DataFrame:
+    """Per-recording summary with exclusion factor relative to cleanest recording."""
+    if per_channel.empty:
+        return pd.DataFrame()
+    summary = per_channel.groupby('rec').agg(
+        med_std=('std', 'median'),
+        med_p99=('p99', 'median'),
+        med_drift=('drift', 'median'),
+        n_flagged=('flagged', 'sum'),
+        n_channels=('ch', 'count'),
     )
+    baseline = float(summary.med_std.min())
+    summary['factor_x']  = summary.med_std / baseline if baseline > 0 else 1.0
+    summary['exclude']   = summary.factor_x > NOISE_FACTOR_FLAG
+    return summary
 
+
+def _format_report(session_dir: pathlib.Path,
+                   recs: list,
+                   per_channel: pd.DataFrame,
+                   summary: pd.DataFrame) -> str:
+    """Format the structured DataFrames into the text report string."""
     lines = []
     w = lines.append
 
     if not recs:
         w(f'No recording_*.csv files found in {session_dir}')
-        return {'report': '\n'.join(lines), 'flagged_channels': [], 'shared_ref_suspect': False}
+        return '\n'.join(lines)
 
     w(f'Session: {session_dir.name}')
     w(f'Found {len(recs)} recording(s)')
@@ -83,98 +109,126 @@ def check_session(session_dir: pathlib.Path) -> dict:
     w('the others. A single outlier = bad electrode contact. All channels inflated = loose reference.')
     w('')
 
-    rows = []
-    flagged_channels: set = set()
+    header = (f'  {"ch":>4}  {"std":>8}  {"std×":>5}  {"p99|x|":>8}  '
+              f'{"max":>8}  {"min":>8}  {"drift":>8}  {"drift×":>6}  '
+              f'{"%>{:.0f}".format(BIG_SAMPLE_UV):>6}  {"flag":>4}')
 
-    for p in recs:
-        df = pd.read_csv(p)
-        eeg_chs = [c for c in df.columns if c in EEG_CHANNEL_CANDIDATES]
-        sfreq = _detect_sfreq(df['timestamps'].values) if 'timestamps' in df else 250.0
-        rec_min = len(df) / sfreq / 60.0
-        w(f'=== {p.stem.split("recording_")[-1]}  '
-          f'({rec_min:.1f} min, {len(df)} samples, ~{sfreq:.0f} Hz) ===')
-
-        ch_metrics = {}
-        for ch in eeg_chs:
-            ch_metrics[ch] = _channel_metrics(df[ch].values.astype(float), sfreq)
-            rows.append({'rec': p.stem.split('recording_')[-1], 'ch': ch, **ch_metrics[ch]})
-
-        med_std   = float(np.median([m['std']   for m in ch_metrics.values()]))
-        med_drift = float(np.median([m['drift'] for m in ch_metrics.values()]))
-
-        w(f'  {"ch":>4}  {"std":>8}  {"std×":>5}  {"p99|x|":>8}  '
-          f'{"max":>8}  {"min":>8}  {"drift":>8}  {"drift×":>6}  {"%>{:.0f}".format(BIG_SAMPLE_UV):>6}')
-        for ch, m in ch_metrics.items():
-            std_x   = m['std']   / med_std   if med_std   > 0 else 1.0
-            drift_x = m['drift'] / med_drift if med_drift > 0 else 1.0
-            flagged = std_x > NOISE_FACTOR_FLAG or drift_x > NOISE_FACTOR_FLAG
-            if flagged:
-                flagged_channels.add(ch)
-            flag_str = '⚑' if flagged else ' '
-            w(f'  {ch:>4}  {m["std"]:>8.1f}  {std_x:>5.2f}  {m["p99"]:>8.1f}  '
+    for rec_id in summary.index:
+        rec_rows = per_channel[per_channel['rec'] == rec_id]
+        n_samples = len(rec_rows) and int(rec_rows.iloc[0].get('n_samples', 0))  # placeholder
+        rec_meta = next((r for r in recs if r['rec'] == rec_id), None)
+        if rec_meta:
+            w(f'=== {rec_id}  ({rec_meta["minutes"]:.1f} min, '
+              f'{rec_meta["n_samples"]} samples, ~{rec_meta["sfreq"]:.0f} Hz) ===')
+        else:
+            w(f'=== {rec_id} ===')
+        w(header)
+        for _, m in rec_rows.iterrows():
+            flag_str = '⚑' if m['flagged'] else ' '
+            w(f'  {m["ch"]:>4}  {m["std"]:>8.1f}  {m["std_x"]:>5.2f}  {m["p99"]:>8.1f}  '
               f'{m["max"]:>8.1f}  {m["min"]:>8.1f}  '
-              f'{m["drift"]:>8.1f}  {drift_x:>6.2f}  {m["pct_big"]:>6.2f}  {flag_str}')
-        w(f'  (median std={med_std:.1f} µV   median drift={med_drift:.1f} µV   '
+              f'{m["drift"]:>8.1f}  {m["drift_x"]:>6.2f}  {m["pct_big"]:>6.2f}  {flag_str:>4}')
+
+        s = summary.loc[rec_id]
+        w(f'  (median std={s.med_std:.1f} µV   median drift={s.med_drift:.1f} µV   '
           f'flag threshold: ×>{NOISE_FACTOR_FLAG})')
-
-        # Shared-reference diagnosis per recording: if ≥ half of channels are
-        # flagged the noise is uniform, pointing at a loose M1/SRB rather than
-        # isolated electrode contacts.
-        n_flagged_rec = sum(
-            1 for m in ch_metrics.values()
-            if (m['std'] / med_std if med_std > 0 else 1.0) > NOISE_FACTOR_FLAG
-            or (m['drift'] / med_drift if med_drift > 0 else 1.0) > NOISE_FACTOR_FLAG
-        )
-        if n_flagged_rec >= len(eeg_chs) / 2:
-            w(f'  ⚑ SHARED REFERENCE SUSPECT — {n_flagged_rec}/{len(eeg_chs)} channels flagged '
+        if s.n_flagged >= s.n_channels / 2:
+            w(f'  ⚑ SHARED REFERENCE SUSPECT — {int(s.n_flagged)}/{int(s.n_channels)} channels flagged '
               f'(all-channel inflation → M1/SRB loose)')
-        elif n_flagged_rec:
-            w(f'  ⚑ {n_flagged_rec} channel(s) flagged — isolated contact issue(s)')
+        elif s.n_flagged:
+            w(f'  ⚑ {int(s.n_flagged)} channel(s) flagged — isolated contact issue(s)')
         w('')
-
-    df_all = pd.DataFrame(rows)
-    summary = df_all.groupby('rec').agg(
-        med_std=('std', 'median'),
-        med_p99=('p99', 'median'),
-        med_drift=('drift', 'median'),
-    )
 
     w('=== PER-RECORDING SUMMARY (median across EEG channels) ===')
     w(f'  {"rec":<22}  {"med_std":>8}  {"med_p99":>8}  {"med_drift":>10}')
-    for rec in summary.index:
-        s = summary.loc[rec]
-        w(f'  {rec:<22}  {s.med_std:>8.1f}  {s.med_p99:>8.1f}  {s.med_drift:>10.1f}')
+    for rec_id in summary.index:
+        s = summary.loc[rec_id]
+        w(f'  {rec_id:<22}  {s.med_std:>8.1f}  {s.med_p99:>8.1f}  {s.med_drift:>10.1f}')
 
     w('')
     w('=== EXCLUSION CANDIDATES ===')
-    baseline = float(summary.med_std.min())
-    any_exclude = False
-    for rec in summary.index:
-        factor = float(summary.loc[rec, 'med_std']) / baseline
-        flag = factor > NOISE_FACTOR_FLAG
-        any_exclude |= flag
-        w(f'  {rec}: median_std={summary.loc[rec,"med_std"]:.1f}  '
-          f'({factor:.2f}x)  [{"EXCLUDE?" if flag else "ok"}]')
+    for rec_id in summary.index:
+        s = summary.loc[rec_id]
+        w(f'  {rec_id}: median_std={s.med_std:.1f}  '
+          f'({s.factor_x:.2f}x)  [{"EXCLUDE?" if s.exclude else "ok"}]')
 
     w('')
-    if any_exclude:
+    if summary.exclude.any():
         w('⚑ One or more recordings flagged as substantially noisier.')
 
-    # Determine overall shared-reference suspicion across the whole session
-    all_ch_names = list(dict.fromkeys(r['ch'] for r in rows))  # ordered unique
+    return '\n'.join(lines)
+
+
+def check_session(session_dir: pathlib.Path) -> dict:
+    """Return structured quality metrics for a session directory.
+
+    Reads every ``recording_*.csv`` (excluding ``*_timing.csv``) and computes
+    per-channel std / p99 / drift metrics.
+
+    Returns a dict with keys:
+      per_channel        : DataFrame  — one row per (recording, channel) with
+                                        std, std×, p99, max/min, drift, drift×,
+                                        pct_big, flagged
+      summary            : DataFrame  — one row per recording with med_std,
+                                        med_p99, med_drift, n_flagged,
+                                        n_channels, factor_x, exclude
+      report             : str        — formatted text report for console use
+      flagged_channels   : list       — channel names flagged in any recording
+                                        (std or drift > 1.5× group median)
+      shared_ref_suspect : bool       — True when ≥ half of all unique channels
+                                        are flagged across the session,
+                                        indicating M1/SRB loose rather than
+                                        isolated electrode contacts
+    """
+    session_dir = pathlib.Path(session_dir).expanduser().resolve()
+    rec_paths = sorted(
+        p for p in session_dir.glob('recording_*.csv')
+        if not p.stem.endswith('_timing') and not p.name.endswith('.excluded')
+    )
+
+    if not rec_paths:
+        empty = pd.DataFrame()
+        return {
+            'per_channel':        empty,
+            'summary':            empty,
+            'report':             f'No recording_*.csv files found in {session_dir}',
+            'flagged_channels':   [],
+            'shared_ref_suspect': False,
+        }
+
+    rows = []
+    recs_meta = []
+
+    for p in rec_paths:
+        df = pd.read_csv(p)
+        eeg_chs = [c for c in df.columns if c in EEG_CHANNEL_CANDIDATES]
+        sfreq = _detect_sfreq(df['timestamps'].values) if 'timestamps' in df else 250.0
+        rec_id = p.stem.split('recording_')[-1]
+        recs_meta.append({
+            'rec': rec_id, 'minutes': len(df) / sfreq / 60.0,
+            'n_samples': len(df), 'sfreq': sfreq,
+        })
+        for ch in eeg_chs:
+            rows.append({'rec': rec_id, 'ch': ch,
+                         **_channel_metrics(df[ch].values.astype(float), sfreq)})
+
+    per_channel = _build_per_channel_df(rows)
+    summary     = _build_summary_df(per_channel)
+    report      = _format_report(session_dir, recs_meta, per_channel, summary)
+
+    flagged_channels = sorted(per_channel.loc[per_channel.flagged, 'ch'].unique().tolist())
+    all_ch_names = list(dict.fromkeys(per_channel['ch']))
     shared_ref_suspect = len(flagged_channels) >= len(all_ch_names) / 2
 
     return {
-        'report':             '\n'.join(lines),
-        'flagged_channels':   sorted(flagged_channels),
+        'per_channel':        per_channel,
+        'summary':            summary,
+        'report':             report,
+        'flagged_channels':   flagged_channels,
         'shared_ref_suspect': shared_ref_suspect,
     }
 
 
 def report_session(session_dir: pathlib.Path) -> str:
-    """Return a formatted quality report string for a session directory.
-
-    Reads every ``recording_*.csv`` (excluding ``*_timing.csv``) and reports
-    per-channel std / p99 / drift, plus exclusion candidates.
-    """
+    """Return a formatted quality report string for a session directory."""
     return check_session(session_dir)['report']
