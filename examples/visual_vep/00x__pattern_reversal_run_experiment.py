@@ -74,17 +74,27 @@ ch_names = MONTAGES[montage_type]
 
 # Subject and session identifiers
 subject_id = 0
-session_nb = 19
+session_nb = 23
+
+# Diagnostic A/B switch: when True, no EEG device is constructed and the
+# experiment runs without eeg.start()/eeg.stop(). Used to isolate whether
+# BrainFlow's streaming thread is what drops the frame loop from 72 Hz to
+# 36 Hz. Leave False for real recordings.
+SKIP_EEG = False
 
 ###################################################################################################
 # Initiate EEG device
 # ---------------------
 #
 # Start EEG device based on configuration above.
-eeg_device = EEG(device, serial_port=serial_port, ch_names=ch_names, 
-                 config=config,
-                 analog_mode=True)  # stream AUX (A5-A7) for photodiode trigger
-# eeg_device = EEG(device="synthetic")
+if SKIP_EEG:
+    print("[diag] SKIP_EEG=True — running without any EEG device")
+    eeg_device = None
+else:
+    eeg_device = EEG(device, serial_port=serial_port, ch_names=ch_names,
+                     config=config,
+                     analog_mode=True)  # stream AUX (A5-A7) for photodiode trigger
+    # eeg_device = EEG(device="synthetic")
 
 ###################################################################################################
 # Build experiment object and detect display settings
@@ -110,7 +120,10 @@ else:
 
 site = f"{display}_{montage_type}"
 data_dir = getenv("DATA_DIR")
-save_fn = generate_save_fn(eeg_device.device_name,
+# When SKIP_EEG is on, eeg_device is None — pick a stable device_name for
+# the save path so the same diagnostic session directory is reused.
+device_name = eeg_device.device_name if eeg_device is not None else "synthetic"
+save_fn = generate_save_fn(device_name,
                            experiment="visual-PRVEP",
                            site=site,
                            subject_id=subject_id,
@@ -118,5 +131,16 @@ save_fn = generate_save_fn(eeg_device.device_name,
                            data_dir=data_dir)
 print(f"Saving data to: {save_fn}  (detected {refresh_rate} Hz)")
 pattern_reversal_vep.save_fn = save_fn
+
+# Absolute-time frame pacing.
+# The schedule period comes from VR.measured_period_s, which is set by
+# validate_frame_rate during setup (clean blank-flip measurement, no
+# stimulus/instruction contamination). Eliminates the small but
+# accumulating drift between nominal 1/120 = 8.333 ms and the HMD's
+# actual cycle (~8.36 ms over Quest Link) that otherwise feeds libovr's
+# queue-throttle and produces bimodal/half-rate patches.
+if use_vr:
+    pattern_reversal_vep.vr.use_absolute_pacing = True
+    pattern_reversal_vep.vr.render_budget_s     = 0.002
 
 pattern_reversal_vep.run()
