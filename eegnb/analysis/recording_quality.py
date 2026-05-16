@@ -17,15 +17,22 @@ import pathlib
 
 import numpy as np
 import pandas as pd
+from scipy.signal import butter, sosfiltfilt
 
 
 EEG_CHANNEL_CANDIDATES = [
-    'Fz', 'Pz', 'P7', 'P8', 'O1', 'O2', 'Oz', 'M1', 'M2',
+    'Fz', 'Pz', 'P3', 'P4', 'P7', 'P8', 'O1', 'O2', 'Oz', 'M1', 'M2',
     'Cz', 'C3', 'C4', 'F3', 'F4', 'T7', 'T8', 'F7', 'F8',
-    'AF7', 'AF8', 'TP9', 'TP10',
+    'AF7', 'AF8', 'TP9', 'TP10', 'PO3', 'PO4', 'POz', 'PO7', 'PO8',
 ]
 
-BIG_SAMPLE_UV    = 200.0
+# AC-noise metrics (std, p99, max/min, pct_big) are computed on a high-pass-
+# filtered copy of the signal so they reflect actual EEG noise rather than
+# electrode half-cell DC offsets (typically 50-400 mV) and slow wander.
+# The drift metric is computed on the unfiltered signal because slow wander
+# is exactly what it's meant to detect.
+HP_CUTOFF_HZ     = 1.0    # high-pass before noise metrics
+BIG_SAMPLE_UV    = 200.0  # threshold for "%>200" (post high-pass)
 DRIFT_WIN_SECS   = 10
 NOISE_FACTOR_FLAG = 1.5
 
@@ -36,19 +43,34 @@ def _detect_sfreq(timestamps: np.ndarray) -> float:
     return float(1.0 / np.median(diffs)) if len(diffs) else 250.0
 
 
+def _highpass(x: np.ndarray, sfreq: float, cutoff_hz: float = HP_CUTOFF_HZ) -> np.ndarray:
+    """Zero-phase 4th-order Butterworth high-pass. Returns unchanged if signal
+    is too short for the filter."""
+    nyq = sfreq / 2.0
+    if cutoff_hz <= 0 or cutoff_hz >= nyq or len(x) < 32:
+        return x - np.mean(x)
+    sos = butter(4, cutoff_hz / nyq, btype='highpass', output='sos')
+    return sosfiltfilt(sos, x)
+
+
 def _channel_metrics(x: np.ndarray, sfreq: float) -> dict:
-    x = x - np.mean(x)
+    # Drift on the unfiltered signal — that's what it's measuring.
+    x_dc_removed = x - np.mean(x)
     win = max(1, int(DRIFT_WIN_SECS * sfreq))
-    drift = float(pd.Series(x).rolling(win, center=False).mean().dropna().pipe(
+    drift = float(pd.Series(x_dc_removed).rolling(win, center=False).mean().dropna().pipe(
         lambda s: s.max() - s.min()
-    )) if len(x) >= win else 0.0
+    )) if len(x_dc_removed) >= win else 0.0
+
+    # Noise metrics on the high-pass-filtered signal — these reflect AC EEG
+    # quality, not DC drift / wander (which is captured separately above).
+    x_ac = _highpass(x_dc_removed, sfreq)
     return {
-        'std':     float(np.std(x)),
-        'p99':     float(np.percentile(np.abs(x), 99)),
-        'max':     float(x.max()),
-        'min':     float(x.min()),
+        'std':     float(np.std(x_ac)),
+        'p99':     float(np.percentile(np.abs(x_ac), 99)),
+        'max':     float(x_ac.max()),
+        'min':     float(x_ac.min()),
         'drift':   drift,
-        'pct_big': 100.0 * float(np.mean(np.abs(x) > BIG_SAMPLE_UV)),
+        'pct_big': 100.0 * float(np.mean(np.abs(x_ac) > BIG_SAMPLE_UV)),
     }
 
 
