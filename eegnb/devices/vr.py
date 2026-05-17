@@ -81,6 +81,11 @@ class VR(Rift):
         # operator preview during a session.
         self.mirror_swap_every = 0     # 0 = never; >=1 = every Nth flip
         self._mirror_swap_counter = 0
+        # When the mirror is disabled (mirror_swap_every=0) the operator
+        # would otherwise see a black/frozen desktop window with no
+        # explanation. Render a one-time message into the window
+        # explaining where to find the participant view instead.
+        self._mirror_message_shown = False
 
         # Absolute-time pacing. libovr's waitToBeginFrame is a relative wait
         # — it returns when "safe to start", with a render-budget margin.
@@ -97,6 +102,23 @@ class VR(Rift):
         # against pure blank flips is the cleanest snapshot of libovr's
         # natural cycle. Falls back to 1/displayRefreshRate if not set.
         self.measured_period_s = None
+        # Submission rate divisor: 1 = submit every vsync (matches HMD
+        # refresh), 2 = submit every other vsync (half-rate, e.g. 60 fps
+        # at 120 Hz HMD). The HMD compositor holds the previous frame on
+        # vsyncs we don't submit for, so visual output rate is still the
+        # HMD refresh — only the app's render+submit cadence is slower.
+        #
+        # Default is 2 because Python + BrainFlow + PsychoPy on consumer
+        # hardware cannot reliably hit 120 Hz submit without dropped
+        # frames and the compositor's "loading hourglass" overlay. The
+        # 8.33 ms budget at full rate gets eaten by GIL contention from
+        # the BrainFlow streaming thread, Windows scheduler decisions,
+        # and Python GC pressure — none of which we can fully eliminate
+        # in this stack. 60 fps submission (16.67 ms budget) absorbs
+        # those stalls cleanly. Experiments that need full-rate content
+        # updates (smooth motion, continuous stimuli) can override to 1
+        # at the cost of accepting occasional dropped frames.
+        self.submit_rate_divisor = 2
         # Anchor for absolute pacing — set on the first paced frame and
         # held constant thereafter. Targets become anchor + Δframes×period
         # so we never re-query the (apparently queue-aware and unstable)
@@ -119,6 +141,48 @@ class VR(Rift):
             'pace_overshoot_ms': 0.0,   # how far past target we woke
             'libovr_wait_ms':   0.0,    # residual super().waitToBegin time
         }
+
+        # ASW (Asynchronous Spacewarp) tracking. For a pattern-reversal
+        # stimulus, ASW frames are SYNTHESIZED by motion-vector extrapolation
+        # between the last two submissions — i.e. an invented midway image
+        # between phase-A and phase-B checkerboards. Any ASW activation
+        # during a trial corrupts the diode-anchored timing and smears the
+        # VEP. We can't fully prevent it (Oculus runtime + Debug Tool own
+        # the decision), but we can:
+        #   (1) hint to the runtime we don't want it via setBool below,
+        #   (2) count activations per-frame so analysis can mark affected
+        #       trials post-hoc, and
+        #   (3) surface session totals in the telemetry sidecar.
+        # `_asw_prev_active` tracks edge transitions so we increment the
+        # activation counter once per off→on edge, not once per active
+        # frame; `asw_active_frame_count` records cumulative time spent
+        # with ASW engaged.
+        self._asw_prev_active        = False
+        self.asw_activation_count    = 0    # off→on edges this session
+        self.asw_active_frame_count  = 0    # frames where aswIsActive=1
+        self.asw_max_toggle_count    = 0    # max libovr aswActivatedToggleCount
+        self.asw_max_presented_count = 0    # max libovr aswPresentedFrameCount
+        self.asw_max_failed_count    = 0    # max libovr aswFailedFrameCount
+
+        # Opt-in to the runtime tweaks we added during the "reduce dropped
+        # frames" work. Set False to revert to upstream defaults — useful
+        # for A/B isolation when chasing runtime-side artifacts (e.g. the
+        # corner perf-indicator that appeared during the optimization
+        # work). When False, none of: ASW-disable hint, mirror-disabled
+        # message rendering, or other recent runtime-level overrides take
+        # effect. The per-frame ASW counters still run for telemetry.
+        self.apply_runtime_tweaks = False
+
+        # Try to discourage the runtime from engaging ASW. Advisory only —
+        # Meta has progressively restricted app-side ASW control across SDK
+        # versions, and on current runtimes this may be a no-op. We rely on
+        # the per-frame counters above for ground truth either way.
+        try:
+            import psychxr.drivers.libovr as _libovr
+            if self.apply_runtime_tweaks and hasattr(_libovr, 'setBool'):
+                _libovr.setBool('AswEnabled', False)
+        except Exception:
+            pass
 
     def _startOfFlip(self):
         # libovr.endFrame() lives inside the base implementation. Time it.
@@ -150,6 +214,20 @@ class VR(Rift):
                             do_swap = n and (self._mirror_swap_counter % n == 0)
                             if do_swap:
                                 return original_swap(*a, **kw)
+                            # Mirror disabled (or skipping this frame). On
+                            # the FIRST skipped swap when mirror_swap_every
+                            # is 0, render an explanatory message into the
+                            # window and do one real swap so the operator
+                            # isn't staring at a frozen black panel for the
+                            # whole session. Subsequent frames keep that
+                            # text on screen because we never swap again.
+                            if (n == 0
+                                    and self.apply_runtime_tweaks
+                                    and not self._mirror_message_shown
+                                    and winHandle is not None):
+                                self._render_mirror_disabled_message(
+                                    winHandle, original_swap)
+                                self._mirror_message_shown = True
                             # Skip the swap, but pump window events so the
                             # window stays responsive to the OS.
                             if winHandle is not None:
@@ -163,8 +241,77 @@ class VR(Rift):
                                 _t.perf_counter() - ts) * 1000.0
                     backend.swapBuffers = _timed_swap
                     self._swap_buffers_wrapped = True
+                    # Window caption — operator's first clue that the
+                    # black window isn't broken.
+                    if (self.mirror_swap_every == 0
+                            and winHandle is not None):
+                        try:
+                            winHandle.set_caption(
+                                "VR mirror disabled — "
+                                "use Meta Quest Developer Hub > Cast "
+                                "to view participant view"
+                            )
+                        except Exception:
+                            pass
                 except Exception:
                     pass
+
+    def _render_mirror_disabled_message(self, winHandle, do_swap):
+        """Draw a one-time explanatory message into the mirror window.
+
+        Called from the swapBuffers wrapper the first time the mirror swap
+        is skipped (``mirror_swap_every == 0``). Renders a static message
+        explaining why the window is blank and where to find the
+        participant view, then issues one real ``swapBuffers`` so the text
+        becomes visible. Subsequent frames don't swap, so the text stays
+        on screen for the rest of the session.
+
+        Best-effort: any failure is silently swallowed — the diagnostic
+        message is operator UX, not part of the experiment data path.
+        """
+        try:
+            import pyglet
+            from pyglet.gl import (
+                glClearColor, glClear, GL_COLOR_BUFFER_BIT,
+                glViewport, glMatrixMode, glLoadIdentity,
+                GL_PROJECTION, GL_MODELVIEW, glOrtho,
+            )
+            winHandle.switch_to()
+            w = max(int(winHandle.width or 1280), 200)
+            h = max(int(winHandle.height or 720), 200)
+            glViewport(0, 0, w, h)
+            glMatrixMode(GL_PROJECTION)
+            glLoadIdentity()
+            glOrtho(0, w, 0, h, -1, 1)
+            glMatrixMode(GL_MODELVIEW)
+            glLoadIdentity()
+            glClearColor(0.08, 0.08, 0.10, 1.0)
+            glClear(GL_COLOR_BUFFER_BIT)
+            message = (
+                "VR mirror disabled to free per-frame budget\n"
+                "for the experiment loop.\n"
+                "\n"
+                "To view what the participant sees:\n"
+                "  Meta Quest Developer Hub  >  Devices\n"
+                "  >  your Quest  >  Cast\n"
+                "\n"
+                "(This window will stay blank for the rest of the session.)"
+            )
+            label = pyglet.text.Label(
+                message,
+                font_name='Segoe UI',
+                font_size=18,
+                x=w // 2, y=h // 2,
+                anchor_x='center', anchor_y='center',
+                multiline=True, width=int(w * 0.85),
+                align='center',
+                color=(220, 220, 220, 255),
+            )
+            label.draw()
+            do_swap()
+        except Exception as e:
+            logging.warning(
+                "[vr] failed to render mirror-disabled message: %s", e)
 
     def _absolute_pace_wait(self):
         """Block until the anchor-derived target time for this frame.
@@ -206,6 +353,11 @@ class VR(Rift):
         period = (self.measured_period_s
                   if self.measured_period_s is not None
                   else 1.0 / float(self.displayRefreshRate))
+        # Multiply by submit_rate_divisor for half-rate (or slower)
+        # submission. The compositor handles the held frames on vsyncs
+        # we skip; from libovr's perspective we're just an app that
+        # legitimately runs at half rate.
+        period *= max(1, int(self.submit_rate_divisor))
 
         # First paced frame — anchor and return without waiting.
         if self._pace_anchor_time is None:
@@ -304,13 +456,33 @@ class VR(Rift):
         """
         target_hz = float(self.displayRefreshRate)
 
-        for _ in range(warmup):
-            draw_blank()
+        # Disable the absolute pacer and force divisor=1 during measurement
+        # so what we sample is the HMD's natural per-vsync cycle, not the
+        # divisor-multiplied submit period. Without this, the pacer would
+        # already be waiting `nominal × divisor` per flip, validate would
+        # store that as `measured_period_s`, and the main loop would then
+        # multiply by `divisor` AGAIN — giving a 4× period (e.g. 33 ms
+        # instead of 16.7 ms at divisor=2) and constant pacer re-anchors.
+        saved_pacing  = self.use_absolute_pacing
+        saved_divisor = self.submit_rate_divisor
+        self.use_absolute_pacing = False
+        self.submit_rate_divisor = 1
+        try:
+            for _ in range(warmup):
+                draw_blank()
 
-        t0 = core.getTime()
-        for _ in range(n_frames):
-            draw_blank()
-        elapsed = core.getTime() - t0
+            t0 = core.getTime()
+            for _ in range(n_frames):
+                draw_blank()
+            elapsed = core.getTime() - t0
+        finally:
+            self.use_absolute_pacing = saved_pacing
+            self.submit_rate_divisor = saved_divisor
+            # Force a fresh anchor on the first paced frame after this.
+            # The old anchor (if any) was set during a no-divisor warmup
+            # and would mis-schedule once the divisor is reinstated.
+            self._pace_anchor_time  = None
+            self._pace_anchor_frame = None
 
         actual_hz = n_frames / elapsed
         deviation = abs(actual_hz - target_hz) / target_hz * 100.0
@@ -507,9 +679,41 @@ class VR(Rift):
             if perf is None or perf.frameStatsCount == 0:
                 return None
             stat = perf.frameStats[0]
-            return {f: getattr(stat, f, None) for f in self._PERF_FIELDS}
+            result = {f: getattr(stat, f, None) for f in self._PERF_FIELDS}
         except Exception:
             return None
+
+        # Update ASW counters as a side effect — this method is called
+        # once per frame by the experiment's logger, which is the right
+        # cadence for edge detection. Doing it here (vs in log_telemetry)
+        # also catches activations between trials.
+        try:
+            is_active = bool(result.get('aswIsActive'))
+            if is_active:
+                self.asw_active_frame_count += 1
+                if not self._asw_prev_active:
+                    self.asw_activation_count += 1
+                    logging.warning(
+                        "[vr] ASW ACTIVATED at frame %s — synthesized "
+                        "frames will corrupt pattern-reversal timing. "
+                        "Set ASW=Disabled in Oculus Debug Tool.",
+                        result.get('appFrameIndex'),
+                    )
+            self._asw_prev_active = is_active
+
+            tc = result.get('aswActivatedToggleCount')
+            if tc is not None and tc > self.asw_max_toggle_count:
+                self.asw_max_toggle_count = tc
+            pc = result.get('aswPresentedFrameCount')
+            if pc is not None and pc > self.asw_max_presented_count:
+                self.asw_max_presented_count = pc
+            fc = result.get('aswFailedFrameCount')
+            if fc is not None and fc > self.asw_max_failed_count:
+                self.asw_max_failed_count = fc
+        except Exception:
+            pass
+
+        return result
 
     def log_telemetry(self, trial_idx, software_time):
         """Extracts native LibOVR performance stats and buffers them in memory."""
@@ -563,5 +767,27 @@ class VR(Rift):
             if self.libovr_to_wallclock_offset is not None:
                 writer.writerow(['# libovr_to_wallclock_offset_s', self.libovr_to_wallclock_offset, 'bracket_ms', self.libovr_to_wallclock_bracket * 1000])
 
+            # ASW session totals — analysis uses these to decide whether
+            # to flag the session. activation_count is our own off→on edge
+            # count; the libovr_max_* fields are the runtime's own
+            # cumulative counters at session end.
+            writer.writerow([
+                '# asw_submit_rate_divisor', int(getattr(self, 'submit_rate_divisor', 1)),
+                'asw_activation_count', self.asw_activation_count,
+                'asw_active_frame_count', self.asw_active_frame_count,
+                'asw_libovr_max_toggle_count', self.asw_max_toggle_count,
+                'asw_libovr_max_presented_count', self.asw_max_presented_count,
+                'asw_libovr_max_failed_count', self.asw_max_failed_count,
+            ])
+
             writer.writerows(self.timing_data)
         print(f"  Saved VR timing telemetry to {timing_path}")
+        if self.asw_activation_count > 0:
+            print(
+                f"  [vr] *** ASW ENGAGED {self.asw_activation_count}x "
+                f"across {self.asw_active_frame_count} frames — affected "
+                f"trials should be reviewed; ASW frames are synthesized "
+                f"and may distort the pattern-reversal waveform."
+            )
+        else:
+            print("  [vr] ASW did not engage during this session.")

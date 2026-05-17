@@ -205,7 +205,9 @@ def check_session(session_dir: pathlib.Path) -> dict:
     session_dir = pathlib.Path(session_dir).expanduser().resolve()
     rec_paths = sorted(
         p for p in session_dir.glob('recording_*.csv')
-        if not p.stem.endswith('_timing') and not p.name.endswith('.excluded')
+        if not p.stem.endswith('_timing')
+        and not p.stem.endswith('_frame_phases')
+        and not p.name.endswith('.excluded')
     )
 
     if not rec_paths:

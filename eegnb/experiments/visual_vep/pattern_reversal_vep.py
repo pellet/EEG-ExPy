@@ -625,7 +625,17 @@ class VisualPatternReversalVEP(BlockExperiment):
             return float(np.mean(vals))
 
         intervals = [r['interval_ms'] for r in recent if r['interval_ms'] > 0]
-        target = self._frame_target_ms
+        # Effective target accounts for VR submit-rate divisor: at
+        # divisor=2 the app submits every other vsync, so the right
+        # interval target is 2 × (1/refresh_rate). Using the bare
+        # nominal target here would mark every successful half-rate
+        # frame as "late" (the 99.9%-dropped headline we saw at
+        # divisor=2). The diode and OVR comp_dropped are still the
+        # ground truth for whether photons landed; this number is just
+        # "did the app's submit-loop hit its own deadline."
+        divisor = (int(getattr(self.vr, 'submit_rate_divisor', 1))
+                   if self.use_vr else 1)
+        target = self._frame_target_ms * max(1, divisor)
         n_late = sum(1 for x in intervals if x > 1.5 * target)
         late_pct = 100.0 * n_late / len(intervals) if intervals else 0.0
 

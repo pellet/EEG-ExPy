@@ -74,7 +74,7 @@ ch_names = MONTAGES[montage_type]
 
 # Subject and session identifiers
 subject_id = 0
-session_nb = 23
+session_nb = 28
 
 # Diagnostic A/B switch: when True, no EEG device is constructed and the
 # experiment runs without eeg.start()/eeg.stop(). Used to isolate whether
@@ -140,7 +140,35 @@ pattern_reversal_vep.save_fn = save_fn
 # actual cycle (~8.36 ms over Quest Link) that otherwise feeds libovr's
 # queue-throttle and produces bimodal/half-rate patches.
 if use_vr:
-    pattern_reversal_vep.vr.use_absolute_pacing = True
+    # A/B test: pacer disabled. The pacer was a no-op in recent sessions
+    # (paced_wait=0.00, libovr's native waitToBeginFrame was doing all the
+    # gating). Disabling rules it out as a contributor to the corner
+    # loading-indicator that appears on the stim eye during real-EEG runs.
+    pattern_reversal_vep.vr.use_absolute_pacing = False
     pattern_reversal_vep.vr.render_budget_s     = 0.002
+    # A/B test: re-enable the mirror swap every flip (classic behavior
+    # before the "reduce dropped frames" work began). The participant's
+    # report — "spinner appeared after switching from eye 1 to eye 2 and
+    # stayed on eye 2" — is consistent with libovr eye-buffer swap-chain
+    # state going stale when one eye's buffer wasn't being drawn while
+    # mirror swaps were disabled. Re-enabling the mirror swap restores
+    # the original render pipeline behavior. Costs ~5 ms per flip on DWM
+    # but at 72 Hz (13.9 ms budget) there's just enough room.
+    pattern_reversal_vep.vr.mirror_swap_every   = 1
+    # Quest 2 set to 72 Hz in Oculus app. Submit every vsync (1:1) so the
+    # runtime sees us hitting its expected frame rate — that eliminates
+    # the corner "app behind schedule" overlay we got at divisor=2 on a
+    # 120 Hz panel (the runtime counts every other vsync as app_dropped
+    # when we submit at half-rate). Our measured natural cycle is ~13.8 ms
+    # under real-EEG load, which is exactly one 72 Hz vsync, so this is
+    # sustainable. Diode-anchored epoching is unaffected by the rate.
+    pattern_reversal_vep.vr.submit_rate_divisor = 1
+    # A/B isolation flag. False = revert ASW-disable hint and in-window
+    # mirror message (both added during the "reduce dropped frames"
+    # work). Use this to test whether the corner perf-indicator is
+    # caused by one of those runtime-level tweaks vs something else.
+    # Set True to re-apply the tweaks; the per-frame ASW counters run
+    # regardless because they're pure telemetry.
+    pattern_reversal_vep.vr.apply_runtime_tweaks = False
 
 pattern_reversal_vep.run()
