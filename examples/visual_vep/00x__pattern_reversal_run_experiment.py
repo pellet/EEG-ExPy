@@ -132,43 +132,19 @@ save_fn = generate_save_fn(device_name,
 print(f"Saving data to: {save_fn}  (detected {refresh_rate} Hz)")
 pattern_reversal_vep.save_fn = save_fn
 
-# Absolute-time frame pacing.
-# The schedule period comes from VR.measured_period_s, which is set by
-# validate_frame_rate during setup (clean blank-flip measurement, no
-# stimulus/instruction contamination). Eliminates the small but
-# accumulating drift between nominal 1/120 = 8.333 ms and the HMD's
-# actual cycle (~8.36 ms over Quest Link) that otherwise feeds libovr's
-# queue-throttle and produces bimodal/half-rate patches.
+# Quest 2 set to 72 Hz in the Oculus app. We submit at full rate (1:1)
+# so the runtime sees us hitting its expected cadence — that avoids the
+# corner "app behind schedule" overlay we hit when submitting at half
+# rate on a 120 Hz panel. Our measured natural cycle under real-EEG load
+# is ~13.8 ms = one 72 Hz vsync, so it's sustainable. Diode-anchored
+# epoching is unaffected by the panel rate.
+#
+# Pacer is off — libovr's native waitToBeginFrame is doing all the
+# gating, and our anchor-based pacer was a no-op (paced_wait=0). Mirror
+# swap stays at the class default (every flip, classic behavior); this
+# matters — disabling it makes the Oculus runtime flag the app as
+# "behind schedule" even when comp_dropped is 0.
 if use_vr:
-    # A/B test: pacer disabled. The pacer was a no-op in recent sessions
-    # (paced_wait=0.00, libovr's native waitToBeginFrame was doing all the
-    # gating). Disabling rules it out as a contributor to the corner
-    # loading-indicator that appears on the stim eye during real-EEG runs.
     pattern_reversal_vep.vr.use_absolute_pacing = False
-    pattern_reversal_vep.vr.render_budget_s     = 0.002
-    # A/B test: re-enable the mirror swap every flip (classic behavior
-    # before the "reduce dropped frames" work began). The participant's
-    # report — "spinner appeared after switching from eye 1 to eye 2 and
-    # stayed on eye 2" — is consistent with libovr eye-buffer swap-chain
-    # state going stale when one eye's buffer wasn't being drawn while
-    # mirror swaps were disabled. Re-enabling the mirror swap restores
-    # the original render pipeline behavior. Costs ~5 ms per flip on DWM
-    # but at 72 Hz (13.9 ms budget) there's just enough room.
-    pattern_reversal_vep.vr.mirror_swap_every   = 1
-    # Quest 2 set to 72 Hz in Oculus app. Submit every vsync (1:1) so the
-    # runtime sees us hitting its expected frame rate — that eliminates
-    # the corner "app behind schedule" overlay we got at divisor=2 on a
-    # 120 Hz panel (the runtime counts every other vsync as app_dropped
-    # when we submit at half-rate). Our measured natural cycle is ~13.8 ms
-    # under real-EEG load, which is exactly one 72 Hz vsync, so this is
-    # sustainable. Diode-anchored epoching is unaffected by the rate.
-    pattern_reversal_vep.vr.submit_rate_divisor = 1
-    # A/B isolation flag. False = revert ASW-disable hint and in-window
-    # mirror message (both added during the "reduce dropped frames"
-    # work). Use this to test whether the corner perf-indicator is
-    # caused by one of those runtime-level tweaks vs something else.
-    # Set True to re-apply the tweaks; the per-frame ASW counters run
-    # regardless because they're pure telemetry.
-    pattern_reversal_vep.vr.apply_runtime_tweaks = False
 
 pattern_reversal_vep.run()

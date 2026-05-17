@@ -593,10 +593,11 @@ class VisualPatternReversalVEP(BlockExperiment):
             row[k] = ovr_stats[k] if ovr_stats else None
         self._frame_phase_timings.append(row)
 
-        # Periodic rolling log + CSV flush
+        # Periodic rolling log to the console only. The full per-frame
+        # CSV is written once at session end (see _report_frame_stats
+        # override below) — no file I/O during the trial loop.
         if len(self._frame_phase_timings) % self._log_every_n_frames == 0:
             self._log_recent_frame_stats()
-            self._save_frame_phase_csv()
 
     def present_soa(self, idx: int):
         self.draw_frame(idx)
@@ -743,10 +744,26 @@ class VisualPatternReversalVEP(BlockExperiment):
                     app_drop_delta, comp_drop_delta, asw_active_pct,
                 )
 
+    def _report_frame_stats(self):
+        """End-of-session hook. Calls the base implementation for the
+        frame-stats JSON, then writes the per-frame phase CSV. All file
+        I/O is deferred until here so the trial loop is free of disk
+        writes."""
+        super()._report_frame_stats()
+        self._save_frame_phase_csv()
+
     def _save_frame_phase_csv(self) -> None:
-        """Write the full per-frame phase-timing table next to the recording.
-        Saved incrementally (overwrite each flush) so partial data survives
-        an interrupt. Path: ``<save_fn>_frame_phases.csv``.
+        """Append the latest unflushed rows of the per-frame phase-timing
+        table to ``<save_fn>_frame_phases.csv``.
+
+        Previously this opened the file in 'w' mode and rewrote the whole
+        growing list every 100 frames — at 28k frames that's a 28k-row
+        write every 1.6s, which manifested as a periodic ~2ms cycle
+        stutter coinciding with every ~3rd reversal at 72 Hz, AND made
+        the mean cycle slowly creep up across a session as the list
+        grew. The current implementation tracks how many rows have been
+        flushed and appends only the new ones — constant cost per flush
+        regardless of session length.
         """
         if not getattr(self, 'save_fn', None):
             return
@@ -755,12 +772,19 @@ class VisualPatternReversalVEP(BlockExperiment):
         path = Path(self.save_fn).with_name(
             Path(self.save_fn).stem + '_frame_phases.csv'
         )
+        flushed = getattr(self, '_frame_phase_flushed', 0)
+        new_rows = self._frame_phase_timings[flushed:]
+        if not new_rows:
+            return
         fieldnames = list(self._frame_phase_timings[0].keys())
+        write_header = flushed == 0
         try:
-            with open(path, 'w', newline='') as f:
+            with open(path, 'a', newline='') as f:
                 w = csv.DictWriter(f, fieldnames=fieldnames)
-                w.writeheader()
-                w.writerows(self._frame_phase_timings)
+                if write_header:
+                    w.writeheader()
+                w.writerows(new_rows)
+            self._frame_phase_flushed = flushed + len(new_rows)
         except Exception as e:
             _diag.warning("[frame-diag] failed to save phase CSV: %s", e)
 
