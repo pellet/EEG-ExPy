@@ -400,7 +400,6 @@ class BaseExperiment(ABC):
             tracking_state = self.window.getTrackingState()
             self.window.calcEyePoses(tracking_state.headPose.thePose)
             self.window.setDefaultView()
-
         present_stimulus()
 
     def _clear_user_input(self):
@@ -425,14 +424,6 @@ class BaseExperiment(ABC):
             duration (float): Maximum duration of the trial loop in seconds
 
         """
-
-        if self.use_vr and type(self).present_soa is BaseExperiment.present_soa:
-            raise NotImplementedError(
-                f"{type(self).__name__} uses VR but does not override present_soa(idx). "
-                "psychxr does not honor setAutoDraw, and the VR compositor requires per-frame "
-                "redraws during the SOA wait; the default flip-only implementation will blank "
-                "the stimulus after one frame. Override present_soa(idx) to redraw your stimulus."
-            )
 
         def iti_with_jitter():
             return self.iti + np.random.rand() * self.jitter
