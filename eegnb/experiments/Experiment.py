@@ -12,9 +12,8 @@ from abc import abstractmethod, ABC
 from typing import Callable
 from eegnb.devices.eeg import EEG
 from eegnb.devices.vr import VR
-from psychopy import prefs, visual, event, core
+from psychopy import prefs, visual, event
 
-import gc
 import logging
 from time import time
 import random
@@ -26,6 +25,7 @@ from pandas import DataFrame
 from eegnb import generate_save_fn
 from eegnb.experiments import diagnostics
 from eegnb.utils.display import snap_refresh_rate
+from eegnb.utils.realtime import high_priority_section
 
 logger = logging.getLogger(__name__)
 
@@ -163,7 +163,8 @@ class BaseExperiment(ABC):
         # Setting up Graphics
         if self.use_vr:
             self.window = self.vr
-            self.display_check = self.vr.validate_frame_rate(self._draw_blank_frame)
+            with high_priority_section():
+                self.display_check = self.vr.validate_frame_rate(self._draw_blank_frame)
             # Capture per-marker compositor stats alongside each EEG trigger.
             self.marker_listeners.append(self.vr.log_telemetry)
         else:
@@ -514,15 +515,10 @@ class BaseExperiment(ABC):
         # Record experiment until a key is pressed or duration has expired.
         record_start_time = time()
 
-        core.rush(True)
-        gc.disable()
-        try:
-            if self.use_vr:        
+        with high_priority_section():
+            if self.use_vr:
                 self.vr.sync_vr_clock()
             self._run_trial_loop(record_start_time, self.duration)
-        finally:
-            gc.enable()
-            core.rush(False)
 
         # Clearing the screen for the next trial
         event.clearEvents()

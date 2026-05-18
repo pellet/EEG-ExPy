@@ -7,12 +7,11 @@ and reuses it across blocks, while allowing block-specific instructions.
 
 Experiments that need block-based execution should inherit from this class instead of BaseExperiment.
 """
-import gc
 from abc import ABC
 from time import time
 
 from .Experiment import BaseExperiment
-from psychopy import core
+from eegnb.utils.realtime import high_priority_section
 
 
 class BlockExperiment(BaseExperiment, ABC):
@@ -127,16 +126,11 @@ class BlockExperiment(BaseExperiment, ABC):
             if not self._show_block_instructions(block_index):
                 break
 
-            core.rush(True)
-            gc.disable()
-            try:
+            with high_priority_section():
                 if self.use_vr:
                     self.vr.sync_vr_clock()
                 if not self._run_trial_loop(start_time=time(), duration=self.block_duration):
                     break
-            finally:
-                gc.enable()
-                core.rush(False)
 
         # Stop EEG Stream after all blocks
         if self.eeg:

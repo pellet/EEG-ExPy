@@ -1,7 +1,6 @@
 import logging
 import random
 import sys
-import time
 import numpy as np
 
 from psychopy import visual
@@ -9,6 +8,7 @@ from typing import Optional, Dict, Any
 from eegnb.devices.eeg import EEG
 from eegnb.experiments.BlockExperiment import BlockExperiment
 from eegnb.analysis.vep_utils import ISCEV_CHECK_DEG_LARGE, ISCEV_CHECK_DEG_SMALL
+from eegnb.utils.realtime import query_timer_resolution_ms
 from stimupy.stimuli.checkerboards import contrast_contrast
 
 
@@ -29,46 +29,6 @@ if not _diag.handlers:
     _diag.propagate = False
 
 
-# ----------------------------------------------------------------------------
-# Windows timer resolution
-# ----------------------------------------------------------------------------
-# Windows' default scheduler tick is 15.625 ms. Any sleep inside the libovr
-# stack (waitToBeginFrame, etc.) rounds up to that tick, which mathematically
-# locks a 72 Hz (13.89 ms) render loop to half-rate. Forcing 1 ms here, at
-# module import, means the resolution is high BEFORE psychxr/brainflow ever
-# touch it. We also poll resolution periodically so we can see if something
-# (typically a sleep in another thread) raises it back to 15.6 ms.
-def _force_high_res_timer():
-    if sys.platform != 'win32':
-        return
-    try:
-        import ctypes
-        ctypes.windll.winmm.timeBeginPeriod(1)
-        _diag.info("[timer] called timeBeginPeriod(1)")
-    except Exception as e:
-        _diag.warning("[timer] timeBeginPeriod failed: %s", e)
-
-
-def _query_timer_resolution_ms():
-    """Return current system timer resolution in ms via NtQueryTimerResolution.
-    Resolution is reported in 100-ns units. None on non-Windows or failure."""
-    if sys.platform != 'win32':
-        return None
-    try:
-        import ctypes
-        from ctypes import wintypes
-        ntdll = ctypes.windll.ntdll
-        _min = wintypes.ULONG(); _max = wintypes.ULONG(); _cur = wintypes.ULONG()
-        ntdll.NtQueryTimerResolution(
-            ctypes.byref(_min), ctypes.byref(_max), ctypes.byref(_cur)
-        )
-        return _cur.value / 10000.0  # 100-ns → ms
-    except Exception:
-        return None
-
-
-# Apply 1 ms resolution at import time so subsequent code runs with high res.
-_force_high_res_timer()
 
 
 def _log_gpu_info() -> None:
@@ -225,7 +185,7 @@ class VisualPatternReversalVEP(BlockExperiment):
         # ~1 ms, something between import and now raised it back to 15.6 ms,
         # and any internal sleep in waitToBeginFrame will round up to half
         # the 72 Hz vsync rate.
-        tr = _query_timer_resolution_ms()
+        tr = query_timer_resolution_ms()
         if tr is not None:
             _diag.info("[timer] resolution at load_stimulus = %.3f ms", tr)
 
@@ -236,20 +196,6 @@ class VisualPatternReversalVEP(BlockExperiment):
             f"Frame rate {refresh_rate} Hz must be an integer multiple of "
             f"{reversals_per_sec} Hz reversal rate"
         )
-
-        # Per-frame timing instrumentation. Each entry is a dict with phase
-        # breakdowns of draw_frame; flushed to CSV every _log_every_n_frames.
-        self._frame_phase_timings: list = []
-        self._last_flip_perf: Optional[float] = None
-        self._frame_target_ms: float = 1000.0 / refresh_rate
-        self._log_every_n_frames: int = 100
-        # Captured by the overridden _draw() to attribute the "invisible"
-        # wait (setDefaultView → libovr.waitToBeginFrame) that happens
-        # *before* draw_frame's own t0 timer starts.
-        self._t_draw_enter: Optional[float] = None
-        self._t_after_vr_setup: Optional[float] = None
-        _diag.info("[frame-diag] target frame budget = %.2f ms (refresh=%.0f Hz)",
-                   self._frame_target_ms, refresh_rate)
 
         if self.use_vr:
             ppd, _ = self.vr.log_display_info()
@@ -448,23 +394,7 @@ class VisualPatternReversalVEP(BlockExperiment):
         c = CONDITIONS[int(self.parameter[trial_idx])]
         self.push_marker(EVENTS[f"rev/{c['eye']}/{c['size_name']}"], trial_idx)
 
-    def _draw(self, present_stimulus):
-        # Override BaseExperiment._draw to time the VR setup phase.
-        # setDefaultView() calls libovr.beginFrame, which internally calls
-        # waitToBeginFrame — the actual vsync-paced block. Until now that
-        # wait was invisible because draw_frame's t0 started *after* it.
-        self._t_draw_enter = time.perf_counter()
-        if self.use_vr:
-            tracking_state = self.window.getTrackingState()
-            self.window.calcEyePoses(tracking_state.headPose.thePose)
-            self.window.setDefaultView()
-        self._t_after_vr_setup = time.perf_counter()
-        present_stimulus()
-
     def draw_frame(self, idx: int):
-        # ---- DIAGNOSTIC TIMING: per-phase timestamps ----
-        t0 = time.perf_counter()
-
         trial_idx = self.current_block_index * self.block_trial_size + idx
         c = CONDITIONS[int(self.parameter[trial_idx])]
         eye, size_idx = c['eye'], c['size_idx']
@@ -473,279 +403,25 @@ class VisualPatternReversalVEP(BlockExperiment):
         diode_patch = (self.photodiode_patch_bright if phase == 0
                        else self.photodiode_patch_dark)
 
-        t_setup = time.perf_counter()
-
         if self.use_vr:
             closed_eye = 'right' if eye == 'left' else 'left'
             self.window.setBuffer(eye)
-            t_setbuf1 = time.perf_counter()
             self.grey_background.draw()
             self.stim[eye]['checkerboards'][size_idx][phase].draw()
             self.stim[eye]['fixation'].draw()
-            t_draw1 = time.perf_counter()
             self.window.setBuffer(closed_eye)
-            t_setbuf2 = time.perf_counter()
             self.black_background.draw()
             diode_patch.draw()   # centred on closed-eye buffer
-            t_draw2 = time.perf_counter()
         else:
-            t_setbuf1 = t_setup
             self.grey_background.draw()
             self.stim['monoscopic']['checkerboards'][size_idx][phase].draw()
             self.stim['monoscopic']['fixation'].draw()
             diode_patch.draw()
-            t_draw1 = t_setbuf2 = t_draw2 = time.perf_counter()
 
         self.window.flip()
-        t_flip = time.perf_counter()
-
-        # ---- Pull LibOVR compositor stats for the frame we just submitted.
-        # Lets us split a slow frame into app GPU vs compositor GPU vs
-        # queue/ASW — CPU timing above can't see encode/transport cost. ----
-        ovr_stats = None
-        flip_phases = None
-        if self.use_vr:
-            try:
-                ovr_stats = self.vr.get_recent_perf_stats()
-            except Exception:
-                ovr_stats = None
-            # Per-flip phase split, populated by the overridden _startOfFlip /
-            # _waitToBeginHmdFrame and the wrapped backend.swapBuffers.
-            flip_phases = dict(self.vr.last_flip_phases)
-            pace_info   = dict(getattr(self.vr, 'last_pace', {}) or {})
-
-        # ---- Record per-frame phase breakdown ----
-        interval_ms = ((t_flip - self._last_flip_perf) * 1000.0
-                       if self._last_flip_perf is not None else 0.0)
-        self._last_flip_perf = t_flip
-
-        # vr_setup_ms attributes the previously-invisible block where
-        # setDefaultView → waitToBeginFrame waits for the next safe vsync.
-        # iter_total_ms covers the whole _draw() iteration (vr setup + draws
-        # + flip) so total_ms isn't undercounting any longer.
-        t_draw_enter      = self._t_draw_enter
-        t_after_vr_setup  = self._t_after_vr_setup
-        vr_setup_ms = (
-            (t_after_vr_setup - t_draw_enter) * 1000.0
-            if t_draw_enter is not None and t_after_vr_setup is not None
-            else 0.0
-        )
-        pre_t0_ms = (
-            (t0 - t_after_vr_setup) * 1000.0
-            if t_after_vr_setup is not None else 0.0
-        )
-        iter_total_ms = (
-            (t_flip - t_draw_enter) * 1000.0
-            if t_draw_enter is not None else (t_flip - t0) * 1000.0
-        )
-        # gap_ms = wall-clock time BETWEEN this frame's _draw start and the
-        # previous frame's flip return. It's the work in the experiment
-        # trial loop that happens outside our draw_frame instrumentation:
-        # _user_input(), the while-loop bookkeeping, lambda dispatch, and
-        # any GIL contention from BrainFlow's serial reader. Should be
-        # sub-millisecond on a clean system; a creeping value here is the
-        # symptom of a non-rendering bottleneck.
-        gap_ms = (
-            (t_draw_enter - self._last_flip_perf_for_gap) * 1000.0
-            if (t_draw_enter is not None
-                and getattr(self, '_last_flip_perf_for_gap', None) is not None)
-            else 0.0
-        )
-        self._last_flip_perf_for_gap = t_flip
-
-        row = {
-            'frame'         : len(self._frame_phase_timings),
-            'block'         : self.current_block_index,
-            'idx_in_block'  : idx,
-            'eye'           : eye,
-            'phase'         : phase,
-            'vr_setup_ms'   : vr_setup_ms,    # NEW: waitToBeginFrame wait
-            'pre_t0_ms'     : pre_t0_ms,      # gap between VR setup and draw start
-            'setup_ms'      : (t_setup    - t0)        * 1000.0,
-            'setbuf1_ms'    : (t_setbuf1  - t_setup)   * 1000.0,
-            'draws_eye1_ms' : (t_draw1    - t_setbuf1) * 1000.0,
-            'setbuf2_ms'    : (t_setbuf2  - t_draw1)   * 1000.0,
-            'draws_eye2_ms' : (t_draw2    - t_setbuf2) * 1000.0,
-            'flip_ms'       : (t_flip     - t_draw2)   * 1000.0,
-            'total_ms'      : (t_flip     - t0)        * 1000.0,
-            'iter_total_ms' : iter_total_ms,   # full _draw iteration
-            'gap_ms'        : gap_ms,           # time BETWEEN draws (trial loop overhead)
-            'interval_ms'   : interval_ms,
-            # Sub-phase breakdown of flip(). NaN-safe defaults when not VR.
-            'end_frame_ms'    : flip_phases['end_frame_ms']    if flip_phases else 0.0,
-            'swap_buffers_ms' : flip_phases['swap_buffers_ms'] if flip_phases else 0.0,
-            'wait_begin_ms'   : flip_phases['wait_begin_ms']   if flip_phases else 0.0,
-            # Absolute-pacing diagnostics. Zero when pacing is disabled.
-            'paced_wait_ms'    : pace_info.get('paced_wait_ms', 0.0)    if self.use_vr else 0.0,
-            'pace_overshoot_ms': pace_info.get('pace_overshoot_ms', 0.0) if self.use_vr else 0.0,
-            'libovr_wait_ms'   : pace_info.get('libovr_wait_ms', 0.0)   if self.use_vr else 0.0,
-        }
-        # Always include the OVR-stat columns (None when unavailable) so the
-        # CSV schema stays stable across frames.
-        for k in (
-            'appCpuElapsedTime', 'appGpuElapsedTime',
-            'appMotionToPhotonLatency', 'appQueueAheadTime',
-            'appDroppedFrameCount',
-            'compositorCpuElapsedTime', 'compositorGpuElapsedTime',
-            'compositorGpuEndToVsyncElapsedTime',
-            'compositorLatency', 'compositorDroppedFrameCount',
-            'timeToVsync',
-            'aswIsActive', 'aswPresentedFrameCount', 'aswFailedFrameCount',
-            'appFrameIndex', 'compositorFrameIndex', 'hmdVsyncIndex',
-        ):
-            row[k] = ovr_stats[k] if ovr_stats else None
-        self._frame_phase_timings.append(row)
-
-        # Periodic rolling log to the console only. The full per-frame
-        # CSV is written once at session end (see _report_frame_stats
-        # override below) — no file I/O during the trial loop.
-        if len(self._frame_phase_timings) % self._log_every_n_frames == 0:
-            self._log_recent_frame_stats()
 
     def present_soa(self, idx: int):
         self.draw_frame(idx)
-
-    # ------------------------------------------------------------------
-    # Frame-timing diagnostic helpers
-    # ------------------------------------------------------------------
-
-    def _log_recent_frame_stats(self) -> None:
-        """Log mean/p99 timings for the most recent ``_log_every_n_frames``
-        frames, broken down by phase. Lets you see WHICH phase is eating
-        time — setBuffer (VR projection switches), draws (GPU work), or
-        flip (vsync wait + Link encode/transmit).
-        """
-        if not self._frame_phase_timings:
-            return
-        recent = self._frame_phase_timings[-self._log_every_n_frames:]
-        if not recent:
-            return
-
-        def pct(key, p):
-            vals = [r[key] for r in recent]
-            return float(np.percentile(vals, p))
-        def mean(key):
-            vals = [r[key] for r in recent]
-            return float(np.mean(vals))
-
-        intervals = [r['interval_ms'] for r in recent if r['interval_ms'] > 0]
-        # Effective target accounts for VR submit-rate divisor: at
-        # divisor=2 the app submits every other vsync, so the right
-        # interval target is 2 × (1/refresh_rate). Using the bare
-        # nominal target here would mark every successful half-rate
-        # frame as "late" (the 99.9%-dropped headline we saw at
-        # divisor=2). The diode and OVR comp_dropped are still the
-        # ground truth for whether photons landed; this number is just
-        # "did the app's submit-loop hit its own deadline."
-        divisor = (int(getattr(self.vr, 'submit_rate_divisor', 1))
-                   if self.use_vr else 1)
-        target = self._frame_target_ms * max(1, divisor)
-        n_late = sum(1 for x in intervals if x > 1.5 * target)
-        late_pct = 100.0 * n_late / len(intervals) if intervals else 0.0
-
-        _diag.info(
-            "[frame-diag] frame=%d  target=%.1fms  "
-            "interval mean=%.1f p99=%.1f late=%.0f%%",
-            len(self._frame_phase_timings),
-            target,
-            float(np.mean(intervals)) if intervals else 0.0,
-            float(np.percentile(intervals, 99)) if intervals else 0.0,
-            late_pct,
-        )
-        _diag.info(
-            "[frame-diag]   iter_total: mean=%.2f p99=%.2f  |  "
-            "flip(total): mean=%.2f p99=%.2f  |  "
-            "gap(trial-loop): mean=%.2f p99=%.2f",
-            mean("iter_total_ms"), pct("iter_total_ms", 99),
-            mean("flip_ms"),       pct("flip_ms", 99),
-            mean("gap_ms"),        pct("gap_ms", 99),
-        )
-        if self.use_vr:
-            # Split flip into its three libovr/pyglet phases. Whichever
-            # mean is closest to flip(total) is the actual bottleneck.
-            _diag.info(
-                "[flip-split]   endFrame=%.2f  swapBuffers=%.2f  "
-                "waitToBeginFrame=%.2f  (means, ms)",
-                mean("end_frame_ms"),
-                mean("swap_buffers_ms"),
-                mean("wait_begin_ms"),
-            )
-            _diag.info(
-                "[flip-split]   endFrame.p99=%.2f  swapBuffers.p99=%.2f  "
-                "waitToBeginFrame.p99=%.2f",
-                pct("end_frame_ms", 99),
-                pct("swap_buffers_ms", 99),
-                pct("wait_begin_ms", 99),
-            )
-            # Absolute-pacing split — only meaningful when enabled.
-            if getattr(self.vr, 'use_absolute_pacing', False):
-                _diag.info(
-                    "[pacer] paced_wait=%.2f  overshoot=%.3f  "
-                    "residual_libovr_wait=%.3f  (means, ms)",
-                    mean("paced_wait_ms"),
-                    mean("pace_overshoot_ms"),
-                    mean("libovr_wait_ms"),
-                )
-                _diag.info(
-                    "[pacer] paced_wait p99=%.2f  overshoot p99=%.3f  "
-                    "residual p99=%.3f",
-                    pct("paced_wait_ms", 99),
-                    pct("pace_overshoot_ms", 99),
-                    pct("libovr_wait_ms", 99),
-                )
-
-        # Re-check timer resolution — if it drifts up (e.g. brainflow's
-        # streaming thread or a backend resetting timeEndPeriod) any sleep
-        # in waitToBeginFrame rounds up to that tick.
-        tr = _query_timer_resolution_ms()
-        if tr is not None:
-            _diag.info("[timer] current resolution = %.3f ms", tr)
-        if self.use_vr:
-            _diag.info(
-                "[frame-diag]   setBuf1=%.2f draws1=%.2f setBuf2=%.2f draws2=%.2f (means)",
-                mean("setbuf1_ms"),
-                mean("draws_eye1_ms"),
-                mean("setbuf2_ms"),
-                mean("draws_eye2_ms"),
-            )
-
-            # ---- LibOVR compositor split (the actually-useful diagnostic).
-            # Distinguishes three failure modes:
-            #   (a) app GPU high  -> render path is too heavy
-            #   (b) comp GPU high -> compositor/encode bottleneck (Link bandwidth)
-            #   (c) queue-ahead high or m2p latency growing -> pipeline backed up,
-            #       app submitting faster than compositor presents
-            recent_ovr = [r for r in recent if r.get('appGpuElapsedTime') is not None]
-            if recent_ovr:
-                def ms(key):
-                    return float(np.mean([r[key] for r in recent_ovr])) * 1000.0
-                def ms_p99(key):
-                    return float(np.percentile([r[key] for r in recent_ovr], 99)) * 1000.0
-                # Dropped counters are cumulative — diff first/last in the window.
-                first = recent_ovr[0]
-                last  = recent_ovr[-1]
-                app_drop_delta  = (last.get('appDroppedFrameCount') or 0) - (first.get('appDroppedFrameCount') or 0)
-                comp_drop_delta = (last.get('compositorDroppedFrameCount') or 0) - (first.get('compositorDroppedFrameCount') or 0)
-                asw_active_pct  = 100.0 * np.mean([bool(r.get('aswIsActive')) for r in recent_ovr])
-
-                _diag.info(
-                    "[ovr] app_gpu mean=%.2f p99=%.2f  comp_gpu mean=%.2f p99=%.2f  "
-                    "comp_end_to_vsync=%.2f",
-                    ms("appGpuElapsedTime"),  ms_p99("appGpuElapsedTime"),
-                    ms("compositorGpuElapsedTime"), ms_p99("compositorGpuElapsedTime"),
-                    ms("compositorGpuEndToVsyncElapsedTime"),
-                )
-                _diag.info(
-                    "[ovr] m2p_latency mean=%.1fms  queue_ahead=%.2fms  "
-                    "time_to_vsync=%.2fms",
-                    ms("appMotionToPhotonLatency"),
-                    ms("appQueueAheadTime"),
-                    ms("timeToVsync"),
-                )
-                _diag.info(
-                    "[ovr] app_dropped(+%d) comp_dropped(+%d)  asw_active=%.0f%%",
-                    app_drop_delta, comp_drop_delta, asw_active_pct,
-                )
 
     def present_iti(self):
         if self.use_vr:
