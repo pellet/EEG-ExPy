@@ -28,7 +28,7 @@ from contextlib import contextmanager
 
 from psychopy import core
 
-_diag = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 def force_high_res_timer() -> bool:
@@ -51,10 +51,10 @@ def force_high_res_timer() -> bool:
     try:
         import ctypes
         ctypes.windll.winmm.timeBeginPeriod(1)
-        _diag.info("[timer] called timeBeginPeriod(1)")
+        logger.info("[timer] called timeBeginPeriod(1)")
         return True
     except Exception as e:
-        _diag.warning("[timer] timeBeginPeriod failed: %s", e)
+        logger.warning("[timer] timeBeginPeriod failed: %s", e)
         return False
 
 
@@ -75,6 +75,64 @@ def query_timer_resolution_ms():
         return _cur.value / 10000.0  # 100-ns → ms
     except Exception:
         return None
+
+
+def log_gpu_info() -> None:
+    """Log which GPU OpenGL is actually rendering on.
+
+    On laptops with NVIDIA Optimus or AMD switchable graphics, Python
+    can silently default to the integrated GPU. PsychoPy + Quest Link
+    both require the discrete GPU — using integrated causes severe
+    frame drops. Worth logging at the top of every session for any
+    visual experiment, not just VR.
+
+    Pyglet exposes the GL context info via ``pyglet.gl.gl_info`` once
+    a window is open. Call this AFTER the experiment's window has been
+    created.
+    """
+    try:
+        from pyglet.gl import gl_info
+        vendor   = gl_info.get_vendor()
+        renderer = gl_info.get_renderer()
+        version  = gl_info.get_version()
+        logger.info("[GPU] vendor=%s", vendor)
+        logger.info("[GPU] renderer=%s", renderer)
+        logger.info("[GPU] gl_version=%s", version)
+        merged = (vendor + " " + renderer).lower()
+        if "nvidia" not in merged and "amd" not in merged and "radeon" not in merged:
+            logger.warning(
+                "[GPU] *** Discrete GPU NOT detected — rendering on '%s'. ***",
+                renderer,
+            )
+            logger.warning(
+                "[GPU]     If this is a laptop with NVIDIA/AMD discrete graphics,"
+            )
+            logger.warning(
+                "[GPU]     set python.exe to use the discrete GPU in NVIDIA"
+            )
+            logger.warning(
+                "[GPU]     Control Panel (3D Settings → Manage 3D Settings →"
+            )
+            logger.warning(
+                "[GPU]     Program Settings → add python.exe → High-performance)."
+            )
+        else:
+            logger.info("[GPU] OK — discrete GPU in use")
+    except Exception as e:
+        logger.warning("[GPU] Could not query OpenGL info: %s", e)
+
+
+def log_session_perf_diagnostics() -> None:
+    """One-shot startup diagnostics for time-critical experiments:
+    GPU vendor/renderer and the current Windows scheduler tick. Catches
+    the two most common silent-misconfiguration cases — wrong GPU and
+    coarse timer resolution — before the participant sits down.
+    Call AFTER the experiment window has been created (so the GL
+    context is available)."""
+    log_gpu_info()
+    tr = query_timer_resolution_ms()
+    if tr is not None:
+        logger.info("[timer] resolution = %.3f ms", tr)
 
 
 @contextmanager

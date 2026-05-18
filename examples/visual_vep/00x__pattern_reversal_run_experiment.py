@@ -22,11 +22,16 @@ Marker codes:
 #
 # Imports
 
+import logging
 import os
 import platform
 from os import getenv
 from dotenv import load_dotenv
 load_dotenv()
+
+# Surface EEG-ExPy's diagnostic INFO messages (GPU detection, timer
+# resolution, frame-pacing diagnostics) to the console.
+logging.basicConfig(level=logging.INFO, format='%(message)s')
 
 from eegnb import generate_save_fn
 from eegnb.devices import CYTON_CONFIG_GAIN_4X
@@ -74,7 +79,7 @@ ch_names = MONTAGES[montage_type]
 
 # Subject and session identifiers
 subject_id = 0
-session_nb = 28
+session_nb = 29
 
 # Diagnostic A/B switch: when True, no EEG device is constructed and the
 # experiment runs without eeg.start()/eeg.stop(). Used to isolate whether

@@ -1,6 +1,5 @@
 import logging
 import random
-import sys
 import numpy as np
 
 from psychopy import visual
@@ -8,71 +7,8 @@ from typing import Optional, Dict, Any
 from eegnb.devices.eeg import EEG
 from eegnb.experiments.BlockExperiment import BlockExperiment
 from eegnb.analysis.vep_utils import ISCEV_CHECK_DEG_LARGE, ISCEV_CHECK_DEG_SMALL
-from eegnb.utils.realtime import query_timer_resolution_ms
 from stimupy.stimuli.checkerboards import contrast_contrast
 
-
-# ----------------------------------------------------------------------------
-# Diagnostic helpers
-# ----------------------------------------------------------------------------
-
-# Dedicated logger for PRVEP diagnostics. Has its own stdout handler so that
-# [GPU] and [frame-diag] messages always appear in the console regardless of
-# how PsychoPy / stdlib logging happen to be configured. propagate=False
-# stops these messages double-printing via the root logger.
-_diag = logging.getLogger("prvep_diag")
-if not _diag.handlers:
-    _h = logging.StreamHandler(sys.stdout)
-    _h.setFormatter(logging.Formatter("%(message)s"))
-    _diag.addHandler(_h)
-    _diag.setLevel(logging.INFO)
-    _diag.propagate = False
-
-
-
-
-def _log_gpu_info() -> None:
-    """Log which GPU OpenGL is actually rendering on.
-
-    On laptops with NVIDIA Optimus or AMD switchable graphics, Python can
-    silently default to the integrated GPU. PsychoPy + Quest Link both
-    require the discrete GPU — using integrated will cause severe frame
-    drops. This log makes the choice visible at the top of every session.
-
-    Pyglet (PsychoPy's windowing backend) exposes the OpenGL context info
-    via ``pyglet.gl.gl_info`` once a window is open. We import lazily because
-    the import only works after the window has been created.
-    """
-    try:
-        from pyglet.gl import gl_info
-        vendor   = gl_info.get_vendor()
-        renderer = gl_info.get_renderer()
-        version  = gl_info.get_version()
-        _diag.info("[GPU] vendor=%s", vendor)
-        _diag.info("[GPU] renderer=%s", renderer)
-        _diag.info("[GPU] gl_version=%s", version)
-        merged = (vendor + " " + renderer).lower()
-        if "nvidia" not in merged and "amd" not in merged and "radeon" not in merged:
-            _diag.warning(
-                "[GPU] *** Discrete GPU NOT detected — rendering on '%s'. ***",
-                renderer,
-            )
-            _diag.warning(
-                "[GPU]     If this is a laptop with NVIDIA/AMD discrete graphics,"
-            )
-            _diag.warning(
-                "[GPU]     set python.exe to use the discrete GPU in NVIDIA"
-            )
-            _diag.warning(
-                "[GPU]     Control Panel (3D Settings → Manage 3D Settings →"
-            )
-            _diag.warning(
-                "[GPU]     Program Settings → add python.exe → High-performance)."
-            )
-        else:
-            _diag.info("[GPU] OK — discrete GPU in use")
-    except Exception as e:
-        _diag.warning("[GPU] Could not query OpenGL info: %s", e)
 
 # ISCEV PR-VEP standard
 ISCEV_FIELD_DEG = 16.0
@@ -176,19 +112,6 @@ class VisualPatternReversalVEP(BlockExperiment):
         )['img']
 
     def load_stimulus(self) -> Dict[str, Any]:
-        # Log which GPU is rendering — first thing, before anything else, so
-        # operators see it before stimuli appear. Critical for diagnosing
-        # Optimus / switchable-graphics induced frame drops.
-        _log_gpu_info()
-
-        # Log Windows timer resolution at stimulus-load time. If it isn't
-        # ~1 ms, something between import and now raised it back to 15.6 ms,
-        # and any internal sleep in waitToBeginFrame will round up to half
-        # the 72 Hz vsync rate.
-        tr = query_timer_resolution_ms()
-        if tr is not None:
-            _diag.info("[timer] resolution at load_stimulus = %.3f ms", tr)
-
         refresh_rate = self.refresh_rate
 
         reversals_per_sec = 1 / self.soa

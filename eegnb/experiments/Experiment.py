@@ -25,7 +25,7 @@ from pandas import DataFrame
 from eegnb import generate_save_fn
 from eegnb.experiments import diagnostics
 from eegnb.utils.display import snap_refresh_rate
-from eegnb.utils.realtime import high_priority_section
+from eegnb.utils.realtime import high_priority_section, log_session_perf_diagnostics
 
 logger = logging.getLogger(__name__)
 
@@ -163,6 +163,7 @@ class BaseExperiment(ABC):
         # Setting up Graphics
         if self.use_vr:
             self.window = self.vr
+            log_session_perf_diagnostics()
             with high_priority_section():
                 self.display_check = self.vr.validate_frame_rate(self._draw_blank_frame)
             # Capture per-marker compositor stats alongside each EEG trigger.
@@ -173,6 +174,7 @@ class BaseExperiment(ABC):
                                         units="deg",
                                         screen=self.screen_num,
                                         fullscr=self.use_fullscr)
+            log_session_perf_diagnostics()
             actual_hz = self.window.getActualFrameRate()
             self.display_check = {
                 'target_hz': round(actual_hz, 1) if actual_hz else None,
