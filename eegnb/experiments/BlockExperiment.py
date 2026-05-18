@@ -138,14 +138,13 @@ class BlockExperiment(BaseExperiment, ABC):
                 gc.enable()
                 core.rush(False)
 
-        self._report_frame_stats()
-
         # Stop EEG Stream after all blocks
         if self.eeg:
             self.eeg.stop()
 
         if self.use_vr:
             self.vr.save_telemetry(self.save_fn)
+            self.vr.save_frame_stats(self.save_fn)
 
         # Close window at the end of all blocks
         self.window.close()

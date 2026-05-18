@@ -1,9 +1,7 @@
-import csv
 import logging
 import random
 import sys
 import time
-from pathlib import Path
 import numpy as np
 
 from psychopy import visual
@@ -120,8 +118,13 @@ def _log_gpu_info() -> None:
 ISCEV_FIELD_DEG = 16.0
 ISCEV_MEAN_LUM = 0.0
 
-VR_DIODE_BRIGHT = +1.0
-VR_DIODE_DARK   =  0.0
+VR_DIODE_BRIGHT = +1.0   # full white (PsychoPy color space: -1=black, +1=white)
+VR_DIODE_DARK   = -1.0   # full black — maximises reversal contrast on the
+                         # photodiode. Was 0.0 (mid-grey), which produced
+                         # only ~2 µV reversal envelope swing against ~75 µV
+                         # backlight strobing pulses, making per-trial diode
+                         # alignment unrecoverable. Full black should give
+                         # roughly 10x more swing.
 
 # Block conditions: 4 possible combinations of (eye, size)
 CONDITIONS = [
@@ -743,50 +746,6 @@ class VisualPatternReversalVEP(BlockExperiment):
                     "[ovr] app_dropped(+%d) comp_dropped(+%d)  asw_active=%.0f%%",
                     app_drop_delta, comp_drop_delta, asw_active_pct,
                 )
-
-    def _report_frame_stats(self):
-        """End-of-session hook. Calls the base implementation for the
-        frame-stats JSON, then writes the per-frame phase CSV. All file
-        I/O is deferred until here so the trial loop is free of disk
-        writes."""
-        super()._report_frame_stats()
-        self._save_frame_phase_csv()
-
-    def _save_frame_phase_csv(self) -> None:
-        """Append the latest unflushed rows of the per-frame phase-timing
-        table to ``<save_fn>_frame_phases.csv``.
-
-        Previously this opened the file in 'w' mode and rewrote the whole
-        growing list every 100 frames — at 28k frames that's a 28k-row
-        write every 1.6s, which manifested as a periodic ~2ms cycle
-        stutter coinciding with every ~3rd reversal at 72 Hz, AND made
-        the mean cycle slowly creep up across a session as the list
-        grew. The current implementation tracks how many rows have been
-        flushed and appends only the new ones — constant cost per flush
-        regardless of session length.
-        """
-        if not getattr(self, 'save_fn', None):
-            return
-        if not self._frame_phase_timings:
-            return
-        path = Path(self.save_fn).with_name(
-            Path(self.save_fn).stem + '_frame_phases.csv'
-        )
-        flushed = getattr(self, '_frame_phase_flushed', 0)
-        new_rows = self._frame_phase_timings[flushed:]
-        if not new_rows:
-            return
-        fieldnames = list(self._frame_phase_timings[0].keys())
-        write_header = flushed == 0
-        try:
-            with open(path, 'a', newline='') as f:
-                w = csv.DictWriter(f, fieldnames=fieldnames)
-                if write_header:
-                    w.writeheader()
-                w.writerows(new_rows)
-            self._frame_phase_flushed = flushed + len(new_rows)
-        except Exception as e:
-            _diag.warning("[frame-diag] failed to save phase CSV: %s", e)
 
     def present_iti(self):
         if self.use_vr:

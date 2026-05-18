@@ -18,7 +18,6 @@ import gc
 import logging
 from time import time
 import random
-import json
 import csv
 
 import numpy as np
@@ -484,37 +483,6 @@ class BaseExperiment(ABC):
         expected_frame_dur = 1.0 / (rate or 60)
         self.window.refreshThreshold = expected_frame_dur * 1.5
 
-    def _report_frame_stats(self):
-        """Print frame timing summary and save intervals alongside recording."""
-        intervals = self.window.frameIntervals
-        if not intervals:
-            return
-
-        intervals_ms = [i * 1000 for i in intervals]
-        dropped = self.window.nDroppedFrames
-        total = len(intervals)
-        mean_ms = np.mean(intervals_ms)
-        std_ms = np.std(intervals_ms)
-        max_ms = max(intervals_ms)
-
-        print(f"\nFrame timing: {total} frames, {dropped} dropped ({dropped/total*100:.1f}%)")
-        print(f"  Refresh rate: {self.display_refresh_rate} Hz")
-        print(f"  Mean: {mean_ms:.2f}ms  Std: {std_ms:.2f}ms  Max: {max_ms:.2f}ms")
-
-        if self.save_fn:
-            stats_path = self.save_fn.with_name(self.save_fn.stem + '_frame_stats.json')
-            with open(stats_path, 'w') as f:
-                json.dump({
-                    'display_refresh_rate_hz': self.display_refresh_rate,
-                    'total_frames': total,
-                    'dropped_frames': dropped,
-                    'mean_ms': round(mean_ms, 3),
-                    'std_ms': round(std_ms, 3),
-                    'max_ms': round(max_ms, 3),
-                    'intervals_ms': [round(i, 3) for i in intervals_ms]
-                }, f, indent=2)
-            print(f"  Saved to {stats_path}")
-
     def _save_monitor_telemetry(self):
         """Saves memory-buffered monitor timing telemetry to a CSV sidecar."""
         if self.save_fn is None or not self.monitor_timing_data:
@@ -556,8 +524,6 @@ class BaseExperiment(ABC):
             gc.enable()
             core.rush(False)
 
-        self._report_frame_stats()
-
         # Clearing the screen for the next trial
         event.clearEvents()
 
@@ -567,6 +533,7 @@ class BaseExperiment(ABC):
 
         if self.use_vr:
             self.vr.save_telemetry(self.save_fn)
+            self.vr.save_frame_stats(self.save_fn)
         else:
             self._save_monitor_telemetry()
 

@@ -1,3 +1,4 @@
+import json
 import logging
 import csv
 import numpy as np
@@ -157,6 +158,11 @@ class VR(Rift):
         self.asw_max_toggle_count    = 0    # max libovr aswActivatedToggleCount
         self.asw_max_presented_count = 0    # max libovr aswPresentedFrameCount
         self.asw_max_failed_count    = 0    # max libovr aswFailedFrameCount
+        # Compositor drop count is cumulative in libovr — track the max
+        # we've seen each time per-frame stats are sampled. End-of-session
+        # value = total compositor-side photon-delivery failures.
+        self.comp_dropped_max        = 0
+        self.app_dropped_max         = 0
 
     def _startOfFlip(self):
         # libovr.endFrame() lives inside the base implementation. Time it.
@@ -601,10 +607,89 @@ class VR(Rift):
             fc = result.get('aswFailedFrameCount')
             if fc is not None and fc > self.asw_max_failed_count:
                 self.asw_max_failed_count = fc
+
+            # Compositor + app drop counters are cumulative in libovr;
+            # track the max we've seen so the end-of-session value is
+            # the total drops across the recording.
+            cd = result.get('compositorDroppedFrameCount')
+            if cd is not None and cd > self.comp_dropped_max:
+                self.comp_dropped_max = int(cd)
+            ad = result.get('appDroppedFrameCount')
+            if ad is not None and ad > self.app_dropped_max:
+                self.app_dropped_max = int(ad)
         except Exception:
             pass
 
         return result
+
+    def get_session_summary(self):
+        """Return a short dict of VR session-level diagnostics for
+        end-of-session reporting. Counts are cumulative across the
+        recording. Safe to call even when no frames have been
+        submitted yet — returns zeros."""
+        return {
+            'compositor_dropped':   int(self.comp_dropped_max),
+            'app_dropped':          int(self.app_dropped_max),
+            'asw_activations':      int(self.asw_activation_count),
+            'asw_active_frames':    int(self.asw_active_frame_count),
+        }
+
+    def save_frame_stats(self, save_fn):
+        """Print end-of-session frame timing report and save the
+        ``_frame_stats.json`` sidecar.
+
+        Lives here (not in BaseExperiment) because the headline
+        numbers are only meaningful with the VR compositor counters
+        alongside — PsychoPy's ``nDroppedFrames`` alone uses a
+        > 1.5x refresh threshold that over-reports drops whenever
+        the panel refresh exceeds the sustainable submit rate, and
+        on a flat monitor the cycle stats by themselves aren't
+        diagnostically interesting.
+
+        VR sessions get the full picture: cycle mean/std/max +
+        compositor drops + ASW counts. The JSON sidecar carries
+        ``vr_summary`` so analysis tools can read the ground-truth
+        drop counts in one place.
+        """
+        intervals = self.frameIntervals
+        if not intervals:
+            return
+
+        intervals_ms = [i * 1000 for i in intervals]
+        total       = len(intervals)
+        mean_ms     = float(np.mean(intervals_ms))
+        std_ms      = float(np.std(intervals_ms))
+        max_ms      = float(max(intervals_ms))
+        psychopy_dropped = self.nDroppedFrames
+        refresh_hz  = float(self.displayRefreshRate)
+        duration_s  = sum(intervals)
+        summary     = self.get_session_summary()
+
+        print(f"\nFrame timing: {total} frames over {duration_s:.1f}s")
+        print(f"  Refresh rate: {refresh_hz:.0f} Hz "
+              f"(target {1000.0/refresh_hz:.2f} ms)")
+        print(f"  Cycle: mean {mean_ms:.2f} ms  std {std_ms:.2f} ms  "
+              f"max {max_ms:.2f} ms")
+        print(f"  Compositor drops: {summary['compositor_dropped']}  "
+              f"App drops: {summary['app_dropped']}  "
+              f"ASW frames: {summary['asw_active_frames']}  "
+              f"ASW activations: {summary['asw_activations']}")
+
+        if save_fn is not None:
+            stats_path = save_fn.with_name(save_fn.stem + '_frame_stats.json')
+            payload = {
+                'display_refresh_rate_hz': refresh_hz,
+                'total_frames':            total,
+                'psychopy_dropped_frames': psychopy_dropped,
+                'mean_ms':                 round(mean_ms, 3),
+                'std_ms':                  round(std_ms, 3),
+                'max_ms':                  round(max_ms, 3),
+                'intervals_ms':            [round(i, 3) for i in intervals_ms],
+                'vr_summary':              summary,
+            }
+            with open(stats_path, 'w') as f:
+                json.dump(payload, f, indent=2)
+            print(f"  Saved to {stats_path}")
 
     def log_telemetry(self, trial_idx, software_time):
         """Extracts native LibOVR performance stats and buffers them in memory."""
