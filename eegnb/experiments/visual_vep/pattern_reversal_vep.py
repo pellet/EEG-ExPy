@@ -45,7 +45,9 @@ class VisualPatternReversalVEP(BlockExperiment):
                  block_trial_size: int = 100,
                  reps_per_condition: int = 2,
                  use_vr: bool = False,
-                 use_fullscr: bool = True):
+                 use_fullscr: bool = True,
+                 check_deg_large: float = ISCEV_CHECK_DEG_LARGE,
+                 check_deg_small: float = ISCEV_CHECK_DEG_SMALL):
         """
         Pattern Reversal VEP with two check sizes, counterbalanced across blocks.
 
@@ -73,9 +75,23 @@ class VisualPatternReversalVEP(BlockExperiment):
             f"Press spacebar or trigger to continue."
         )
 
+        self.check_deg_large = check_deg_large
+        self.check_deg_small = check_deg_small
+
+        self.conditions = [
+            {'eye': 'left',  'size_name': 'large', 'size_idx': 0, 'check_deg': check_deg_large},
+            {'eye': 'right', 'size_name': 'large', 'size_idx': 0, 'check_deg': check_deg_large},
+            {'eye': 'left',  'size_name': 'small', 'size_idx': 1, 'check_deg': check_deg_small},
+            {'eye': 'right', 'size_name': 'small', 'size_idx': 1, 'check_deg': check_deg_small},
+        ]
+        
+        self.events = {
+            f"rev/{c['eye']}/{c['size_name']}": 1 + i for i, c in enumerate(self.conditions)
+        }
+
         # Build block schedule grouped by eye.
-        left_eye_blocks  = [i for i, c in enumerate(CONDITIONS) if c['eye'] == 'left']  * reps_per_condition
-        right_eye_blocks = [i for i, c in enumerate(CONDITIONS) if c['eye'] == 'right'] * reps_per_condition
+        left_eye_blocks  = [i for i, c in enumerate(self.conditions) if c['eye'] == 'left']  * reps_per_condition
+        right_eye_blocks = [i for i, c in enumerate(self.conditions) if c['eye'] == 'right'] * reps_per_condition
         
         random.shuffle(left_eye_blocks)
         random.shuffle(right_eye_blocks)
@@ -183,28 +199,14 @@ class VisualPatternReversalVEP(BlockExperiment):
                 units='pix', size=stim_size_px, color='white', pos=pos,
             )
 
-        # Fixation cross: explicit '+' polygon so arm length and arm width are
-        # independent.  At low VR ppd (~20) the old single-size ShapeStim
-        # rendered as a ~5 px blob that looked like a diamond and connected
-        # visually with nearby checkerboard corners (scintillating-grid effect).
-        # Arm half-length 0.3° keeps the cross inside one check cell at the
-        # small-check size (0.5°); arm width 0.12° gives a clearly legible
-        # stroke at VR ppd without occluding foveal stimulation.
-        FIX_ARM_DEG = 0.30   # half-length from centre to each arm tip
-        FIX_W_DEG   = 0.12   # arm width (stroke thickness)
-        arm_px = max(6, int(round(FIX_ARM_DEG * ppd)))
-        w_px   = max(2, int(round(FIX_W_DEG   * ppd)))
-
-        def _cross_verts(a, w):
-            h = w / 2
-            return [(-h, a), (h, a), (h, h), (a, h), (a, -h),
-                    (h, -h), (h, -a), (-h, -a), (-h, -h), (-a, -h),
-                    (-a, h), (-h, h)]
+        FIX_SIZE_DEG = 1.5  # Total width/height of the cross
+        cross_size_px = int(round(FIX_SIZE_DEG * ppd))
 
         def make_fixation(pos_px):
             return visual.ShapeStim(
                 win=self.window, pos=pos_px,
-                vertices=_cross_verts(arm_px, w_px),
+                vertices='cross',
+                size=(cross_size_px, cross_size_px),
                 units='pix', closeShape=True,
                 fillColor=[1, -1, -1], lineColor=[-1, -1, -1], lineWidth=1,
             )
@@ -224,12 +226,12 @@ class VisualPatternReversalVEP(BlockExperiment):
             return {
                 'checkerboards': [
                     [
-                        make_checker_stim((1, -1),  ISCEV_CHECK_DEG_LARGE, (eye_x_pix, 0)),
-                        make_checker_stim((-1, 1), ISCEV_CHECK_DEG_LARGE, (eye_x_pix, 0)),
+                        make_checker_stim((1, -1),  self.check_deg_large, (eye_x_pix, 0)),
+                        make_checker_stim((-1, 1), self.check_deg_large, (eye_x_pix, 0)),
                     ],
                     [
-                        make_checker_stim((1, -1),  ISCEV_CHECK_DEG_SMALL, (eye_x_pix, 0)),
-                        make_checker_stim((-1, 1), ISCEV_CHECK_DEG_SMALL, (eye_x_pix, 0)),
+                        make_checker_stim((1, -1),  self.check_deg_small, (eye_x_pix, 0)),
+                        make_checker_stim((-1, 1), self.check_deg_small, (eye_x_pix, 0)),
                     ],
                 ],
                 'fixation': make_fixation([eye_x_pix, 0]),
@@ -249,7 +251,7 @@ class VisualPatternReversalVEP(BlockExperiment):
     # ------------------------------------------------------------------
 
     def block_eye_and_size(self, block_index: int):
-        c = CONDITIONS[self.block_labels[block_index]]
+        c = self.conditions[self.block_labels[block_index]]
         return c['eye'], c['size_name']
 
     def present_block_instructions(self, current_block: int) -> None:
@@ -300,7 +302,7 @@ class VisualPatternReversalVEP(BlockExperiment):
                 f"{patch_prompt}"
                 f"Cover your {closed_eye} eye with a patch (keep both eyes open).\n"
                 f"Focus on the red dot with your {open_eye} eye.\n"
-                f"Check size: {size_name} ({ISCEV_CHECK_DEG_LARGE if size_name == 'large' else ISCEV_CHECK_DEG_SMALL}°)\n\n"
+                f"Check size: {size_name} ({self.check_deg_large if size_name == 'large' else self.check_deg_small}°)\n\n"
                 "Press spacebar when ready."
             )
             visual.TextStim(win=self.window, text=text, color=[-1, -1, -1]).draw()
@@ -314,12 +316,12 @@ class VisualPatternReversalVEP(BlockExperiment):
     def present_stimulus(self, idx: int):
         self.draw_frame(idx)
         trial_idx = self.current_block_index * self.block_trial_size + idx
-        c = CONDITIONS[int(self.parameter[trial_idx])]
-        self.push_marker(EVENTS[f"rev/{c['eye']}/{c['size_name']}"], trial_idx)
+        c = self.conditions[int(self.parameter[trial_idx])]
+        self.push_marker(self.events[f"rev/{c['eye']}/{c['size_name']}"], trial_idx)
 
     def draw_frame(self, idx: int):
         trial_idx = self.current_block_index * self.block_trial_size + idx
-        c = CONDITIONS[int(self.parameter[trial_idx])]
+        c = self.conditions[int(self.parameter[trial_idx])]
         eye, size_idx = c['eye'], c['size_idx']
         phase = idx % 2               # alternates 0 / 1 for each reversal
 
