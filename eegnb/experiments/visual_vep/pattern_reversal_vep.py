@@ -70,11 +70,12 @@ class VisualPatternReversalVEP(BlockExperiment):
             expected_refresh_rate=expected_refresh_rate,
         )
 
+        advance_prompt = "Press spacebar or trigger to continue." if use_vr else "Press spacebar to continue."
         self.instruction_text = (
             f"Welcome to the Pattern Reversal VEP experiment!\n\n"
-            f"{n_blocks} blocks of {block_duration_seconds} s each.\n"
-            f"left/right eye × large/small checks)\n\n"
-            f"Press spacebar or trigger to continue."
+            f"{n_blocks} blocks of {block_duration_seconds} s each\n"
+            f"(left/right eye × large/small checks).\n\n"
+            f"{advance_prompt}"
         )
 
         self.check_deg_large = check_deg_large
@@ -201,7 +202,10 @@ class VisualPatternReversalVEP(BlockExperiment):
                 units='pix', size=stim_size_px, color='white', pos=pos,
             )
 
-        FIX_SIZE_DEG = 1.5  # Total width/height of the cross
+        # Total width/height of the cross in visual degrees. Monitor uses
+        # 0.5° and VR uses 1° because of lower effective pixels-per-degree
+        # at the lens makes a thinner cross hard to anchor the gaze on.
+        FIX_SIZE_DEG = 1.0 if self.use_vr else 0.5
         cross_size_px = int(round(FIX_SIZE_DEG * ppd))
 
         def make_fixation(pos_px):
@@ -260,10 +264,24 @@ class VisualPatternReversalVEP(BlockExperiment):
         open_eye, size_name = self.block_eye_and_size(current_block)
         closed_eye = 'right' if open_eye == 'left' else 'left'
         
-        # Check if the eye just switched so we can prompt them to move the patch
         is_first_block_for_eye = (current_block == 0) or (self.block_eye_and_size(current_block - 1)[0] != open_eye)
-        
-        patch_prompt = f"*** MOVE PHOTODIODE TO {closed_eye.upper()} LENS NOW ***\n" if is_first_block_for_eye else ""
+
+        # The "keep both eyes open" reminder is load-bearing: a closed eye
+        # produces involuntary Bell's-phenomenon movement (EOG artifact) and a
+        # surge of occipital alpha rhythm (Berger effect) that together swamp
+        # the small P100 signal. ISCEV / Halliday's clinical protocols all
+        # specify opaque patch + both eyes open. Only shown on the eye switch
+        # — once the patch is on, repeating it every block adds noise.
+        if is_first_block_for_eye:
+            if self.use_vr:
+                patch_prompt = (
+                    f"*** MOVE PHOTODIODE TO {closed_eye.upper()} LENS NOW ***\n"
+                    f"Cover your {closed_eye} eye.\n\n"
+                )
+            else:
+                patch_prompt = f"*** SWITCH EYE PATCH TO COVER {closed_eye.upper()} EYE ***\n"
+        else:
+            patch_prompt = ""
 
         if self.use_vr:
             # Re-assert height each call — VR state changes (calcEyePoses /
@@ -287,10 +305,8 @@ class VisualPatternReversalVEP(BlockExperiment):
                     f"Block {current_block + 1}/{self.n_blocks} — "
                     f"{open_eye} eye, {size_name} checks\n\n"
                     f"{patch_prompt}"
-                    f"Please ensure your {closed_eye} eye is physically covered (e.g. tissue/patch),\n"
-                    f"but keep BOTH eyes open underneath to prevent muscle artifacts.\n\n"
-                    "Focus on the red dot.\n"
-                    "Try not to blink while the squares are animating.\n"
+                    "Keep both eyes open and focus on the red cross.\n"
+                    "Try not to blink whilst the squares are animating.\n"
                     "Press spacebar or trigger when ready."
                 )
 
@@ -302,8 +318,7 @@ class VisualPatternReversalVEP(BlockExperiment):
             text = (
                 f"Block {current_block + 1}/{self.n_blocks}\n\n"
                 f"{patch_prompt}"
-                f"Cover your {closed_eye} eye with a patch (keep both eyes open).\n"
-                f"Focus on the red dot with your {open_eye} eye.\n"
+                "Keep both eyes open and focus on the red cross.\n"
                 f"Check size: {size_name} ({self.check_deg_large if size_name == 'large' else self.check_deg_small}°)\n\n"
                 "Press spacebar when ready."
             )
