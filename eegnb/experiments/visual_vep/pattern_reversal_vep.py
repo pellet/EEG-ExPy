@@ -276,7 +276,7 @@ class VisualPatternReversalVEP(BlockExperiment):
             if self.use_vr:
                 patch_prompt = (
                     f"*** MOVE PHOTODIODE TO {closed_eye.upper()} LENS NOW ***\n"
-                    f"*** COVER {closed_eye} EYE WITH A PATCH ***\n\n"
+                    f"*** COVER {closed_eye.upper()} EYE WITH A PATCH ***\n\n"
                 )
             else:
                 patch_prompt = f"*** COVER {closed_eye.upper()} EYE WITH A PATCH***\n"
