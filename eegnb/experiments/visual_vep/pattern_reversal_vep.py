@@ -3,7 +3,7 @@ import random
 import numpy as np
 
 from psychopy import visual
-from typing import Optional, Dict, Any
+from typing import Dict, Any
 from eegnb.devices.eeg import EEG
 from eegnb.experiments.BlockExperiment import BlockExperiment
 from eegnb.analysis.vep_utils import ISCEV_CHECK_DEG_LARGE, ISCEV_CHECK_DEG_SMALL
@@ -40,14 +40,15 @@ EVENTS = {
 
 class VisualPatternReversalVEP(BlockExperiment):
 
-    def __init__(self, eeg: Optional[EEG] = None, save_fn=None,
+    def __init__(self, eeg: EEG | None = None, save_fn=None,
                  block_duration_seconds: int = 50,
                  block_trial_size: int = 100,
                  reps_per_condition: int = 2,
                  use_vr: bool = False,
                  use_fullscr: bool = True,
                  check_deg_large: float = ISCEV_CHECK_DEG_LARGE,
-                 check_deg_small: float = ISCEV_CHECK_DEG_SMALL):
+                 check_deg_small: float = ISCEV_CHECK_DEG_SMALL,
+                 expected_refresh_rate: int | None = None):
         """
         Pattern Reversal VEP with two check sizes, counterbalanced across blocks.
 
@@ -66,6 +67,7 @@ class VisualPatternReversalVEP(BlockExperiment):
             block_trial_size, n_blocks,
             iti=0, soa=soa, jitter=0,
             use_vr=use_vr, use_fullscr=use_fullscr, stereoscopic=True,
+            expected_refresh_rate=expected_refresh_rate,
         )
 
         self.instruction_text = (

@@ -10,9 +10,9 @@ Block schedule: 4 conditions (left/right eye × large/small check) ×
 ``reps_per_condition`` reps = 8 blocks, shuffled at startup.
 
 Marker codes:
-    1 — block_start, left  eye, large check (~60 arcmin / 1 deg)
+    1 — block_start, left  eye, large check (~60 arcmin / 1 deg — ISCEV standard)
     2 — block_start, right eye, large check
-    3 — block_start, left  eye, small check (~30 arcmin / 0.5 deg)
+    3 — block_start, left  eye, small check (~15 arcmin / 0.25 deg — ISCEV standard)
     4 — block_start, right eye, small check
 """
 
@@ -37,7 +37,6 @@ from eegnb import generate_save_fn
 from eegnb.devices import CYTON_CONFIG_GAIN_4X
 from eegnb.devices.eeg import EEG
 from eegnb.experiments.visual_vep import VisualPatternReversalVEP
-from eegnb.utils.display import snap_refresh_rate
 
 ###################################################################################################
 # Configuration
@@ -47,9 +46,9 @@ from eegnb.utils.display import snap_refresh_rate
 #
 
 # Display: set use_vr=True for Meta Quest, False for monitor
-use_vr = True
+use_vr = False
 
-# Device: "cyton", "unicorn", "muse2", etc.
+# Device: "cyton", "unicorn", "muse2", "synthetic", None, etc.
 device = "cyton"
 
 # Serial port: "COM3" for Windows, "/dev/ttyUSB0" for Linux
@@ -64,11 +63,15 @@ MONTAGES = {
     "cap":     ["P7", "P8", "P3", "P4", "Pz", "Oz", "O1",  "O2"],
 }
 
-# Personal monitor specs — refresh rate is used for the save path and for
-# the integer-multiple assertion in load_stimulus().
+# Per-rig expected refresh rates. The hardcoded Hz is the rate we *expect*
+# the panel to run at and is used for the save-path label. The experiment
+# detects the actual rate from the psychopy/VR runtime in setup(); the two
+# are compared and any divergence is logged and persisted into the
+# display_check sidecar for verification at analysis time.
 MONITORS = {
     "acer-34-predator": {"hz": 100},
 }
+QUEST2_EXPECTED_HZ = 72
 
 # ---- pick montage and monitor for this session --------------------------
 montage_type = "cap"
@@ -79,75 +82,57 @@ ch_names = MONTAGES[montage_type]
 
 # Subject and session identifiers
 subject_id = 0
-session_nb = 29
-
-# Diagnostic A/B switch: when True, no EEG device is constructed and the
-# experiment runs without eeg.start()/eeg.stop(). Used to isolate whether
-# BrainFlow's streaming thread is what drops the frame loop from 72 Hz to
-# 36 Hz. Leave False for real recordings.
-SKIP_EEG = False
+session_nb = 30
 
 ###################################################################################################
 # Initiate EEG device
 # ---------------------
 #
-# Start EEG device based on configuration above.
-if SKIP_EEG:
-    print("[diag] SKIP_EEG=True — running without any EEG device")
-    eeg_device = None
-else:
-    eeg_device = EEG(device, serial_port=serial_port, ch_names=ch_names,
-                     config=config,
-                     analog_mode=True)  # stream AUX (A5-A7) for photodiode trigger
-    # eeg_device = EEG(device="synthetic")
+eeg_device = EEG(device, serial_port=serial_port, ch_names=ch_names,
+                 config=config,
+                 analog_mode=True)  # stream AUX (A5-A7) for photodiode trigger
 
 ###################################################################################################
-# Build experiment object and detect display settings
+# Build experiment object
 # ---------------------
 #
-# The experiment is constructed before the save path so the Rift session is
-# already open and we can read the actual refresh rate from the runtime rather
-# than hardcoding it. The save path is then built from the real Hz and set on
-# the experiment before run() is called.   
 #
 # =============================================================================
 # IMPORTANT: VR REFRESH RATE (Meta Horizon Link App)
 # =============================================================================
-# If using a Cyton at the default 250 Hz sample rate, you SHOULD set the Quest 2 
-# to 72 Hz in the Oculus PC App. 
-# 
-# Why? A 120 Hz strobe creates a 10 Hz "beat frequency" interference pattern 
-# with the 250 Hz ADC, causing up to ±30 ms of jitter in the photodiode markers. 
-# At 72 Hz, the phase aligns almost perfectly every frame, dropping the diode 
-# measurement noise to ~6 ms and allowing for hyper-accurate per-trial jitter 
+# If using a Cyton at the default 250 Hz sample rate, you SHOULD set the Quest 2
+# to 72 Hz in the Oculus PC App.
+#
+# Why? A 120 Hz strobe creates a 10 Hz "beat frequency" interference pattern
+# with the 250 Hz ADC, causing up to ±30 ms of jitter in the photodiode markers.
+# At 72 Hz, the phase aligns almost perfectly every frame, dropping the diode
+# measurement noise to ~6 ms and allowing for hyper-accurate per-trial jitter
 # correction.
 # =============================================================================
+
+if use_vr:
+    expected_refresh_rate = QUEST2_EXPECTED_HZ
+    display = f"quest-2_{expected_refresh_rate}Hz"
+else:
+    expected_refresh_rate = MONITORS[monitor_name]["hz"]
+    display = f"{monitor_name}_{expected_refresh_rate}Hz"
 
 pattern_reversal_vep = VisualPatternReversalVEP(
     eeg=eeg_device,
     use_vr=use_vr,
-    use_fullscr=True
+    use_fullscr=True,
+    expected_refresh_rate=expected_refresh_rate,
 )
-
-if use_vr:
-    refresh_rate = snap_refresh_rate(pattern_reversal_vep.vr.displayRefreshRate)
-    display = f"quest-2_{refresh_rate}Hz"
-else:
-    refresh_rate = MONITORS[monitor_name]["hz"]
-    display = f"{monitor_name}_{refresh_rate}Hz"
 
 site = f"{display}_{montage_type}"
 data_dir = getenv("DATA_DIR")
-# When SKIP_EEG is on, eeg_device is None — pick a stable device_name for
-# the save path so the same diagnostic session directory is reused.
-device_name = eeg_device.device_name if eeg_device is not None else "synthetic"
-save_fn = generate_save_fn(device_name,
+save_fn = generate_save_fn(eeg_device.device_name,
                            experiment="visual-PRVEP",
                            site=site,
                            subject_id=subject_id,
                            session_nb=session_nb,
                            data_dir=data_dir)
-print(f"Saving data to: {save_fn}  (detected {refresh_rate} Hz)")
+print(f"Saving data to: {save_fn}  (expected {expected_refresh_rate} Hz)")
 pattern_reversal_vep.save_fn = save_fn
 
 # Quest 2 set to 72 Hz in the Oculus app. We submit at full rate (1:1)

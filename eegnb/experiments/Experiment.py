@@ -15,6 +15,7 @@ from eegnb.devices.vr import VR
 from psychopy import prefs, visual, event
 
 import logging
+from pathlib import Path
 from time import time
 import random
 import csv
@@ -33,7 +34,8 @@ logger = logging.getLogger(__name__)
 class BaseExperiment(ABC):
 
     def __init__(self, exp_name, duration, eeg, save_fn, n_trials: int, iti: float, soa: float, jitter: float,
-                 use_vr=False, use_fullscr = True, screen_num=0, stereoscopic = False, devices=None):
+                 use_vr=False, use_fullscr = True, screen_num=0, stereoscopic = False, devices=None,
+                 expected_refresh_rate=None):
         """ Initializer for the Base Experiment Class
 
         Args:
@@ -55,9 +57,9 @@ class BaseExperiment(ABC):
         self.instruction_text = """\nWelcome to the {} experiment!\nStay still, focus on the centre of the screen, and try not to blink. \nThis block will run for %s seconds.\n
         Press spacebar to continue. \n""".format(self.exp_name)
         self.duration = duration
-        self.eeg: EEG = eeg
+        self.eeg: EEG | None = eeg
         self.devices = devices if devices is not None else []
-        self.save_fn = save_fn
+        self.save_fn: Path | None = save_fn
         self.n_trials = n_trials
         self.iti = iti
         self.soa = soa
@@ -65,16 +67,10 @@ class BaseExperiment(ABC):
         self.use_vr = use_vr
         self.screen_num = screen_num
         self.stereoscopic = stereoscopic
-        if use_vr:
-            # VR interface accessible by specific experiment classes for customizing and using controllers.
-            self.vr: VR = VR(monoscopic=not stereoscopic, headLocked=True)
-
-        # Shift the display so it aligns perfectly with the center of each eye.
-        if use_vr and stereoscopic:
-            self.left_eye_x_pos, self.right_eye_x_pos = self.vr.compute_optical_axis_offsets()
-        else:
-            self.left_eye_x_pos = 0
-            self.right_eye_x_pos = 0
+        self.vr: VR | None = None
+        self.left_eye_x_pos = 0
+        self.right_eye_x_pos = 0
+        self.expected_refresh_rate = expected_refresh_rate
 
         self.use_fullscr = use_fullscr
         self.window_size = [1600,800]
@@ -160,6 +156,11 @@ class BaseExperiment(ABC):
         self._draw(self.window.flip)
 
     def setup(self, instructions=True):
+        if self.use_vr and self.vr is None:
+            self.vr = VR(monoscopic=not self.stereoscopic, headLocked=True)
+            if self.stereoscopic:
+                self.left_eye_x_pos, self.right_eye_x_pos = self.vr.compute_optical_axis_offsets()
+
         # Setting up Graphics
         if self.use_vr:
             self.window = self.vr
@@ -188,6 +189,17 @@ class BaseExperiment(ABC):
         # downstream stimulus code can rely on a clean integer Hz.
         target = self.display_check.get('target_hz')
         self.refresh_rate = snap_refresh_rate(target) if target else None
+        self.display_check['expected_hz'] = self.expected_refresh_rate
+        if self.expected_refresh_rate is not None and self.refresh_rate is not None:
+            if self.refresh_rate != self.expected_refresh_rate:
+                logger.warning(
+                    "Refresh rate mismatch: expected %s Hz, detected %s Hz. "
+                    "Timing analyses should use the detected value.",
+                    self.expected_refresh_rate, self.refresh_rate,
+                )
+                self.display_check['expected_match'] = False
+            else:
+                self.display_check['expected_match'] = True
 
         # Loading the stimulus from the specific experiment, throws an error if not overwritten in the specific experiment
         self.stim = self.load_stimulus()
