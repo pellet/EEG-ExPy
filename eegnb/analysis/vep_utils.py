@@ -146,13 +146,15 @@ def get_pr_vep_peaks(evoked_occipital: Evoked, min_snr=PEAK_MIN_SNR,
     if n75 is not None:
         n75_sample = int(np.searchsorted(times, n75['latency']))
     else:
-        # Fallback anchor: start of P100 search window
-        n75_sample = int(np.searchsorted(times, 0.060))
+        n75_sample = None
 
     # ----------------------------------------------------------------- P100
-    # First prominent positive peak after N75, capped at 300 ms.
+    # First prominent positive peak after max(N75, 85 ms), capped at 300 ms.
+    p100_floor_sample = int(np.searchsorted(times, 0.085))
+    p100_anchor = (max(n75_sample, p100_floor_sample) if n75_sample is not None
+                   else p100_floor_sample)
     p100 = next_prominent_peak(
-        evoked_occipital, n75_sample, ch_idx,
+        evoked_occipital, p100_anchor, ch_idx,
         mode='pos', noise_uv=noise_uv, erp_name='P100',
         min_snr=None,  # gated via peak-to-trough below
         tmax_s=0.300,
