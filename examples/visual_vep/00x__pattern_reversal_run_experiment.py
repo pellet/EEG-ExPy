@@ -109,6 +109,19 @@ else:
 # already open and we can read the actual refresh rate from the runtime rather
 # than hardcoding it. The save path is then built from the real Hz and set on
 # the experiment before run() is called.   
+#
+# =============================================================================
+# IMPORTANT: VR REFRESH RATE (Meta Horizon Link App)
+# =============================================================================
+# If using a Cyton at the default 250 Hz sample rate, you SHOULD set the Quest 2 
+# to 72 Hz in the Oculus PC App. 
+# 
+# Why? A 120 Hz strobe creates a 10 Hz "beat frequency" interference pattern 
+# with the 250 Hz ADC, causing up to ±30 ms of jitter in the photodiode markers. 
+# At 72 Hz, the phase aligns almost perfectly every frame, dropping the diode 
+# measurement noise to ~6 ms and allowing for hyper-accurate per-trial jitter 
+# correction.
+# =============================================================================
 
 pattern_reversal_vep = VisualPatternReversalVEP(
     eeg=eeg_device,

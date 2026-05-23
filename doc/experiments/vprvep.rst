@@ -269,7 +269,7 @@ The precision of a P100 latency estimate depends on three factors:
    The default 8-block design yields ~400 reversals per eye (split
    across the two check sizes).
 
-To achieve sub-sample precision, ``vep_utils.get_pr_vep_latencies``
+To achieve sub-sample precision, ``vep_utils.get_pr_vep_peaks``
 fits a parabola through the peak sample and its two neighbours and
 takes the vertex as the true peak — bringing effective resolution to
 ~0.5 ms at 250 Hz, well below the sample interval.

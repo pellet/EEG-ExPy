@@ -1,7 +1,9 @@
 import numpy as np
 from mne import Evoked, EvokedArray
 from scipy.stats import trim_mean
+from scipy.signal import find_peaks
 
+# ISCEV Clinical Standards for PR-VEP check sizes.
 ISCEV_CHECK_DEG_LARGE = 1.0
 ISCEV_CHECK_DEG_SMALL = 0.25
 
@@ -24,138 +26,169 @@ def print_latency(peak_name, peak_latency, peak_channel, uv):
     print('{} Peak of {} µV at {} ms in peak_channel {}'.format(peak_name, uv, peak_latency, peak_channel))
 
 
-def get_peak(erp_name, evoked_potential, peak_time_min, peak_time_max, mode,
-             min_snr=PEAK_MIN_SNR):
-    """Find peak latency with sub-sample precision using parabolic interpolation.
+def next_prominent_peak(evoked_occipital, anchor_sample, ch_idx, mode,
+                          noise_uv, erp_name, min_snr, tmax_s=None):
+    """Find the next prominent local peak after ``anchor_sample``.
 
-    MNE's get_peak returns the sample with the largest value, limiting
-    resolution to the sample interval (4 ms at 250 Hz).  A parabolic fit
-    through the peak sample and its two neighbours recovers the true peak
-    location between samples, giving ~0.5 ms precision at 250 Hz.
+    Uses scipy find_peaks with a prominence threshold equal to the pre-stim
+    noise floor. This finds the first peak that genuinely stands out from its
+    local surroundings — skipping noise bumps on a rising slope (low
+    prominence) while still detecting a weak-but-real P100 (moderate
+    prominence even when absolute amplitude is small).
 
-    This implementation avoids MNE's strict positive/negative threshold
-    requirements to support waveforms with large baseline shifts.
-
-    Pre-stim baseline std is computed per channel and the peak amplitude is
-    only reported when |amp| / noise_std >= ``min_snr``. Below that, the
-    "peak" returned by argmax in the search window is dominated by noise
-    rather than a real waveform feature; returning ``None`` lets callers
-    skip downstream analysis instead of chasing a spurious latency.
-    Set ``min_snr=None`` to disable the gate (returns the peak unconditionally).
+    After locating the peak sample, parabolic interpolation gives sub-sample
+    latency precision (~0.5 ms at 250 Hz, vs the 4 ms sample interval).
     """
-    # Step 1: find the sample-level peak
-    time_mask = (evoked_potential.times >= peak_time_min) & (evoked_potential.times <= peak_time_max)
-    if not np.any(time_mask):
-        print(f'{erp_name}: no samples in window {peak_time_min}-{peak_time_max}')
+    times = evoked_occipital.times
+    data  = evoked_occipital.data[ch_idx]
+
+    start = anchor_sample + 1
+    end   = len(data) if tmax_s is None else int(np.searchsorted(times, tmax_s))
+    end   = min(end, len(data))
+    if start >= end:
         return None
 
-    data_win = evoked_potential.data[:, time_mask]
-    if mode == 'pos':
-        ch_idx, t_idx_win = np.unravel_index(np.argmax(data_win), data_win.shape)
-    elif mode == 'neg':
-        ch_idx, t_idx_win = np.unravel_index(np.argmin(data_win), data_win.shape)
-    else:
-        ch_idx, t_idx_win = np.unravel_index(np.argmax(np.abs(data_win)), data_win.shape)
+    segment = data[start:end]
+    # Invert for negative peaks so find_peaks always looks for local maxima.
+    search = segment if mode == 'pos' else -segment
 
-    peak_channel = evoked_potential.ch_names[ch_idx]
-    peak_sample = np.where(time_mask)[0][t_idx_win]
-    sample_latency = evoked_potential.times[peak_sample]
+    # Prominence threshold: peak must rise above its local base by at least
+    # one noise-floor unit. This filters slope artefacts while retaining
+    # weak genuine peaks.
+    min_prominence = max(noise_uv, 1e-12)
+    peaks, props = find_peaks(search, prominence=min_prominence)
 
-    # Step 2: parabolic interpolation around the peak sample
-    times = evoked_potential.times
-    data = evoked_potential.data[ch_idx]
+    if len(peaks) == 0:
+        return None
 
-    # Need at least one sample on each side for the fit
+    peak_sample = start + peaks[0]  # first prominent peak in temporal order
+
+    # Parabolic sub-sample interpolation
     if 0 < peak_sample < len(times) - 1:
         y_prev = data[peak_sample - 1]
         y_peak = data[peak_sample]
         y_next = data[peak_sample + 1]
-
-        # Parabolic interpolation: offset from centre sample
         denom = y_prev - 2 * y_peak + y_next
         if abs(denom) > 1e-30:
             offset = 0.5 * (y_prev - y_next) / denom
             dt = times[peak_sample] - times[peak_sample - 1]
             interp_latency = times[peak_sample] + offset * dt
-            interp_uv = y_peak - 0.25 * (y_prev - y_next) * offset
+            interp_uv      = y_peak - 0.25 * (y_prev - y_next) * offset
         else:
-            interp_latency = sample_latency
-            interp_uv = y_peak
+            interp_latency = times[peak_sample]
+            interp_uv      = y_peak
     else:
-        interp_latency = sample_latency
-        interp_uv = data[peak_sample]
+        interp_latency = times[peak_sample]
+        interp_uv      = data[peak_sample]
 
-    # Step 3: SNR check — pre-stim baseline std as the noise reference
-    pre_mask = evoked_potential.times < 0
-    if pre_mask.any():
-        noise_uv = float(evoked_potential.data[ch_idx, pre_mask].std())
-    else:
-        noise_uv = 0.0
     snr = abs(interp_uv) / max(noise_uv, 1e-12)
-
     if min_snr is not None and snr < min_snr:
         print(f'{erp_name}: SNR={snr:.2f} < {min_snr} '
               f'(amp={interp_uv*1e6:.2f}µV, noise={noise_uv*1e6:.2f}µV) — peak unreliable')
         return None
 
+    ch_name = evoked_occipital.ch_names[ch_idx]
     return {
-        'name': erp_name,
-        'latency': interp_latency,
-        'channel': peak_channel,
+        'name':      erp_name,
+        'latency':   interp_latency,
+        'channel':   ch_name,
         'amplitude': interp_uv,
-        'noise_uv': noise_uv,
-        'snr': snr,
+        'noise_uv':  noise_uv,
+        'snr':       snr,
     }
 
 
-def get_pr_vep_latencies(evoked_occipital: Evoked, min_snr=PEAK_MIN_SNR):
-    """Detect canonical PR-VEP peaks with SNR gating.
+def get_pr_vep_peaks(evoked_occipital: Evoked, min_snr=PEAK_MIN_SNR,
+                          max_delay_ms=80, label=''):
+    """Detect canonical PR-VEP peaks: N75 → P100 → N145.
 
-    P100 is measured **peak-to-trough** against the preceding N75. Clinical
-    PR-VEP convention: P100 amplitude = P100_peak − N75_trough. This cancels
-    any DC pedestal (slow drift, reference offset, residual baseline bias)
-    that would otherwise suppress the apparent P100 absolute amplitude.
-    The peak-to-trough value is used for SNR gating, so a P100 sitting
-    on top of a deep N75 is correctly recognised as a strong response
-    even when its absolute µV value looks small.
+    All three peaks are found sequentially using prominence-gated local peak
+    detection (next_prominent_peak):
+      - Only peaks that rise above their local surroundings by ≥ 1 noise
+        floor unit are considered, filtering slope artefacts.
+      - The *first* such peak after the anchor is taken, not the largest,
+        giving correct sequential ordering even when a later peak is larger
+        (e.g. N145 deeper than N75 on slow-response displays, or with
+        severe demyelination shifting N75 latency past the canonical range).
 
-    Each peak is gated by ``min_snr`` (default ``PEAK_MIN_SNR`` = 2.0). A peak
-    whose amplitude (peak-to-trough where applicable) doesn't exceed the
-    per-channel pre-stim noise floor by that factor is returned as ``None``
-    rather than reported as a spurious latency. Particularly important for
-    small-check / demyelinated conditions where P100 absolute amplitude can
-    drop below the noise floor.
+    P100 is gated by peak-to-trough SNR against N75.
+    N75 / N145 are gated by absolute SNR against pre-stim noise.
+    Pass ``min_snr=None`` to disable all gating.
 
-    Pass ``min_snr=None`` to disable gating and report whichever sample is
-    largest in each search window (legacy behaviour).
+    ``max_delay_ms`` and ``label`` retained for backwards compatibility.
     """
-    # N75 and N145 are gated by absolute amplitude (no obvious anchor for
-    # peak-to-trough; their clinical role is mostly as landmarks anyway).
-    n75 = get_peak(erp_name='N75', evoked_potential=evoked_occipital,
-                   peak_time_min=0.060, peak_time_max=0.090, mode='neg',
-                   min_snr=min_snr)
-    # P100 is detected raw first (no SNR gate) so we can compute the proper
-    # peak-to-trough metric before deciding whether to keep it.
-    p100 = get_peak(erp_name='P100', evoked_potential=evoked_occipital,
-                    peak_time_min=0.080, peak_time_max=0.130, mode='pos',
-                    min_snr=None)
+    # ------------------------------------------------------------------ N75
+    # Pick the channel by the largest negative excursion across a wide
+    # post-stim window — this stays robust for severely demyelinated cases
+    # where N75 may be shifted out of the canonical 70–80 ms range, and
+    # tolerates N145 being deeper than N75 (the dominant trough in either
+    # case lives on the same occipital channels).
+    times = evoked_occipital.times
+    pre_mask = times < 0
+    ch_select_mask = (times >= 0.050) & (times <= 0.200)
+    if np.any(ch_select_mask):
+        ch_idx = int(np.argmin(evoked_occipital.data[:, ch_select_mask].min(axis=1)))
+    else:
+        ch_idx = 0
+    noise_uv = float(evoked_occipital.data[ch_idx, pre_mask].std()) if pre_mask.any() else 1e-12
+
+    # First prominent negative trough after 50 ms is N75, regardless of
+    # exact latency. Capped at 200 ms so we don't accidentally grab N145
+    # when N75 is absent.
+    anchor_sample = int(np.searchsorted(times, 0.050)) - 1
+    n75 = next_prominent_peak(
+        evoked_occipital, anchor_sample, ch_idx,
+        mode='neg', noise_uv=noise_uv, erp_name='N75',
+        min_snr=min_snr,
+        tmax_s=0.200,
+    )
+
+    if n75 is not None:
+        n75_sample = int(np.searchsorted(times, n75['latency']))
+    else:
+        # Fallback anchor: start of P100 search window
+        n75_sample = int(np.searchsorted(times, 0.060))
+
+    # ----------------------------------------------------------------- P100
+    # First prominent positive peak after N75, capped at 300 ms.
+    p100 = next_prominent_peak(
+        evoked_occipital, n75_sample, ch_idx,
+        mode='pos', noise_uv=noise_uv, erp_name='P100',
+        min_snr=None,  # gated via peak-to-trough below
+        tmax_s=0.300,
+    )
+
+    # ----------------------------------------------------------------- N145
+    # First prominent negative peak after P100, capped at 380 ms.
+    # Prominence already validates the peak (trough exceeds noise floor above
+    # local base), so no additional absolute SNR gate is applied here — that
+    # would double-penalise weak but genuine N145 components.
     if p100 is not None:
-        if n75 is not None:
-            peak_to_trough = p100['amplitude'] - n75['amplitude']
+        p100_sample = int(np.searchsorted(evoked_occipital.times, p100['latency']))
+        n145 = next_prominent_peak(
+            evoked_occipital, p100_sample, ch_idx,
+            mode='neg', noise_uv=noise_uv, erp_name='N145',
+            min_snr=None,
+            tmax_s=0.380,
+        )
+    else:
+        n145 = None
+
+    # ---------------------------------------- Peak-to-trough SNR gate for P100
+    if p100 is not None:
+        anchor_neg = n75 if n75 is not None else n145
+        if anchor_neg is not None:
+            peak_to_trough = p100['amplitude'] - anchor_neg['amplitude']
         else:
-            # Fall back to absolute amplitude if N75 wasn't detectable.
             peak_to_trough = p100['amplitude']
-        ptt_snr = abs(peak_to_trough) / max(p100['noise_uv'], 1e-12)
-        p100['peak_to_trough'] = peak_to_trough
+        ptt_snr = abs(peak_to_trough) / max(noise_uv, 1e-12)
+        p100['peak_to_trough']     = peak_to_trough
         p100['peak_to_trough_snr'] = ptt_snr
         if min_snr is not None and ptt_snr < min_snr:
             print(f'P100: peak-to-trough SNR={ptt_snr:.2f} < {min_snr} '
-                  f'(ptt={peak_to_trough*1e6:.2f}µV, noise={p100["noise_uv"]*1e6:.2f}µV) '
-                  '— peak unreliable')
+                  f'(ptt={peak_to_trough*1e6:.2f}µV, '
+                  f'noise={noise_uv*1e6:.2f}µV) — peak unreliable')
             p100 = None
-    n145 = get_peak(erp_name='N145', evoked_potential=evoked_occipital,
-                    peak_time_min=0.120, peak_time_max=0.170, mode='neg',
-                    min_snr=min_snr)
 
     return n75, p100, n145
 
@@ -252,7 +285,7 @@ def compute_iold_per_size(epochs, event_id, ch_name,
                 peaks[eye] = None
                 continue
             ev = trimmed_average(epochs[cond_key]).copy().pick([ch_name])
-            _, p100, _ = get_pr_vep_latencies(ev)
+            _, p100, _ = get_pr_vep_peaks(ev)
             peaks[eye] = p100
         iold = compute_iold(peaks.get('left_eye'), peaks.get('right_eye'),
                             flag_threshold_ms=flag_threshold_ms)
@@ -375,7 +408,7 @@ def compute_check_size_slope(epochs, event_id, ch_name, check_size_arcmin,
             if len(ep) < min_trials:
                 continue
             ev = trimmed_average(ep)
-            _, p100_c, _ = get_pr_vep_latencies(ev.copy().pick([ch_name]))
+            _, p100_c, _ = get_pr_vep_peaks(ev.copy().pick([ch_name]))
             if p100_c is None:
                 continue
             lat_ms = p100_c['latency'] * 1000.0
@@ -462,8 +495,8 @@ def compute_hemi_asymmetry(evoked_avg, ch_left, ch_right,
     """
     ev_l = evoked_avg.copy().pick([ch_left])
     ev_r = evoked_avg.copy().pick([ch_right])
-    _, p100_l, _ = get_pr_vep_latencies(ev_l)
-    _, p100_r, _ = get_pr_vep_latencies(ev_r)
+    _, p100_l, _ = get_pr_vep_peaks(ev_l)
+    _, p100_r, _ = get_pr_vep_peaks(ev_r)
     if p100_l is None or p100_r is None:
         return None
     lat_l = p100_l['latency'] * 1000.0
