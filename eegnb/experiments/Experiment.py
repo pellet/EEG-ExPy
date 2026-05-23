@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 class BaseExperiment(ABC):
 
     def __init__(self, exp_name, duration, eeg, save_fn, n_trials: int, iti: float, soa: float, jitter: float,
-                 use_vr=False, use_fullscr = True, screen_num=0, stereoscopic = False, devices = list,
+                 use_vr=False, use_fullscr = True, screen_num=0, stereoscopic = False, devices=None,
                  expected_refresh_rate=None):
         """ Initializer for the Base Experiment Class
 
