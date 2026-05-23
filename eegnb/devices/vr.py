@@ -83,57 +83,11 @@ class VR(Rift):
         self.mirror_swap_every = 1     # 0 = never; >=1 = every Nth flip
         self._mirror_swap_counter = 0
 
-        # Absolute-time pacing. libovr's waitToBeginFrame is a relative wait
-        # — it returns when "safe to start", with a render-budget margin.
-        # If the app consistently completes a frame faster than vsync, the surplus accumulates and libovr
-        # eventually auto-throttles. Absolute-time pacing anchors each
-        # frame's wake-up to libovr.getPredictedDisplayTime(frame_index)
-        # minus a small render budget — drift can't accumulate because the
-        # target is computed from absolute time, not from "now".
-        self.use_absolute_pacing = False    # opt-in for A/B comparison
-        self.render_budget_s     = 0.002    # 2 ms; sized for current p99
-        # Measured cycle period (seconds). Set by validate_frame_rate
-        # during setup, before any heavy rendering or instruction frames.
-        # The absolute pacer uses this as its schedule period — measuring
-        # against pure blank flips is the cleanest snapshot of libovr's
-        # natural cycle. Falls back to 1/displayRefreshRate if not set.
+        # Measured cycle period (seconds), set by validate_frame_rate
+        # during setup from blank-flip timing. Diagnostic only — written
+        # into the telemetry sidecar so analysis sees the true libovr
+        # cycle, independent of what displayRefreshRate advertised.
         self.measured_period_s = None
-        # Submission rate divisor: 1 = submit every vsync (matches HMD
-        # refresh), 2 = submit every other vsync (half-rate, e.g. 60 fps
-        # at 120 Hz HMD). The HMD compositor holds the previous frame on
-        # vsyncs we don't submit for, so visual output rate is still the
-        # HMD refresh — only the app's render+submit cadence is slower.
-        #
-        # Default is 1 because submitting at half the panel rate makes
-        # the Oculus runtime flag the app as "behind schedule" and shows
-        # a persistent corner perf indicator (even when comp_dropped is
-        # 0). The fix is to set the HMD panel to a rate the app can
-        # sustain (72 Hz works for Python + BrainFlow + PsychoPy on
-        # consumer hardware) and submit 1:1. Override to >1 only if the
-        # runtime accepts your half-rate submit cleanly.
-        self.submit_rate_divisor = 1
-        # Anchor for absolute pacing — set on the first paced frame and
-        # held constant thereafter. Targets become anchor + Δframes×period
-        # so we never re-query the (apparently queue-aware and unstable)
-        # libovr.getPredictedDisplayTime for our wait math.
-        #
-        # The anchor and the wait math are in time.perf_counter() seconds.
-        # On Windows perf_counter is QPC, which is also what time.sleep
-        # resolves against; using one clock everywhere prevents any rate-
-        # mismatch drift between libovr.timeInSeconds and perf_counter.
-        self._pace_anchor_time     = None    # perf_counter seconds
-        self._pace_anchor_frame    = None    # libovr _frameIndex when anchored
-        self._pace_debug_logged    = False
-        # Throttle re-anchor warnings — at 120 Hz steady-state drift, the
-        # raw rate would be one per ~120 frames. Log at most every 5 s.
-        self._pace_last_warn_time  = 0.0
-        # Diagnostic counters populated each pace cycle, read by the
-        # experiment's per-frame logger.
-        self.last_pace = {
-            'paced_wait_ms':    0.0,    # how long we actually waited
-            'pace_overshoot_ms': 0.0,   # how far past target we woke
-            'libovr_wait_ms':   0.0,    # residual super().waitToBegin time
-        }
 
         # ASW (Asynchronous Spacewarp) tracking. For a pattern-reversal
         # stimulus, ASW frames are SYNTHESIZED by motion-vector extrapolation
@@ -210,127 +164,13 @@ class VR(Rift):
                 except Exception:
                     pass
 
-    def _absolute_pace_wait(self):
-        """Block until the anchor-derived target time for this frame.
-
-        All clock arithmetic uses ``time.perf_counter()`` — on Windows this
-        is QPC, the same clock ``time.sleep`` resolves against, so the
-        schedule cannot drift due to clock-rate mismatch with the sleep.
-
-        Anchor-based pacing: record perf_counter() at the first paced
-        frame, then compute every later target purely as
-        ``anchor + (_frameIndex - anchor_frame) × period``. Drift cannot
-        accumulate because the schedule is a fixed arithmetic sequence;
-        the compositor's vsync ticks at the same rate, so phase relative
-        to vsync stays constant once locked.
-
-        The schedule period comes from ``self.measured_period_s``, set
-        by ``validate_frame_rate`` during setup. Validate's blank-flip
-        loop is the cleanest possible measurement of libovr's natural
-        cycle — no stimulus draws, no instruction text, no other
-        contamination. If validate hasn't run (e.g. unit tests), we
-        fall back to 1/displayRefreshRate.
-
-        We deliberately do NOT use libovr.getPredictedDisplayTime here:
-        on Quest Link it returns the *photon* time through the encoder
-        pipeline (~3-4 vsyncs ahead), which is the right value for pose
-        prediction and the wrong value for "when should I wake up to
-        render the next frame."
-
-        Hybrid sleep+busy-wait: ``time.sleep`` is granular and can over-
-        or under-shoot by ~0.5-1 ms even at 1 ms timer resolution, so we
-        sleep for all but the last ~1.5 ms of the wait, then busy-spin to
-        the exact target.
-
-        Returns (paced_wait_ms, overshoot_ms).
-        """
-        import time as _t
-
-        now = _t.perf_counter()
-        period = (self.measured_period_s
-                  if self.measured_period_s is not None
-                  else 1.0 / float(self.displayRefreshRate))
-        # Multiply by submit_rate_divisor for half-rate (or slower)
-        # submission. The compositor handles the held frames on vsyncs
-        # we skip; from libovr's perspective we're just an app that
-        # legitimately runs at half rate.
-        period *= max(1, int(self.submit_rate_divisor))
-
-        # First paced frame — anchor and return without waiting.
-        if self._pace_anchor_time is None:
-            self._pace_anchor_time  = now
-            self._pace_anchor_frame = self._frameIndex
-            if not self._pace_debug_logged:
-                nominal_period = 1.0 / float(self.displayRefreshRate)
-                logging.info(
-                    "[pacer] anchored at frame=%d  period=%.4f ms "
-                    "(nominal=%.4f ms, %+.2f%% from nominal)",
-                    self._frameIndex,
-                    period * 1000.0,
-                    nominal_period * 1000.0,
-                    100.0 * (period - nominal_period) / nominal_period,
-                )
-                self._pace_debug_logged = True
-            return 0.0, 0.0
-
-        frames_ahead = self._frameIndex - self._pace_anchor_frame
-        target_wake  = (self._pace_anchor_time
-                        + frames_ahead * period
-                        - self.render_budget_s)
-
-        # Safety: if we've drifted far past the schedule (instruction
-        # screen stall, OS preemption, anything), re-anchor instead of
-        # zero-waiting to "catch up" across many missed frames.
-        delta = target_wake - now
-        if delta < -period:
-            # Throttle warnings to at most one per 5 s — at 120 Hz steady
-            # drift, raw rate is one per ~100 frames which floods the log.
-            if now - self._pace_last_warn_time > 5.0:
-                logging.warning(
-                    "[pacer] re-anchoring at frame=%d  drift=%.1f ms "
-                    "(scheduled target was that far in the past)",
-                    self._frameIndex, -delta * 1000.0,
-                )
-                self._pace_last_warn_time = now
-            self._pace_anchor_time  = now
-            self._pace_anchor_frame = self._frameIndex
-            return 0.0, 0.0
-
-        t_enter = now
-        while True:
-            t = _t.perf_counter()
-            remaining = target_wake - t
-            if remaining <= 0:
-                break
-            if remaining > 0.0015:
-                _t.sleep(remaining - 0.001)
-            # else: fall through to busy-spin
-        overshoot = (_t.perf_counter() - target_wake) * 1000.0
-        return (_t.perf_counter() - t_enter) * 1000.0, overshoot
-
     def _waitToBeginHmdFrame(self):
-        # libovr.waitToBeginFrame() lives inside the base implementation.
-        # When absolute pacing is on we run our own wait first, *then* call
-        # super(). libovr's wait sees us already past its wake target and
-        # returns ~immediately, so the absolute pacer effectively replaces
-        # it without breaking any of libovr's other bookkeeping
-        # (session status / perf stats / input update).
+        # Time the libovr wait so flip-phase telemetry records how much of
+        # the frame budget the compositor's native gating consumed.
         import time as _t
         t0 = _t.perf_counter()
-        paced_ms = overshoot_ms = 0.0
         try:
-            if self.use_absolute_pacing:
-                paced_ms, overshoot_ms = self._absolute_pace_wait()
-            t_super_in = _t.perf_counter()
-            try:
-                return super()._waitToBeginHmdFrame()
-            finally:
-                libovr_wait_ms = (_t.perf_counter() - t_super_in) * 1000.0
-                self.last_pace = {
-                    'paced_wait_ms':     paced_ms,
-                    'pace_overshoot_ms': overshoot_ms,
-                    'libovr_wait_ms':    libovr_wait_ms,
-                }
+            return super()._waitToBeginHmdFrame()
         finally:
             self.last_flip_phases['wait_begin_ms'] = (_t.perf_counter() - t0) * 1000.0
 
@@ -353,33 +193,13 @@ class VR(Rift):
         """
         target_hz = float(self.displayRefreshRate)
 
-        # Disable the absolute pacer and force divisor=1 during measurement
-        # so what we sample is the HMD's natural per-vsync cycle, not the
-        # divisor-multiplied submit period. Without this, the pacer would
-        # already be waiting `nominal × divisor` per flip, validate would
-        # store that as `measured_period_s`, and the main loop would then
-        # multiply by `divisor` AGAIN — giving a 4× period (e.g. 33 ms
-        # instead of 16.7 ms at divisor=2) and constant pacer re-anchors.
-        saved_pacing  = self.use_absolute_pacing
-        saved_divisor = self.submit_rate_divisor
-        self.use_absolute_pacing = False
-        self.submit_rate_divisor = 1
-        try:
-            for _ in range(warmup):
-                draw_blank()
+        for _ in range(warmup):
+            draw_blank()
 
-            t0 = core.getTime()
-            for _ in range(n_frames):
-                draw_blank()
-            elapsed = core.getTime() - t0
-        finally:
-            self.use_absolute_pacing = saved_pacing
-            self.submit_rate_divisor = saved_divisor
-            # Force a fresh anchor on the first paced frame after this.
-            # The old anchor (if any) was set during a no-divisor warmup
-            # and would mis-schedule once the divisor is reinstated.
-            self._pace_anchor_time  = None
-            self._pace_anchor_frame = None
+        t0 = core.getTime()
+        for _ in range(n_frames):
+            draw_blank()
+        elapsed = core.getTime() - t0
 
         actual_hz = n_frames / elapsed
         deviation = abs(actual_hz - target_hz) / target_hz * 100.0
@@ -748,8 +568,7 @@ class VR(Rift):
             # count; the libovr_max_* fields are the runtime's own
             # cumulative counters at session end.
             writer.writerow([
-                '# asw_submit_rate_divisor', int(getattr(self, 'submit_rate_divisor', 1)),
-                'asw_activation_count', self.asw_activation_count,
+                '# asw_activation_count', self.asw_activation_count,
                 'asw_active_frame_count', self.asw_active_frame_count,
                 'asw_libovr_max_toggle_count', self.asw_max_toggle_count,
                 'asw_libovr_max_presented_count', self.asw_max_presented_count,
