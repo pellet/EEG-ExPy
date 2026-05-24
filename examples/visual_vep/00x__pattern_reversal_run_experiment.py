@@ -100,8 +100,8 @@ eeg_device = EEG(device, serial_port=serial_port, ch_names=ch_names,
 # =============================================================================
 # IMPORTANT: VR REFRESH RATE (Meta Horizon Link App)
 # =============================================================================
-# If using a Cyton at the default 250 Hz sample rate, you SHOULD set the Quest 2
-# to 72 Hz in the Oculus PC App.
+# If using a photodiode with Cyton at the default 250 Hz sample rate, you SHOULD
+# set the Quest 2 to 72 Hz in the Oculus PC App.
 #
 # Why? A 120 Hz strobe creates a 10 Hz "beat frequency" interference pattern
 # with the 250 Hz ADC, causing up to ±30 ms of jitter in the photodiode markers.
@@ -134,20 +134,4 @@ save_fn = generate_save_fn(eeg_device.device_name,
                            data_dir=data_dir)
 print(f"Saving data to: {save_fn}  (expected {expected_refresh_rate} Hz)")
 pattern_reversal_vep.save_fn = save_fn
-
-# Quest 2 set to 72 Hz in the Oculus app. We submit at full rate (1:1)
-# so the runtime sees us hitting its expected cadence — that avoids the
-# corner "app behind schedule" overlay we hit when submitting at half
-# rate on a 120 Hz panel. Our measured natural cycle under real-EEG load
-# is ~13.8 ms = one 72 Hz vsync, so it's sustainable. Diode-anchored
-# epoching is unaffected by the panel rate.
-#
-# Pacer is off — libovr's native waitToBeginFrame is doing all the
-# gating, and our anchor-based pacer was a no-op (paced_wait=0). Mirror
-# swap stays at the class default (every flip, classic behavior); this
-# matters — disabling it makes the Oculus runtime flag the app as
-# "behind schedule" even when comp_dropped is 0.
-if use_vr:
-    pattern_reversal_vep.vr.use_absolute_pacing = False
-
 pattern_reversal_vep.run()
