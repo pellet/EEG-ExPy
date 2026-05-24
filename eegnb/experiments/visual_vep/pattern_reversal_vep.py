@@ -15,12 +15,7 @@ ISCEV_FIELD_DEG = 16.0
 ISCEV_MEAN_LUM = 0.0
 
 VR_DIODE_BRIGHT = +1.0   # full white (PsychoPy color space: -1=black, +1=white)
-VR_DIODE_DARK   = -1.0   # full black — maximises reversal contrast on the
-                         # photodiode. Was 0.0 (mid-grey), which produced
-                         # only ~2 µV reversal envelope swing against ~75 µV
-                         # backlight strobing pulses, making per-trial diode
-                         # alignment unrecoverable. Full black should give
-                         # roughly 10x more swing.
+VR_DIODE_DARK   = -0.7   # near-black with small lift off the floor.
 
 # Block conditions: 4 possible combinations of (eye, size)
 CONDITIONS = [
