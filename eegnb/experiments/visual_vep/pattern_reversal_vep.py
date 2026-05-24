@@ -48,6 +48,7 @@ class VisualPatternReversalVEP(BlockExperiment):
                  use_fullscr: bool = True,
                  check_deg_large: float = ISCEV_CHECK_DEG_LARGE,
                  check_deg_small: float = ISCEV_CHECK_DEG_SMALL,
+                 jitter: float = 0.0,
                  expected_refresh_rate: int | None = None):
         """
         Pattern Reversal VEP with two check sizes, counterbalanced across blocks.
@@ -65,7 +66,7 @@ class VisualPatternReversalVEP(BlockExperiment):
             "Visual Pattern Reversal VEP",
             block_duration_seconds, eeg, save_fn,
             block_trial_size, n_blocks,
-            iti=0, soa=soa, jitter=0,
+            iti=0, soa=soa, jitter=jitter,
             use_vr=use_vr, use_fullscr=use_fullscr, stereoscopic=True,
             expected_refresh_rate=expected_refresh_rate,
         )
@@ -161,17 +162,14 @@ class VisualPatternReversalVEP(BlockExperiment):
             width=self.window.size[0], height=self.window.size[1],
             fillColor='black',
         )
-        
-        self._flash_size_px = 100       # flat-monitor corner patch (px)
-        self._vr_patch_size_px = 1000   # VR centred patch (px square)
 
         if self.use_vr:
-            patch_size_px = self._vr_patch_size_px
+            patch_size_px = 1000 # VR centred patch (px square)
             bright_color = (VR_DIODE_BRIGHT,) * 3
             dark_color   = (VR_DIODE_DARK,)   * 3
             patch_pos = (0, 0)
         else:
-            patch_size_px = self._flash_size_px
+            patch_size_px = 100 # flat-monitor corner patch (px)
             bright_color = (1, 1, 1)
             dark_color   = (-1, -1, -1)
             bw, bh = self.window.size[0], self.window.size[1]
@@ -205,8 +203,8 @@ class VisualPatternReversalVEP(BlockExperiment):
         # Total width/height of the cross in visual degrees. Monitor uses
         # 0.5° and VR uses 1° because of lower effective pixels-per-degree
         # at the lens makes a thinner cross hard to anchor the gaze on.
-        FIX_SIZE_DEG = 1.0 if self.use_vr else 0.5
-        cross_size_px = int(round(FIX_SIZE_DEG * ppd))
+        fixation_size_deg = 1.0 if self.use_vr else 0.5
+        cross_size_px = int(round(fixation_size_deg * ppd))
 
         def make_fixation(pos_px):
             return visual.ShapeStim(
