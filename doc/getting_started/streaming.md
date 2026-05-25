@@ -63,6 +63,9 @@ be run to begin the notebooks interfacing with the bluemuse backend.
 **Needed Parameters:**
 **Optional Parameters:**
 
+**Cyton USB-Serial Latency (Windows):**
+A note on Cyton USB-serial latency: the Windows FTDI driver default `LatencyTimer` of 16 ms causes batched marker delivery and corrupts millisecond-grade marker timing. The experiment scripts assert `LatencyTimer = 1 ms` at startup; recordings predating this assertion contain a ~15 ms hardware buffering lag on the marker channel that must be subtracted before comparing absolute latencies across sessions.
+
 ### OpenBCI Cyton + Daisy
 ![fig](../img/cyton_daisy.png)
 **Device Name:** *'cyton_daisy'*  or *'cyton_daisy_wifi'* with WiFi Shield

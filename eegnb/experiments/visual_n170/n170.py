@@ -36,32 +36,20 @@ class VisualN170(Experiment.BaseExperiment):
         return [self.houses, self.faces]
         
     def present_stimulus(self, idx: int):
-        
         # Get the label of the trial
         label = self.trials["parameter"].iloc[idx]
         # Get the image to be presented
-        image = choice(self.faces if label == 1 else self.houses)
+        self._current_image = choice(self.faces if label == 1 else self.houses)
         # Draw the image
-        image.draw()
+        self._current_image.draw()
 
+        if self.eeg or self.devices:
+            self.push_marker(self.markernames[label], idx)
 
-        # Pushing the sample to the EEG
-        if self.eeg:
-            timestamp = time()
+        self.window.flip()
 
-            if self.eeg.backend == "muselsl":
-                marker = [self.markernames[label]]
-            else:
-                marker = self.markernames[label]
-            
-            self.eeg.push_sample(marker=marker, timestamp=timestamp)
-      
-
-        if self.devices:
-            marker = self.markernames[label]
-            self.send_triggers(marker)
-
-
+    def present_soa(self, idx: int):
+        self._current_image.draw()
         self.window.flip()
 
 

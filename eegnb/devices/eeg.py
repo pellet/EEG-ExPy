@@ -34,6 +34,7 @@ except (ImportError, OSError):
 from eegnb.devices.utils import (
     get_openbci_usb,
     create_stim_array,
+    assert_ftdi_latency_1ms,
     SAMPLE_FREQS,
     EEG_INDICES,
     EEG_CHANNELS,
@@ -87,6 +88,7 @@ class EEG:
         ip_addr=None,
         ch_names=None,
         config=None,
+        analog_mode=False,
         make_logfile=False):
         """The initialization function takes the name of the EEG device and determines whether or not
         the device belongs to the Muse or Brainflow families and initializes the appropriate backend.
@@ -106,6 +108,12 @@ class EEG:
         self.ip_addr = ip_addr
         self.other = other
         self.config = config
+        # Cyton-only: switch the board into analog read mode (firmware cmd /2)
+        # so the AUX header pins (A5-A7) stream alongside the EEG channels.
+        # Tradeoff: analog mode replaces the on-board accelerometer data with
+        # the analog reads. Use when you have a photodiode / external sensor
+        # wired to AUX and don't need accel.
+        self.analog_mode = analog_mode
         self.make_logfile = make_logfile # currently only used for kf
         self.backend = self._get_backend(self.device_name)
         self.initialize_backend()
@@ -332,6 +340,8 @@ class EEG:
         if self.serial_port:
             serial_port = str(self.serial_port)
             self.brainflow_params.serial_port = serial_port
+            if self.device_name in ('cyton', 'cyton_daisy'):
+                assert_ftdi_latency_1ms(serial_port)
 
         # Initialize board_shim
         self.sfreq = BoardShim.get_sampling_rate(self.brainflow_id)
@@ -342,11 +352,20 @@ class EEG:
         if self.config:
             # For Cyton boards, split config string by 'X' delimiter and apply each setting
             if 'cyton' in self.device_name:
-                config_settings = self.config.split('X')
+                config_settings = [s for s in self.config.split('X') if s]
                 for setting in config_settings:
-                    self.board.config_board(setting + 'X')
+                    cmd = setting + 'X'
+                    response = self.board.config_board(cmd)
+                    print(f"[cyton config] {cmd} -> {response!r}")
             else:
-                self.board.config_board(self.config)
+                response = self.board.config_board(self.config)
+                print(f"[config_board] {self.config!r} -> {response!r}")
+
+        # Cyton: enable analog read mode so AUX header pins (A5-A7) stream
+        # alongside the EEG channels. Replaces accelerometer data.
+        if self.analog_mode and 'cyton' in (self.device_name or ''):
+            response = self.board.config_board('/2')
+            print(f"[cyton analog mode] /2 -> {response!r}")
 
     def _start_brainflow(self):
         # only start stream if non exists
@@ -420,6 +439,30 @@ class EEG:
         # pull EEG channel data via brainflow API
         eeg_data = data[:, BoardShim.get_eeg_channels(self.brainflow_id)]
         timestamps = data[:, BoardShim.get_timestamp_channel(self.brainflow_id)]
+
+        # BrainFlow scales Cyton data assuming 24× gain. If a different gain was
+        # configured via config_board, correct the scaling here.
+        # Config string format: x{ch}0{gain_code}0110X  (gain_code: 0=1×,1=2×,2=4×,3=6×,4=8×,5=12×,6=24×)
+        if self.config and 'cyton' in self.device_name:
+            gain_multipliers = {0: 1, 1: 2, 2: 4, 3: 6, 4: 8, 5: 12, 6: 24}
+            brainflow_assumed_gain = 24
+            gain_code = int(self.config[3])  # 4th char of first command "x{ch}0{G}..."
+            actual_gain = gain_multipliers.get(gain_code, brainflow_assumed_gain)
+            if actual_gain != brainflow_assumed_gain:
+                eeg_data = eeg_data * (brainflow_assumed_gain / actual_gain)
+
+        # Append analog (AUX) channels when Cyton is in analog mode. Useful
+        # for photodiode triggers and other external sensors that need to be
+        # sampled in lockstep with the EEG.
+        if self.analog_mode:
+            try:
+                analog_idx = BoardShim.get_analog_channels(self.brainflow_id)
+                if len(analog_idx):
+                    aux_data = data[:, analog_idx]
+                    eeg_data = np.append(eeg_data, aux_data, axis=1)
+                    ch_names = list(ch_names) + [f"AUX{i}" for i in range(len(analog_idx))]
+            except Exception as e:
+                logger.warning("could not read analog channels: %s", e)
 
         return ch_names, eeg_data, timestamps
 
@@ -679,14 +722,21 @@ class EEG:
 
 
 
-    def push_sample(self, marker, timestamp, marker_name=None):
+    def push_sample(self, marker, timestamp=None, marker_name=None):
         """
         Universal method for pushing a marker and its timestamp to store alongside the EEG data.
 
         Parameters:
             marker (int): marker number for the stimuli being presented.
-            timestamp (float): timestamp of stimulus onset from time.time() function.
+            timestamp (float, optional): timestamp of stimulus onset from time.time() function.
+                Not used by the BrainFlow backend (which records the board's current sample
+                timestamp instead). Required by muselsl and kernelflow backends.
+
+        Returns:
+            bool: True if the marker was recorded, False if the stream is no longer active.
         """
+        if not self.stream_started:
+            return False
         if self.backend == "brainflow":
             self._brainflow_push_sample(marker=marker)
         elif self.backend == "muselsl":
@@ -697,8 +747,10 @@ class EEG:
            self._serial_push_sample(marker=marker) 
         elif self.backend == "xidport":
            self._xid_push_sample(marker=marker)
+        return True
 
     def stop(self):
+        self.stream_started = False
         if self.backend == "brainflow":
             self._stop_brainflow()
         elif self.backend == "muselsl":

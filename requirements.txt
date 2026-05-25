@@ -89,6 +89,7 @@ psychxr @ https://github.com/pellet/psychxr/releases/download/v0.2.6rc1/psychxr-
 
 ## ~~ Docsbuild Requirements ~~
 setuptools<81  # brainflow imports pkg_resources at runtime; setuptools 81 deprecated it and 82 removed it
+python-dotenv
 recommonmark
 brainflow
 numpydoc

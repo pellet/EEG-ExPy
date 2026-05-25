@@ -1,0 +1,19 @@
+# Force LF line endings for WSL and cross-platform (Linux/Mac/GitHub Actions) compatibility
+# This prevents obscure bugs when running Windows-edited scripts on Linux runners.
+* text=auto eol=lf
+
+*.py        text eol=lf
+*.rst       text eol=lf
+*.md        text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf
+*.cfg       text eol=lf
+*.toml      text eol=lf
+*.ipynb     text eol=lf
+
+*.png       binary
+*.jpg       binary
+*.jpeg      binary
+*.gif       binary
+*.ico       binary
+*.pdf       binary

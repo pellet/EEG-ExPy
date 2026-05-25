@@ -11,6 +11,7 @@ from abc import ABC
 from time import time
 
 from .Experiment import BaseExperiment
+from eegnb.utils.realtime import high_priority_section
 
 
 class BlockExperiment(BaseExperiment, ABC):
@@ -22,7 +23,7 @@ class BlockExperiment(BaseExperiment, ABC):
     """
 
     def __init__(self, exp_name, block_duration, eeg, save_fn, block_trial_size, n_blocks, iti: float, soa: float, jitter: float,
-                 use_vr=False, use_fullscr=True, screen_num=0, stereoscopic=False, devices = list):
+                 use_vr=False, use_fullscr=True, screen_num=0, stereoscopic=False, devices=None, expected_refresh_rate=None):
         """ Initializer for the BlockExperiment Class
 
         Args:
@@ -43,7 +44,7 @@ class BlockExperiment(BaseExperiment, ABC):
         
         # Initialize BaseExperiment with total trials
         # Pass None for duration if block_duration is None to ignore time spent in instructions
-        super().__init__(exp_name, block_duration, eeg, save_fn, total_trials, iti, soa, jitter, use_vr, use_fullscr, screen_num, stereoscopic, devices)
+        super().__init__(exp_name, block_duration, eeg, save_fn, total_trials, iti, soa, jitter, use_vr, use_fullscr, screen_num, stereoscopic=stereoscopic, devices=devices, expected_refresh_rate=expected_refresh_rate)
         
         # Block-specific parameters
         self.block_duration = block_duration
@@ -114,22 +115,30 @@ class BlockExperiment(BaseExperiment, ABC):
             self.eeg.start(self.save_fn)
             print("EEG Stream started")
         
+        self._enable_frame_tracking()
+
         # Run each block
         for block_index in range(self.n_blocks):
             self.current_block_index = block_index
             print(f"Starting block {block_index + 1} of {self.n_blocks}")
-            
+
             # Show block-specific instructions
             if not self._show_block_instructions(block_index):
                 break
-            
-            # Run this block
-            if not self._run_trial_loop(start_time=time(), duration=self.block_duration):
-                break
-        
+
+            with high_priority_section():
+                if self.use_vr:
+                    self.vr.sync_vr_clock()
+                if not self._run_trial_loop(start_time=time(), duration=self.block_duration):
+                    break
+
         # Stop EEG Stream after all blocks
         if self.eeg:
             self.eeg.stop()
-            
+
+        if self.use_vr:
+            self.vr.save_telemetry(self.save_fn)
+            self.vr.save_frame_stats(self.save_fn)
+
         # Close window at the end of all blocks
         self.window.close()

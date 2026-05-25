@@ -113,17 +113,9 @@ class RestEyesOpenCloseAlternating(Experiment.BaseExperiment):
             timestamp = time()
             self.trials.at[idx, "timestamp"] = timestamp
             self.outlet.push_sample([self.markernames[label]], timestamp)
-            
-            if self.eeg:
-              if self.eeg.backend == "muselsl":
-                  marker = [self.markernames[label]]
-              else:
-                  marker = self.markernames[label]
-              self.eeg.push_sample(marker=marker, timestamp=timestamp)
-            
-            if self.devices:
-              marker = self.markernames[label]
-              self.send_triggers(marker)
+
+            if self.eeg or self.devices:
+                self.push_marker(self.markernames[label], idx)
 
             if self.serial:
                 try:
@@ -136,11 +128,18 @@ class RestEyesOpenCloseAlternating(Experiment.BaseExperiment):
             else:
                 self.close_sound.play()
 
+        self._draw_block_cue(label)
+
+    def _draw_block_cue(self, label):
         if label == 0:
             self.fixation.draw()
         else:
             self.close_text.draw()
         self.window.flip()
+
+    def present_soa(self, idx: int):
+        label = self.trials["parameter"].iloc[idx]
+        self._draw_block_cue(label)
 
     def run(self, instructions: bool = True):
         try:

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import copy
 from copy import deepcopy
 import math
@@ -5,10 +7,12 @@ import logging
 import sys
 from collections import OrderedDict
 from glob import glob
-from typing import Union, List
-from time import sleep, time
-import os
+from pathlib import Path
+from typing import TYPE_CHECKING, Union, List
 
+if TYPE_CHECKING:
+    from eegnb.devices.eeg import EEG
+from time import sleep, time
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -23,9 +27,11 @@ from scipy import stats
 from scipy.signal import lfilter, lfilter_zi
 
 from eegnb import _get_recording_dir
-from eegnb.devices.eeg import EEG
 from eegnb.devices.utils import EEG_INDICES, SAMPLE_FREQS
-from pynput import keyboard
+try:
+    from pynput import keyboard
+except ImportError:
+    keyboard = None
 
 # this should probably not be done here
 sns.set_context("talk")
@@ -181,9 +187,12 @@ def load_data(
     session_str = "*" if session == "all" else f"session{session_int:03}"
 
     recdir = _get_recording_dir(device_name, experiment, subject_str, session_str, site, data_dir)
-    data_path = os.path.join(data_dir, recdir, "*.csv")
+    data_path = recdir / "*.csv"
 
-    fnames = glob(str(data_path))
+    # Primary recordings are named recording_<timestamp>.csv (one underscore).
+    # Sidecar files follow BIDS convention with an additional suffix, e.g. recording_<timestamp>_timing.csv.
+    # Filter to only primary recordings.
+    fnames = [f for f in glob(str(data_path)) if Path(f).stem.count('_') == 1]
 
     if len(fnames) == 0:
         raise Exception("No filenames found in folder: %s" %data_path)

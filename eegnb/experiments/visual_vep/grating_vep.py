@@ -5,7 +5,7 @@ from eegnb.experiments import Experiment
 from eegnb.devices.eeg import EEG
 
 
-class VisualVEP(Experiment.BaseExperiment):
+class VisualGratingVEP(Experiment.BaseExperiment):
 
     def __init__(self, duration=120, eeg: Optional[EEG]=None, save_fn=None,
 

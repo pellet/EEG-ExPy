@@ -1,5 +1,6 @@
 import numpy as np
 import socket
+import sys
 import platform
 import serial
 
@@ -90,6 +91,44 @@ SAMPLE_FREQS = {
     }
 
 
+
+# ---------------------------------------------------------------------------
+# Cyton board channel configuration presets
+# ---------------------------------------------------------------------------
+# Each channel command has the format:  x N P G I B S1 S2 X
+#   N  = channel number (1-8)
+#   P  = power (0=ON, 1=OFF)
+#   G  = gain  (0=1×, 1=2×, 2=4×, 3=6×, 4=8×, 5=12×, 6=24×)
+#   I  = input type (0=normal EEG, 1=shorted, ...)
+#   B  = include in BIAS derivation (1=yes)
+#   S2 = SRB2 connection (1=connected)
+#   S1 = SRB1 connection (0=disconnected)
+#
+# Build a config string by joining per-channel strings — applied with
+# EEG(device='cyton', config=CYTON_CONFIG_GAIN_4X).
+
+def _cyton_ch_config(gain_code: int, n_channels: int = 8) -> str:
+    """Build a Cyton channel-settings string for all channels.
+
+    Args:
+        gain_code: ADS1299 gain code (0=1×, 1=2×, 2=4×, 3=6×, 4=8×, 5=12×, 6=24×).
+        n_channels: Number of channels to configure (default 8 for standard Cyton).
+
+    Returns:
+        Config string ready to pass to ``EEG(config=...)``.
+    """
+    return "".join(f"x{ch}0{gain_code}0110X" for ch in range(1, n_channels + 1))
+
+# Standard gain presets — normal EEG input, bias enabled, SRB2 on, SRB1 off.
+CYTON_CONFIG_GAIN_1X  = _cyton_ch_config(0)   # 1× (for strong signals / testing)
+CYTON_CONFIG_GAIN_2X  = _cyton_ch_config(1)   # 2×
+CYTON_CONFIG_GAIN_4X  = _cyton_ch_config(2)   # 4×  - for Thinkpulse electrodes
+CYTON_CONFIG_GAIN_6X  = _cyton_ch_config(3)   # 6×
+CYTON_CONFIG_GAIN_8X  = _cyton_ch_config(4)   # 8×
+CYTON_CONFIG_GAIN_12X = _cyton_ch_config(5)   # 12× — good general-purpose EEG config
+CYTON_CONFIG_GAIN_24X = _cyton_ch_config(6)   # 24× — default gain
+
+
 def create_stim_array(timestamps, markers):
     """Creates a stim array which is the lenmgth of the EEG data where the stimuli are lined up
     with their corresponding EEG sample.
@@ -123,3 +162,80 @@ def get_openbci_usb():
 
 def serial_ports():
     return serial.tools.list_ports.comports()
+
+
+def get_ftdi_latency_ms(com_port: str):
+    """Read the FTDI VCP LatencyTimer (ms) for a COM port from the Windows registry.
+
+    Returns the latency in ms, or None on non-Windows platforms or if the port
+    is not found under HKLM\\SYSTEM\\CurrentControlSet\\Enum\\FTDIBUS.
+    """
+    if sys.platform != 'win32':
+        return None
+    import winreg
+    ftdi_root = r"SYSTEM\CurrentControlSet\Enum\FTDIBUS"
+    target = com_port.upper()
+    try:
+        root_key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, ftdi_root)
+    except OSError:
+        return None
+    try:
+        for i in range(1024):
+            try:
+                device_name = winreg.EnumKey(root_key, i)
+            except OSError:
+                break
+            device_path = f"{ftdi_root}\\{device_name}"
+            try:
+                device_key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, device_path)
+            except OSError:
+                continue
+            try:
+                for j in range(64):
+                    try:
+                        instance = winreg.EnumKey(device_key, j)
+                    except OSError:
+                        break
+                    params_path = f"{device_path}\\{instance}\\Device Parameters"
+                    try:
+                        params_key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, params_path)
+                    except OSError:
+                        continue
+                    try:
+                        port_name, _ = winreg.QueryValueEx(params_key, "PortName")
+                        if str(port_name).upper() == target:
+                            latency, _ = winreg.QueryValueEx(params_key, "LatencyTimer")
+                            return int(latency)
+                    except OSError:
+                        pass
+                    finally:
+                        params_key.Close()
+            finally:
+                device_key.Close()
+    finally:
+        root_key.Close()
+    return None
+
+
+def assert_ftdi_latency_1ms(com_port: str) -> None:
+    """Assert the FTDI LatencyTimer for a COM port is 1 ms (Windows only).
+
+    The OpenBCI Cyton dongle ships with the Windows default of 16 ms, which
+    adds ~15 ms of USB buffering jitter to every marker push and corrupts
+    stimulus/EEG alignment for VEP-class experiments. No-op on non-Windows.
+
+    Fix in: Device Manager -> Ports -> USB Serial Port -> Properties ->
+    Port Settings -> Advanced -> Latency Timer (ms) = 1.
+    """
+    if sys.platform != 'win32':
+        return
+    latency = get_ftdi_latency_ms(com_port)
+    assert latency is not None, (
+        f"Could not read FTDI LatencyTimer for {com_port}. "
+        f"Verify it is an FTDI device in Device Manager."
+    )
+    assert latency == 1, (
+        f"FTDI LatencyTimer for {com_port} is {latency} ms; required 1 ms. "
+        f"Device Manager -> Ports -> USB Serial Port ({com_port}) -> "
+        f"Properties -> Port Settings -> Advanced -> Latency Timer (ms) = 1."
+    )

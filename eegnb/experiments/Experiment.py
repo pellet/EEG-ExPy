@@ -12,23 +12,30 @@ from abc import abstractmethod, ABC
 from typing import Callable
 from eegnb.devices.eeg import EEG
 from eegnb.devices.vr import VR
-from psychopy import prefs, visual, event, core
+from psychopy import prefs, visual, event
 
-import gc
+import logging
+from pathlib import Path
 from time import time
 import random
-import json
+import csv
 
 import numpy as np
 from pandas import DataFrame
 
 from eegnb import generate_save_fn
+from eegnb.experiments import diagnostics
+from eegnb.utils.display import snap_refresh_rate
+from eegnb.utils.realtime import high_priority_section, log_session_perf_diagnostics
+
+logger = logging.getLogger(__name__)
 
 
 class BaseExperiment(ABC):
 
     def __init__(self, exp_name, duration, eeg, save_fn, n_trials: int, iti: float, soa: float, jitter: float,
-                 use_vr=False, use_fullscr = True, screen_num=0, stereoscopic = False, devices = list):
+                 use_vr=False, use_fullscr = True, screen_num=0, stereoscopic = False, devices=None,
+                 expected_refresh_rate=None):
         """ Initializer for the Base Experiment Class
 
         Args:
@@ -50,9 +57,9 @@ class BaseExperiment(ABC):
         self.instruction_text = """\nWelcome to the {} experiment!\nStay still, focus on the centre of the screen, and try not to blink. \nThis block will run for %s seconds.\n
         Press spacebar to continue. \n""".format(self.exp_name)
         self.duration = duration
-        self.eeg: EEG = eeg
-        self.devices = devices
-        self.save_fn = save_fn
+        self.eeg: EEG | None = eeg
+        self.devices = devices if devices is not None else []
+        self.save_fn: Path | None = save_fn
         self.n_trials = n_trials
         self.iti = iti
         self.soa = soa
@@ -60,19 +67,33 @@ class BaseExperiment(ABC):
         self.use_vr = use_vr
         self.screen_num = screen_num
         self.stereoscopic = stereoscopic
-        if use_vr:
-            # VR interface accessible by specific experiment classes for customizing and using controllers.
-            self.vr: VR = VR(monoscopic=not stereoscopic, headLocked=True)
-
-        # Shift the display so it aligns perfectly with the center of each eye.
-        if use_vr and stereoscopic:
-            self.left_eye_x_pos, self.right_eye_x_pos = self.vr.compute_optical_axis_offsets()
-        else:
-            self.left_eye_x_pos = 0
-            self.right_eye_x_pos = 0
+        self.vr: VR | None = None
+        self.left_eye_x_pos = 0
+        self.right_eye_x_pos = 0
+        self.expected_refresh_rate = expected_refresh_rate
 
         self.use_fullscr = use_fullscr
         self.window_size = [1600,800]
+
+        # Diagnostic results — populated by run()/setup(), read by show_diagnostics()
+        self.signal_check = None
+        self.display_check = None
+
+        # Marker observers: callables (trial_idx, timestamp) invoked on every
+        # push_marker(). Used by integrations that want timing context but
+        # don't emit a hardware/software marker themselves (e.g. VR compositor
+        # telemetry, eyetracker fixation logs, photodiode metadata sidecars).
+        # Hardware/software *emitters* (Cyton, XID, kernelflow, etc.) live in
+        # self.devices and are dispatched via push_sample, not this list.
+        self.marker_listeners: list = []
+        self.monitor_timing_data: list = []
+
+        if not self.use_vr:
+            def _record_monitor_timing(trial_idx, timestamp, flip_time=None):
+                # timestamp is software_time (when marker is pushed)
+                # flip_time is when the frame actually appeared
+                self.monitor_timing_data.append([trial_idx, timestamp, flip_time])
+            self.marker_listeners.append(_record_monitor_timing)
 
         # Initializing the marker names
         self.markernames = [1, 2]
@@ -80,6 +101,7 @@ class BaseExperiment(ABC):
         # Setting up the trial and parameter list
         self.parameter = np.random.binomial(1, 0.5, self.n_trials)
         self.trials = DataFrame(dict(parameter=self.parameter, timestamp=np.zeros(self.n_trials)))
+
 
     @abstractmethod
     def load_stimulus(self):
@@ -129,18 +151,63 @@ class BaseExperiment(ABC):
         """
         raise NotImplementedError
 
+    def _draw_blank_frame(self):
+        """Draw a blank frame and flip — used for display rate measurement."""
+        self._draw(self.window.flip)
+
     def setup(self, instructions=True):
+        if self.use_vr and self.vr is None:
+            self.vr = VR(monoscopic=not self.stereoscopic, headLocked=True)
+            if self.stereoscopic:
+                self.left_eye_x_pos, self.right_eye_x_pos = self.vr.compute_optical_axis_offsets()
+
         # Setting up Graphics
-        self.window = (
-            self.vr if self.use_vr
-            else visual.Window(self.window_size, monitor="testMonitor", units="deg", 
-                               screen = self.screen_num, fullscr=self.use_fullscr))
-        
+        if self.use_vr:
+            self.window = self.vr
+            log_session_perf_diagnostics()
+            with high_priority_section():
+                self.display_check = self.vr.validate_frame_rate(self._draw_blank_frame)
+            # Capture per-marker compositor stats alongside each EEG trigger.
+            self.marker_listeners.append(self.vr.log_telemetry)
+        else:
+            self.window = visual.Window(self.window_size,
+                                        monitor="testMonitor",
+                                        units="deg",
+                                        screen=self.screen_num,
+                                        fullscr=self.use_fullscr)
+            log_session_perf_diagnostics()
+            actual_hz = self.window.getActualFrameRate()
+            self.display_check = {
+                'target_hz': round(actual_hz, 1) if actual_hz else None,
+                'actual_hz': round(actual_hz, 1) if actual_hz else None,
+                'deviation_pct': 0.0,
+                'ok': actual_hz is not None,
+            }
+            self.window.mouseVisible = False
+
+        # Snap the target rate to the nearest standard panel rate so
+        # downstream stimulus code can rely on a clean integer Hz.
+        target = self.display_check.get('target_hz')
+        self.refresh_rate = snap_refresh_rate(target) if target else None
+        self.display_check['expected_hz'] = self.expected_refresh_rate
+        if self.expected_refresh_rate is not None and self.refresh_rate is not None:
+            if self.refresh_rate != self.expected_refresh_rate:
+                logger.warning(
+                    "Refresh rate mismatch: expected %s Hz, detected %s Hz. "
+                    "Timing analyses should use the detected value.",
+                    self.expected_refresh_rate, self.refresh_rate,
+                )
+                self.display_check['expected_match'] = False
+            else:
+                self.display_check['expected_match'] = True
+
         # Loading the stimulus from the specific experiment, throws an error if not overwritten in the specific experiment
         self.stim = self.load_stimulus()
-        
-        # Show Instruction Screen if not skipped by the user
+
+        # Show diagnostics screen first if anything's wrong, then instructions.
         if instructions:
+            if not self.show_diagnostics():
+                return False
             if not self.show_instructions():
                 return False
 
@@ -170,9 +237,6 @@ class BaseExperiment(ABC):
         if '%s' in self.instruction_text:
             self.instruction_text = self.instruction_text % self.duration
 
-        # Disabling the cursor during display of instructions
-        self.window.mouseVisible = False
-
         # clear/reset any old key/controller events
         self._clear_user_input()
 
@@ -182,12 +246,96 @@ class BaseExperiment(ABC):
             text = visual.TextStim(win=self.window, text=self.instruction_text, color=[-1, -1, -1])
             self._draw(lambda: self.__draw_instructions(text))
 
-            # Enabling the cursor again
-            self.window.mouseVisible = True
-
             if self._user_input('cancel'):
                 return False
         return True
+
+    def show_diagnostics(self):
+        """Display a pre-experiment diagnostics screen — only when flagged.
+
+        Shows synthetic-device warning, degraded-framerate warning, and
+        noisey electrode warning. If none are flagged the screen is skipped
+        entirely so the experimenter goes straight to the instructions.
+        Returns True to continue, False if the user cancels.
+        """
+        warnings = diagnostics.format_diagnostic_warnings(
+            device_name=self.eeg.device_name if self.eeg else None,
+            display=self.display_check,
+            signal_check=self.signal_check,
+        )
+        if not warnings:
+            return True
+
+        body = "\n\n".join(warnings)
+        body += "\n\nFix the issues above, or press spacebar / index trigger to continue anyway."
+
+        self._clear_user_input()
+
+        while not self._user_input('start'):
+            text = visual.TextStim(
+                win=self.window, text=body,
+                color=[1, 1, 1], font='Courier New',
+                height=0.04, wrapWidth=1.8, units='norm',
+                anchorHoriz='center', anchorVert='center',
+            )
+            self._draw(lambda: self.__draw_instructions(text))
+            if self._user_input('cancel'):
+                return False
+        return True
+
+    def show_results(self, text):
+        """Display a results / summary screen after the experiment.
+
+        Mirrors ``show_instructions``: loops the render loop until user input. Uses a
+        monospaced font so tabular output (e.g. recording quality reports)
+        aligns correctly.
+
+        Args:
+            text (str): Text to display. Long lines are wrapped automatically.
+        """
+        self._clear_user_input()
+
+        stim = visual.TextStim(
+            win=self.window, text=text,
+            color=[1, 1, 1],          # white on black background
+            font='Courier New',
+            height=0.04,
+            wrapWidth=1.8,
+            units='norm',
+            anchorHoriz='center', anchorVert='center',
+        )
+
+        while not self._user_input('start'):
+            self._draw(lambda: self.__draw_results(stim))
+            if self._user_input('cancel'):
+                break
+
+    def __draw_results(self, stim):
+        if self.use_vr and self.stereoscopic:
+            for eye, x_pos in [("left", self.left_eye_x_pos),
+                                ("right", self.right_eye_x_pos)]:
+                self.window.setBuffer(eye)
+                stim.pos = (x_pos, 0)
+                stim.draw()
+        else:
+            stim.draw()
+        self.window.flip()
+
+    def post_run(self):
+        """Called after the trial loop ends, before the window closes.
+
+        Default: display a recording quality report so the experimenter can
+        decide whether to re-record before removing the electrodes. Override in a
+        subclass or reassign on the instance to replace this behaviour.
+        """
+        if not self.save_fn:
+            return
+        try:
+            text = diagnostics.post_session_report(self.save_fn)
+            text += "\n\nPress spacebar or index trigger to close."
+            self.show_results(text)
+        except Exception as e:
+            print(f"[post_run] Could not display quality report: {e}")
 
     def _user_input(self, input_type):
         if input_type == 'start':
@@ -332,8 +480,30 @@ class BaseExperiment(ABC):
 
         return True
 
+    def _enable_frame_tracking(self):
+        """Enable per-frame interval recording for dropped frame diagnostics."""
+        self.window.recordFrameIntervals = True
+        rate = self.window.displayRefreshRate if self.use_vr else self.window.getActualFrameRate()
+        self.display_refresh_rate = int(np.round(rate)) if rate else None
+        # Threshold for counting a frame as "dropped" — 50% over expected duration
+        expected_frame_dur = 1.0 / (rate or 60)
+        self.window.refreshThreshold = expected_frame_dur * 1.5
+
+    def _save_monitor_telemetry(self):
+        """Saves memory-buffered monitor timing telemetry to a CSV sidecar."""
+        if self.save_fn is None or not self.monitor_timing_data:
+            return
+
+        timing_path = self.save_fn.with_name(self.save_fn.stem + '_timing.csv')
+        with open(timing_path, 'w', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow(['trial_idx', 'software_time', 'flip_time'])
+            writer.writerows(self.monitor_timing_data)
+        print(f"  Saved monitor timing telemetry to {timing_path}")
+
     def run(self, instructions=True):
         """ Run the experiment """
+        self.signal_check = diagnostics.check_signal_quality(self.eeg)
 
         # Setup the experiment
         self.setup(instructions)
@@ -345,18 +515,15 @@ class BaseExperiment(ABC):
                 self.eeg.start(self.save_fn, duration=self.duration + 5)
                 print("EEG Stream started")
 
+        self._enable_frame_tracking()
+
         # Record experiment until a key is pressed or duration has expired.
         record_start_time = time()
 
-        core.rush(True)
-        gc.disable()
-        try:
-            if self.use_vr:        
+        with high_priority_section():
+            if self.use_vr:
                 self.vr.sync_vr_clock()
             self._run_trial_loop(record_start_time, self.duration)
-        finally:
-            gc.enable()
-            core.rush(False)
 
         # Clearing the screen for the next trial
         event.clearEvents()
@@ -367,15 +534,40 @@ class BaseExperiment(ABC):
 
         if self.use_vr:
             self.vr.save_telemetry(self.save_fn)
+            self.vr.save_frame_stats(self.save_fn)
+        else:
+            self._save_monitor_telemetry()
+
+        # Post-run hook (e.g. show a summary / quality report screen)
+        self.post_run()
 
         # Closing the window
         self.window.close()
 
-    def send_triggers(self, marker):
-        """Send timing triggers to recording device[s]"""
+
+
+    def push_marker(self, marker, trial_idx):
+        """Push a trigger to the primary EEG and every additional device in
+        self.devices, then notify any registered marker_listeners with
+        (trial_idx, timestamp).
+
+        Emitters (self.eeg, self.devices) record the marker value into their
+        respective streams — Cyton's marker channel, XID's TTL output,
+        muselsl's lsl marker stream, etc.
+        Listeners (self.marker_listeners) receive only the timing context —
+        they're observers that capture additional state at marker time
+        (VR compositor telemetry, eyetracker fixation, photodiode metadata).
+        """
+        timestamp = time()
+        if self.eeg:
+            self.eeg.push_sample(marker=marker, timestamp=timestamp)
         for dev in self.devices:
-            timestamp = time()
             dev.push_sample(marker=marker, timestamp=timestamp)
+        for listener in self.marker_listeners:
+            try:
+                listener(trial_idx, timestamp)
+            except Exception:
+                logger.exception("marker listener failed: %s", listener)
 
     @property
     def name(self) -> str:

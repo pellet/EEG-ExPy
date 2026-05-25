@@ -54,10 +54,12 @@ def fetch_dataset(
         "visual-P300",
         "visual-spatialfreq",
         "visual-SSVEP",
+        "visual-PRVEP",
     ]
 
     # List gdrive extensions for various experiments
     gdrive_locs = {
+        "visual-PRVEP": "1qn-0OSxlO6-stL6EXh9VT4pMSFghCXBG",
         "visual-SSVEP": "1zj9Wx-YEMJo7GugUUu7Sshcybfsr-Fze",
         "visual-spatialfreq": "1ggBt7CNvMgddxji-FvxcZoP-IF-PmESX",
         "visual-P300": "1OLcj-zSjqdNrsBSUAsGBXOwWDnGWTVFC",
@@ -84,6 +86,12 @@ def fetch_dataset(
         download_it = True
 
     if download_it:
+        if gdrive_locs.get(experiment) is None:
+            raise ValueError(
+                f"No example dataset available for '{experiment}' yet. "
+                "Upload a zip to Google Drive and add the file ID to gdrive_locs in datasets.py."
+            )
+
         # check if data directory exits. If not, create it
         if os.path.exists(data_dir) is not True:
             os.makedirs(data_dir)
