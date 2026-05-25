@@ -15,15 +15,17 @@ import numpy as np
 from scipy.ndimage import maximum_filter1d
 
 
-DETECTOR_VERSION = "1.2-dropout-guard"
+DETECTOR_VERSION = "1.3-plateau-collapse"
 
-# Defaults tuned for Cyton 250 Hz ADC + Quest 2 72 Hz LCD strobe.
+# Defaults tuned for Cyton 250 Hz ADC + Quest 2 72 Hz LCD strobe,
+# PR-VEP at 1-2 Hz reversal.
 ENV_WIN_MS       = 100.0    # rolling-max envelope window
 HYST_UV          = 5.0      # fixed-hyst fallback / safety-floor margin
 DEADZONE_PCT     = (20, 80) # (above_pct, below_pct) for adaptive Schmitt bounds
 FWD_WIN_MS       = 300.0    # forward search window after each marker
 FUSION_AGREE_MS  = 20.0     # max OVR/diode median diff to enable fusion
 FALLBACK_LAG_S   = 0.025    # unmeasured-hardware fallback (flat-monitor regime)
+MIN_PLATEAU_MS   = 200.0    # min dwell between transitions; shorter pairs are Schmitt flutter inside a plateau
 DROPOUT_MIN_MS   = 150.0    # min dead-zone dwell to flag as dropout/drift
 DROPOUT_GUARD_MS = 100.0    # guard margin on each side of a dropout region
 
@@ -134,24 +136,77 @@ def schmitt_state(env_uv, threshold_uv=None, hyst_uv=HYST_UV,
     return state
 
 
+def collapse_short_clusters(transitions, polarities, sfreq, min_dwell_ms):
+    """Collapse runs of transitions separated by less than ``min_dwell_ms``
+    into a single net transition.
+
+    A cluster is a maximal run of consecutive transitions whose adjacent
+    gaps are all below ``min_dwell_ms``. Each cluster collapses to:
+      - zero transitions if its polarities sum to 0 (pure Schmitt flutter
+        inside one physical plateau)
+      - one transition at the cluster start, polarity = sign of the sum
+        (cluster contains one real edge plus surrounding flutter)
+
+    Assumes ``polarities`` strictly alternates (Schmitt-state output).
+    Run BEFORE ±W/2 polarity correction so the time ordering matches the
+    Schmitt sequence.
+    """
+    if len(transitions) < 2:
+        return (np.asarray(transitions, dtype=float),
+                np.asarray(polarities, dtype=np.int8), 0)
+
+    transitions = np.asarray(transitions, dtype=float)
+    polarities  = np.asarray(polarities, dtype=np.int8)
+
+    min_samp = min_dwell_ms / 1000 * sfreq
+    gaps = np.diff(transitions)
+    break_idx = np.where(gaps >= min_samp)[0]
+    cluster_starts = np.concatenate([[0], break_idx + 1])
+    cluster_ends   = np.concatenate([break_idx + 1, [len(transitions)]])
+
+    out_trans, out_pols = [], []
+    n_dropped = 0
+
+    for start, end in zip(cluster_starts, cluster_ends):
+        size = end - start
+        if size == 1:
+            out_trans.append(transitions[start])
+            out_pols.append(polarities[start])
+        else:
+            net = int(polarities[start:end].sum())
+            if net == 0:
+                n_dropped += size
+            else:
+                out_trans.append(transitions[start])
+                out_pols.append(np.int8(np.sign(net)))
+                n_dropped += size - 1
+
+    if not out_trans:
+        return (np.empty(0, dtype=float),
+                np.empty(0, dtype=np.int8), n_dropped)
+    return (np.array(out_trans, dtype=float),
+            np.array(out_pols, dtype=np.int8), n_dropped)
+
+
 def detect_transitions(diode_uv, sfreq, env_win_ms=ENV_WIN_MS,
                        deadzone_pct=DEADZONE_PCT, min_hyst_uv=HYST_UV,
+                       min_plateau_ms=MIN_PLATEAU_MS,
                        dropout_min_ms=DROPOUT_MIN_MS,
                        dropout_guard_ms=DROPOUT_GUARD_MS):
     """Polarity-corrected LCD phase transitions from a diode trace.
 
     Pipeline: centred rolling-max envelope → log-Otsu threshold →
-    adaptive dead zone → Schmitt-trigger state → polarity-aware edge
-    correction → dropout-guarded trust mask.
+    adaptive dead zone → Schmitt-trigger state → flutter-cluster collapse
+    → polarity-aware edge correction → dropout-guarded trust mask.
 
     Returns a dict with keys:
-        transitions      sample indices, polarity-corrected
-        polarities       +1 for dark→bright, -1 for bright→dark
-        trusted          bool; False inside dropout guard zones
-        dropout_regions  (N, 2) sample ranges of detected dropouts
-        n_dropouts, n_untrusted
+        transitions          sample indices, polarity-corrected
+        polarities           +1 for dark→bright, -1 for bright→dark
+        trusted              bool; False inside dropout guard zones
+        dropout_regions      (N, 2) sample ranges of detected dropouts
+        n_dropouts, n_untrusted, n_flutter_collapsed
         threshold_uv, lo_t, hi_t, env_win
-        env_lo, env_hi   5th/95th percentile of raw signal (informational)
+        env_lo, env_hi       5th/95th percentile of raw signal (informational)
     """
     env_win = max(2, int(env_win_ms / 1000 * sfreq))
     env = maximum_filter1d(diode_uv, size=env_win)
@@ -164,15 +219,23 @@ def detect_transitions(diode_uv, sfreq, env_win_ms=ENV_WIN_MS,
     rise = np.where(changes ==  1)[0] + 1
     fall = np.where(changes == -1)[0] + 1
 
+    raw_trans = np.concatenate([rise, fall]).astype(float)
+    raw_pols  = np.concatenate([np.ones(len(rise)),
+                                -np.ones(len(fall))]).astype(np.int8)
+    order = np.argsort(raw_trans)
+    raw_trans = raw_trans[order]
+    raw_pols  = raw_pols[order]
+
+    # Drop Schmitt-flutter pairs inside a single plateau before polarity
+    # correction (so the alternating-polarity invariant still holds).
+    raw_trans, raw_pols, n_flutter_collapsed = collapse_short_clusters(
+        raw_trans, raw_pols, sfreq, min_dwell_ms=min_plateau_ms)
+
     # Centred rolling-max smears rising edges by -W/2 and falling by +W/2;
     # add/subtract half the window to recover the true transition time.
     half = env_win / 2.0
-    rise_corrected = rise + half
-    fall_corrected = fall - half
-
-    transitions = np.concatenate([rise_corrected, fall_corrected])
-    polarities  = np.concatenate([np.ones(len(rise_corrected)),
-                                  -np.ones(len(fall_corrected))]).astype(np.int8)
+    transitions = np.where(raw_pols > 0, raw_trans + half, raw_trans - half)
+    polarities  = raw_pols
     order = np.argsort(transitions)
     transitions = transitions[order]
     polarities  = polarities[order]
@@ -187,18 +250,19 @@ def detect_transitions(diode_uv, sfreq, env_win_ms=ENV_WIN_MS,
         trusted &= ~((transitions >= guarded_lo) & (transitions <= guarded_hi))
 
     return {
-        'transitions':      transitions,
-        'polarities':       polarities,
-        'trusted':          trusted,
-        'dropout_regions':  dropout_regions,
-        'n_dropouts':       len(dropout_regions),
-        'n_untrusted':      int((~trusted).sum()),
-        'threshold_uv':     float(threshold),
-        'lo_t':             float(lo_t),
-        'hi_t':             float(hi_t),
-        'env_win':          env_win,
-        'env_lo':           float(np.percentile(diode_uv, 5)),
-        'env_hi':           float(np.percentile(diode_uv, 95)),
+        'transitions':          transitions,
+        'polarities':           polarities,
+        'trusted':              trusted,
+        'dropout_regions':      dropout_regions,
+        'n_dropouts':           len(dropout_regions),
+        'n_untrusted':          int((~trusted).sum()),
+        'n_flutter_collapsed':  n_flutter_collapsed,
+        'threshold_uv':         float(threshold),
+        'lo_t':                 float(lo_t),
+        'hi_t':                 float(hi_t),
+        'env_win':              env_win,
+        'env_lo':               float(np.percentile(diode_uv, 5)),
+        'env_hi':               float(np.percentile(diode_uv, 95)),
     }
 
 
@@ -234,6 +298,7 @@ def correct_events_with_diode(diode_uv, events, sfreq,
                               deadzone_pct=DEADZONE_PCT,
                               min_hyst_uv=HYST_UV,
                               fwd_win_ms=FWD_WIN_MS,
+                              min_plateau_ms=MIN_PLATEAU_MS,
                               dropout_min_ms=DROPOUT_MIN_MS,
                               dropout_guard_ms=DROPOUT_GUARD_MS):
     """Run the diode detector and match each marker to the next trusted
@@ -248,6 +313,7 @@ def correct_events_with_diode(diode_uv, events, sfreq,
                              env_win_ms=env_win_ms,
                              deadzone_pct=deadzone_pct,
                              min_hyst_uv=min_hyst_uv,
+                             min_plateau_ms=min_plateau_ms,
                              dropout_min_ms=dropout_min_ms,
                              dropout_guard_ms=dropout_guard_ms)
     fwd_max_samp = int(fwd_win_ms / 1000 * sfreq)
@@ -286,16 +352,17 @@ def correct_events_with_diode(diode_uv, events, sfreq,
         'env_win':          det['env_win'],
         'env_lo':           det['env_lo'],
         'env_hi':           det['env_hi'],
-        'n_transitions':    len(det['transitions']),
-        'n_trusted':        int(det['trusted'].sum()),
-        'n_untrusted':      det['n_untrusted'],
-        'n_dropouts':       det['n_dropouts'],
-        'dropout_regions':  det['dropout_regions'],
-        'n_rise':           int((det['polarities'] ==  1).sum()),
-        'n_fall':           int((det['polarities'] == -1).sum()),
-        'transitions':      det['transitions'],
-        'polarities':       det['polarities'],
-        'trusted':          det['trusted'],
+        'n_transitions':        len(det['transitions']),
+        'n_trusted':            int(det['trusted'].sum()),
+        'n_untrusted':          det['n_untrusted'],
+        'n_dropouts':           det['n_dropouts'],
+        'n_flutter_collapsed':  det['n_flutter_collapsed'],
+        'dropout_regions':      det['dropout_regions'],
+        'n_rise':               int((det['polarities'] ==  1).sum()),
+        'n_fall':               int((det['polarities'] == -1).sum()),
+        'transitions':          det['transitions'],
+        'polarities':           det['polarities'],
+        'trusted':              det['trusted'],
     }
 
 
