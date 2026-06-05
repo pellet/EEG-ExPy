@@ -12,7 +12,6 @@ addopts = """
     --ignore 'tests/test_run_experiments.py'
 """
 testpaths = [
-    "eegnb",
     "tests",
     #"examples",
 ]
