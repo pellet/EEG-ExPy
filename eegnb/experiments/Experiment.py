@@ -15,7 +15,7 @@ from eegnb.devices.vr import VR
 from psychopy import prefs, visual, event
 from time import time
 
-from eegnb.utils.realtime import high_priority_section
+from eegnb.experiments.realtime import high_priority_section
 import random
 import json
 
