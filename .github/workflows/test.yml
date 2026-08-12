@@ -19,14 +19,14 @@ jobs:
       matrix:
         os: [ubuntu-22.04, windows-latest, macOS-latest]
         python_version: ['3.10']
-        env_file: [environments/eeg-expy-full.yml]
+        env_file: [environment.yml]
         env_name: [eeg-expy-full]
         include:
           # Experimental Full Build: Catch regressions on 3.11 early
           - os: ubuntu-22.04
             python_version: '3.11'
             experimental: true
-            env_file: environments/eeg-expy-full.yml
+            env_file: environment.yml
             env_name: eeg-expy-full
 
           # Experimental Streaming Builds: Verify acquisition/analysis on 3.12+
@@ -87,7 +87,7 @@ jobs:
     - name: Set up conda env
       uses: ./.github/actions/setup-conda-env
       with:
-        environment-file: environments/eeg-expy-full.yml
+        environment-file: environment.yml
         activate-environment: eeg-expy-full
         python-version: ${{ matrix.python_version }}
     - name: Typecheck

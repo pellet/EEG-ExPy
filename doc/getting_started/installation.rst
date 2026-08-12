@@ -42,21 +42,9 @@ Use the following commands to download the repo, create and activate a conda or 
 
     .. tab:: Conda
 
-       **Environment file options**
-
-       *Python 3.8 - 3.10:*
-
-       - `eeg-expy-full`: Install all dependencies
-
-       - `eeg-expy-stimpres`: Stimulus presentation
-
-       - `eeg-expy-streamstim`: Combined streaming and stimulus presentation
-
-       *Python 3.8 - 3.13:*
-
-       - `eeg-expy-docsbuild`: Documentation
-
-       - `eeg-expy-streaming`: Data streaming
+       The default environment installs everything, and lives at the repository
+       root as ``environment.yml`` so ``conda env create`` finds it without
+       being told where to look.
 
        .. code-block:: bash
 
@@ -66,12 +54,33 @@ Use the following commands to download the repo, create and activate a conda or 
           # Navigate to the repo
           cd eeg-expy
 
-          # Create conda environment from chosen eeg-expy-*.yml
-          # The Python version will be pinned by the environment file
-          conda env create -n eeg-expy --file=environments/eeg-expy-full.yml
+          # Create the environment (reads ./environment.yml automatically).
+          # The Python version is pinned by the environment file.
+          conda env create -n eeg-expy
 
           # Activate the environment
           conda activate eeg-expy
+
+       **Smaller environments**
+
+       If you do not need the full install, the ``environments/`` directory has
+       narrower ones. These still need ``-f``, since only the root file is found
+       automatically:
+
+       - ``eeg-expy-stimpres``: Stimulus presentation
+
+       - ``eeg-expy-streamstim``: Combined streaming and stimulus presentation
+
+       - ``eeg-expy-docsbuild``: Documentation
+
+       - ``eeg-expy-streaming``: Data streaming
+
+       .. code-block:: bash
+
+          conda env create -n eeg-expy-streaming -f environments/eeg-expy-streaming.yml
+
+       ``-n`` overrides any ``name:`` in the file, so the same environment file
+       can be used to build several differently-named environments.
 
     .. tab:: Virtualenv
 

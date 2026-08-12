@@ -15,5 +15,6 @@ dependencies:
     - cffi # Fix sound ffi.callback() issue with sounddevice on macOS: https://github.com/spatialaudio/python-sounddevice/issues/397
     - pip
     - pip:
-      # Install package with only Analysis requirements
-      - -e ..[full]
+      # Editable install of this package with all (full) extras. The path is
+      # relative to this file, so this file must stay at the repository root.
+      - -e .[full]
