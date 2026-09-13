@@ -60,9 +60,9 @@ jobs:
         # see -- library, docs sources, docs environment -- so a prefix
         # fallback can only ever reuse stamps built against the same library,
         # and an example-only change still reuses the other examples' output.
-        key: ${{ runner.os }}-sphinx-${{ hashFiles('eegnb/**/*.py', 'doc/**/*', 'environments/eeg-expy-docsbuild.yml') }}-${{ hashFiles('examples/**/*.py') }}
+        key: ${{ runner.os }}-sphinx-${{ hashFiles('eegnb/**/*.py', 'doc/**/*', 'environments/eeg-expy-docsbuild.yml', 'requirements.txt', 'setup.py') }}-${{ hashFiles('examples/**/*.py') }}
         restore-keys: |
-          ${{ runner.os }}-sphinx-${{ hashFiles('eegnb/**/*.py', 'doc/**/*', 'environments/eeg-expy-docsbuild.yml') }}-
+          ${{ runner.os }}-sphinx-${{ hashFiles('eegnb/**/*.py', 'doc/**/*', 'environments/eeg-expy-docsbuild.yml', 'requirements.txt', 'setup.py') }}-
 
     - name: Build docs
       run: make docs
