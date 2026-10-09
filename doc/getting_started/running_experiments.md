@@ -162,14 +162,17 @@ print("Recording saved in", experiment.save_fn)
 
 A head mounted display can be used for presenting experiments in a similar way to a monitor, without much modification.
 
+The VR backend uses OpenXR (via the `pyopenxr` package). Any headset whose PC OpenXR runtime supports OpenGL (`XR_KHR_opengl_enable`) should work, e.g. Meta Quest over Link, or HTC Vive, Valve Index and Steam Frame through SteamVR. Only the Quest 2 over Link with the Oculus PC runtime, on Windows, has been validated; measure display timing with a photodiode on any other headset. On Linux it is tested in CI against Monado but has not yet been run on a headset. Windows Mixed Reality, HoloLens and Apple Vision Pro are not supported.
+
+Responses can be given with the keyboard or a Touch controller. Other controllers work only if the runtime maps them onto the Touch controller profile. Xbox gamepad bindings are included but have not yet been tested with a real gamepad.
+
 #### Features to be added in future releases:
 
-* Controller input
 * Controller haptic feedback
 
 ### Prerequisites:
-* Oculus Rift compatible VR headset, e.g. Oculus Rift or Meta Quest series.
-* Native Windows installation with meta link compatible video card.
+* OpenXR compatible VR headset, e.g. Meta Quest series (validated on Quest 2) or Oculus Rift.
+* Windows or Linux PC that can run the headset's OpenXR runtime (for Meta Quest Link, a Link compatible video card). macOS is not supported.
 * EEG device, e.g. OpenBCI Cyton or Muse
 
 If an experiment has the use_vr argument in its present method, it can have its stimulus presented to a subject's VR headset.
