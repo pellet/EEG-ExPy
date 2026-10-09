@@ -22,7 +22,8 @@ class BlockExperiment(BaseExperiment, ABC):
     """
 
     def __init__(self, exp_name, block_duration, eeg, save_fn, block_trial_size, n_blocks, iti: float, soa: float, jitter: float,
-                 use_vr=False, use_fullscr=True, screen_num=0, stereoscopic=False, devices = list):
+                 use_vr=False, use_fullscr=True, screen_num=0, stereoscopic=False, devices = list,
+                 vr_runtime=None):
         """ Initializer for the BlockExperiment Class
 
         Args:
@@ -37,13 +38,15 @@ class BlockExperiment(BaseExperiment, ABC):
             jitter (float): Random delay between stimulus
             use_vr (bool): Use VR for displaying stimulus
             use_fullscr (bool): Use fullscreen mode
+            vr_runtime (str): OpenXR runtime for VR, see BaseExperiment
         """
         # Calculate total trials for the base class
         total_trials = block_trial_size * n_blocks
         
         # Initialize BaseExperiment with total trials
         # Pass None for duration if block_duration is None to ignore time spent in instructions
-        super().__init__(exp_name, block_duration, eeg, save_fn, total_trials, iti, soa, jitter, use_vr, use_fullscr, screen_num, stereoscopic, devices)
+        super().__init__(exp_name, block_duration, eeg, save_fn, total_trials, iti, soa, jitter, use_vr, use_fullscr, screen_num, stereoscopic, devices,
+                         vr_runtime=vr_runtime)
         
         # Block-specific parameters
         self.block_duration = block_duration

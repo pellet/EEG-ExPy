@@ -28,7 +28,8 @@ from eegnb import generate_save_fn
 class BaseExperiment(ABC):
 
     def __init__(self, exp_name, duration, eeg, save_fn, n_trials: int, iti: float, soa: float, jitter: float,
-                 use_vr=False, use_fullscr = True, screen_num=0, stereoscopic = False, devices = list):
+                 use_vr=False, use_fullscr = True, screen_num=0, stereoscopic = False, devices = list,
+                 vr_runtime=None):
         """ Initializer for the Base Experiment Class
 
         Args:
@@ -44,6 +45,8 @@ class BaseExperiment(ABC):
             use_fullscr (bool): Use fullscreen mode
             screen_num (int): Screen number (if multiple monitors present)
             stereoscopic (bool): Use stereoscopic rendering for VR
+            vr_runtime (str): OpenXR runtime for VR, a manifest path or a name such as
+                'oculus' or 'steamvr'; None uses the system's active runtime
         """
 
         self.exp_name = exp_name
@@ -62,7 +65,7 @@ class BaseExperiment(ABC):
         self.stereoscopic = stereoscopic
         if use_vr:
             # VR interface accessible by specific experiment classes for customizing and using controllers.
-            self.vr: VR = VR(monoscopic=not stereoscopic, headLocked=True)
+            self.vr: VR = VR(monoscopic=not stereoscopic, headLocked=True, runtime=vr_runtime)
 
         # Shift the display so it aligns perfectly with the center of each eye.
         if use_vr and stereoscopic:
@@ -261,8 +264,6 @@ class BaseExperiment(ABC):
         then draw all stimulus and flip the window/buffer
          """
         if self.use_vr:
-            tracking_state = self.window.getTrackingState()
-            self.window.calcEyePoses(tracking_state.headPose.thePose)
             self.window.setDefaultView()
         present_stimulus()
 
