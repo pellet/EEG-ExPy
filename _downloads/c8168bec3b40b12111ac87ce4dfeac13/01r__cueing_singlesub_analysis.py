@@ -26,7 +26,7 @@ from mne import Epochs,find_events#, concatenate_raws
 from mne.time_frequency import tfr_morlet
 
 # EEG-Notebooks functions
-from eegnb.analysis.analysis_utils import load_data,plot_conditions
+from eegnb.analysis.utils import load_data,plot_conditions
 from eegnb.datasets import fetch_dataset
 
 # sphinx_gallery_thumbnail_number = 1  
@@ -236,7 +236,7 @@ ax.add_patch(rect)
 
 events = find_events(raw)
 event_id = {'InvalidTarget_Left': 11, 'InvalidTarget_Right': 12,
-           'ValidTarget_Left': 21,'ValidTarget_Right': 11}
+           'ValidTarget_Left': 21,'ValidTarget_Right': 22}
 
 epochs = Epochs(raw, events=events, event_id=event_id, 
                 tmin=-.2, tmax=1, baseline=(-.2, 0), 
