@@ -47,10 +47,8 @@ class BaseExperiment(ABC):
             stereoscopic (bool): Use stereoscopic rendering for VR
             vr_runtime (str): OpenXR runtime for VR, a manifest path or a name such as
                 'oculus' or 'steamvr'; None uses the system's active runtime
-            passthrough_instructions (bool): In VR, show the room through the
-                headset cameras behind instruction screens, with only the text
-                drawn. The eye then adapts to the room rather than to the
-                stimulus background between blocks.
+            passthrough_instructions (bool): In VR, show room passthrough behind
+                instruction text instead of the stimulus background
         """
 
         self.exp_name = exp_name
