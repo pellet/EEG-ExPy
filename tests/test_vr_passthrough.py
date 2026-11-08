@@ -86,6 +86,7 @@ def _bare(fake, extensions=(PASSTHROUGH_EXT,)):
     win._passthrough_composition = None
     win._passthrough_on = False
     win._closed = True
+    win._monoscopic = False
     return win
 
 

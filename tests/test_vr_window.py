@@ -2,6 +2,7 @@
 counting, clock sync, and telemetry rows that match their header."""
 
 import csv
+import ctypes
 import enum
 import math
 import time
@@ -66,6 +67,7 @@ def _bare(views=None):
     win.frameIntervals = []
     win._closed = True
     win._input_enabled = False
+    win._monoscopic = False
 
     class _XR:
         SessionState = _SessionState
@@ -107,6 +109,159 @@ def test_log_display_info_reports_ipd_from_the_view_poses():
     assert ppd == 12
     assert ipd_mm == pytest.approx(63.2)
     assert win.timing_data[0][0] == '# ipd_mm'
+
+
+class _LayerView:
+    def __init__(self):
+        self.pose = self.fov = None
+        self.sub_image = SimpleNamespace(
+            swapchain=None, image_rect=SimpleNamespace(offset=[0, 0], extent=[0, 0]))
+
+
+def _located(monoscopic):
+    win = _bare(QUEST2_VIEWS)
+    win._monoscopic = monoscopic
+    win.session = win.space = win._view_config = None
+    win._swapchains = ['left', 'right']
+    win._xr.ViewLocateInfo = lambda **kw: kw
+    win._xr.locate_views = lambda session, view_locate_info: (None, QUEST2_VIEWS)
+    win._xr.CompositionLayerProjectionView = _LayerView
+    win._xr.CompositionLayerProjection = lambda space: SimpleNamespace(space=space, views=None)
+    win._locate_views(0)
+    return win
+
+
+def _fovs(views):
+    return [(v.fov.angle_left, v.fov.angle_right, v.fov.angle_up, v.fov.angle_down)
+            for v in views]
+
+
+@pytest.mark.parametrize("monoscopic", [True, False])
+def test_layers_carry_each_eyes_own_fov(monoscopic):
+    assert _fovs(_located(monoscopic)._layer.views) == _fovs(QUEST2_VIEWS)
+
+
+def test_monoscopic_draws_in_one_symmetric_fov_covering_both_eyes():
+    win = _located(monoscopic=True)
+    fovs = win.eye_fov
+    assert fovs[0] == fovs[1]
+    left, right, up, down = fovs[0]
+    assert left == pytest.approx(-right) and up == pytest.approx(-down)
+    for view in QUEST2_VIEWS:
+        assert left <= view.fov.angle_left + 1e-9 and right >= view.fov.angle_right - 1e-9
+        assert up >= view.fov.angle_up - 1e-9 and down <= view.fov.angle_down + 1e-9
+    ppd_h, ppd_v = win.pixels_per_degree()
+    assert ppd_h == pytest.approx(ppd_v)
+    assert win.compute_optical_axis_offsets() == pytest.approx((0.0, 0.0))
+
+
+def test_monoscopic_remap_shows_each_drawn_direction_in_the_same_direction_to_both_eyes():
+    win = _located(monoscopic=True)
+    w, h = win._eye_size
+    left, right, up, down = (math.tan(a) for a in win.eye_fov[0])
+    pixel = (right - left) / w
+    for x, y in [(w / 2, h / 2), (0.3 * w, 0.7 * h), (0.6 * w, 0.2 * h)]:
+        drawn = (left + x / w * (right - left), down + y / h * (up - down))
+        for view in QUEST2_VIEWS:
+            x0, y0, x1, y1 = win._mono_source_rect(view)
+            eye_x, eye_y = (x - x0) / (x1 - x0), (y - y0) / (y1 - y0)
+            fov = view.fov
+            shown = (math.tan(fov.angle_left) + eye_x * (math.tan(fov.angle_right)
+                                                         - math.tan(fov.angle_left)),
+                     math.tan(fov.angle_down) + eye_y * (math.tan(fov.angle_up)
+                                                         - math.tan(fov.angle_down)))
+            assert shown == pytest.approx(drawn, abs=pixel)
+
+
+class _GL:
+    GL_FRAMEBUFFER, GL_READ_FRAMEBUFFER, GL_DRAW_FRAMEBUFFER = 1, 2, 3
+    GL_COLOR_ATTACHMENT0 = GL_TEXTURE_2D = GL_SCISSOR_TEST = GL_COLOR_BUFFER_BIT = GL_LINEAR = 0
+
+    def __init__(self):
+        self.attached = {}
+        self.blits = []
+
+    def glBindFramebuffer(self, target, fbo):
+        pass
+
+    def glFramebufferTexture2D(self, target, attachment, textarget, texture, level):
+        self.attached[target] = texture
+
+    def glDisable(self, cap):
+        pass
+
+    def glBlitFramebuffer(self, *args):
+        self.blits.append((self.attached[self.GL_READ_FRAMEBUFFER],
+                           self.attached[self.GL_FRAMEBUFFER], args[:4]))
+
+
+class _Layer(ctypes.Structure):
+    _fields_ = [('layer_flags', ctypes.c_uint64)]
+
+
+def test_monoscopic_submit_copies_the_drawn_image_into_each_eye(monkeypatch):
+    gl = _GL()
+    monkeypatch.setattr("eegnb.devices.vr.GL", gl)
+    win = _located(monoscopic=True)
+    win._mono_texture = 'drawn'
+    win._swapchain_images = [[SimpleNamespace(image='left eye')],
+                             [SimpleNamespace(image='right eye')]]
+    win._acquired = {}
+    win._draw_fbo = win._copy_fbo = None
+    win._passthrough_on = False
+    win._layer = _Layer(0)
+    win._mirror_swap_counter = 0
+    win.mirror_swap_every = 0
+    win._frame_step_ns = None
+    win._frame_state = SimpleNamespace(should_render=True, predicted_display_time=1,
+                                       predicted_display_period=8333333)
+    win._xr_time_to_s = lambda t: 0.0
+    win._xr.SwapchainImageAcquireInfo = win._xr.SwapchainImageReleaseInfo = lambda: None
+    win._xr.SwapchainImageWaitInfo = lambda timeout: None
+    win._xr.INFINITE_DURATION = 0
+    win._xr.acquire_swapchain_image = lambda swapchain, acquire_info: 0
+    win._xr.wait_swapchain_image = lambda swapchain, wait_info: None
+    win._xr.release_swapchain_image = lambda swapchain, release_info: None
+    win._xr.EnvironmentBlendMode = SimpleNamespace(OPAQUE=1)
+    win._xr.FrameEndInfo = lambda **kw: kw
+    win._xr.end_frame = lambda session, frame_end_info: None
+    win._submit_frame()
+    assert gl.blits == [('drawn', 'left eye', win._mono_source_rect(QUEST2_VIEWS[0])),
+                        ('drawn', 'right eye', win._mono_source_rect(QUEST2_VIEWS[1]))]
+
+
+def _teardown_log(monkeypatch, win):
+    log = []
+    monkeypatch.setattr("eegnb.devices.vr.GL", SimpleNamespace(
+        glDeleteTextures=lambda n, names: log.append(('texture', n, list(names))),
+        glDeleteFramebuffers=lambda n, names: log.append(('framebuffer', n, list(names)))))
+    for kind in ('swapchain', 'passthrough_layer_fb', 'passthrough_fb', 'action_set',
+                 'space', 'session', 'instance'):
+        setattr(win._xr, f'destroy_{kind}',
+                lambda handle, kind=kind: log.append((kind, handle)))
+    return log
+
+
+def test_teardown_frees_the_mono_texture_and_both_framebuffers_before_the_session(monkeypatch):
+    win = _bare(QUEST2_VIEWS)
+    log = _teardown_log(monkeypatch, win)
+    win.winHandle = SimpleNamespace(switch_to=lambda: log.append(('switch_to',)))
+    win._mono_texture, win._draw_fbo, win._copy_fbo = 7, 3, 4
+    win._swapchains = ['left', 'right']
+    win.session, win.instance = 'session', 'instance'
+    win._destroy_xr()
+    assert log == [('switch_to',), ('texture', 1, [7]), ('framebuffer', 1, [3]),
+                   ('framebuffer', 1, [4]), ('swapchain', 'left'), ('swapchain', 'right'),
+                   ('session', 'session'), ('instance', 'instance')]
+    assert (win._mono_texture, win._draw_fbo, win._copy_fbo) == (None, None, None)
+
+
+def test_teardown_after_construction_failed_before_the_window_skips_the_gl_objects(monkeypatch):
+    win = _bare(QUEST2_VIEWS)
+    log = _teardown_log(monkeypatch, win)
+    win.instance = 'instance'
+    win._destroy_xr()
+    assert log == [('instance', 'instance')]
 
 
 def test_geometry_without_views_degrades_rather_than_raising():

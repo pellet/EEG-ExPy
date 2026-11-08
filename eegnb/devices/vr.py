@@ -290,6 +290,14 @@ class VR(visual.Window):
                 self._swapchains.append(handle)
                 self._swapchain_images.append(xr.enumerate_swapchain_images(
                     swapchain=handle, element_type=xr.SwapchainImageOpenGLKHR))
+            self._mono_texture = None
+            if monoscopic:
+                self._mono_texture = GL.glGenTextures(1)
+                GL.glBindTexture(GL.GL_TEXTURE_2D, self._mono_texture)
+                GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR)
+                GL.glTexImage2D(GL.GL_TEXTURE_2D, 0, self.swapchain_format, w, h, 0,
+                                GL.GL_RGBA, GL.GL_UNSIGNED_BYTE, None)
+                GL.glBindTexture(GL.GL_TEXTURE_2D, 0)
 
             self._passthrough = None
             self._passthrough_layer = None
@@ -487,7 +495,7 @@ class VR(visual.Window):
         return texture
 
     def _bind_view(self, index, clear):
-        texture = self._acquire_view(index)
+        texture = self._mono_texture if self._monoscopic else self._acquire_view(index)
         self._attach_draw_target(texture)
         self._bound = index
         w, h = self._eye_size
@@ -504,14 +512,24 @@ class VR(visual.Window):
             GL.glClear(GL.GL_COLOR_BUFFER_BIT)
         GL.glDisable(GL.GL_TEXTURE_2D)
 
-    def _blit(self, src_texture, dst_fbo, dst_size):
+    def _mono_source_rect(self, view):
         w, h = self._eye_size
+        left, right, up, down = (math.tan(a) for a in self.eye_fov[0])
+        fov = view.fov
+        return (round((math.tan(fov.angle_left) - left) / (right - left) * w),
+                round((math.tan(fov.angle_down) - down) / (up - down) * h),
+                round((math.tan(fov.angle_right) - left) / (right - left) * w),
+                round((math.tan(fov.angle_up) - down) / (up - down) * h))
+
+    def _blit(self, src_texture, dst_fbo, dst_size, src_rect=None):
+        w, h = self._eye_size
+        x0, y0, x1, y1 = src_rect or (0, 0, w, h)
         GL.glBindFramebuffer(GL.GL_READ_FRAMEBUFFER, self._copy_fbo)
         GL.glFramebufferTexture2D(GL.GL_READ_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT0,
                                   GL.GL_TEXTURE_2D, src_texture, 0)
         GL.glBindFramebuffer(GL.GL_DRAW_FRAMEBUFFER, dst_fbo)
         GL.glDisable(GL.GL_SCISSOR_TEST)
-        GL.glBlitFramebuffer(0, 0, w, h, 0, 0, dst_size[0], dst_size[1],
+        GL.glBlitFramebuffer(x0, y0, x1, y1, 0, 0, dst_size[0], dst_size[1],
                              GL.GL_COLOR_BUFFER_BIT, GL.GL_LINEAR)
 
     def _submit_frame(self):
@@ -521,7 +539,12 @@ class VR(visual.Window):
             return
         layers = []
         if fs.should_render and self._views is not None:
-            if self._monoscopic or 1 not in self._acquired:
+            if self._monoscopic:
+                for index, view in enumerate(self._views):
+                    self._attach_draw_target(self._acquire_view(index))
+                    self._blit(self._mono_texture, self._draw_fbo, self._eye_size,
+                               self._mono_source_rect(view))
+            elif 1 not in self._acquired:
                 source = self._acquire_view(0)
                 target = self._acquire_view(1)
                 self._attach_draw_target(target)
@@ -780,6 +803,22 @@ class VR(visual.Window):
 
     def _destroy_xr(self):
         xr = self._xr
+        win_handle = getattr(self, 'winHandle', None)
+        if win_handle is not None:
+            try:
+                win_handle.switch_to()
+            except Exception:
+                pass
+        for attr, delete in (('_mono_texture', GL.glDeleteTextures),
+                             ('_draw_fbo', GL.glDeleteFramebuffers),
+                             ('_copy_fbo', GL.glDeleteFramebuffers)):
+            name = getattr(self, attr, None)
+            if name is not None:
+                try:
+                    delete(1, [name])
+                except Exception:
+                    pass
+                setattr(self, attr, None)
         for handle in getattr(self, '_swapchains', None) or []:
             try:
                 xr.destroy_swapchain(handle)
@@ -875,8 +914,16 @@ class VR(visual.Window):
         """Per-view field of view ``(left, right, up, down)`` in radians."""
         if not self._views:
             return None
-        return [(v.fov.angle_left, v.fov.angle_right, v.fov.angle_up, v.fov.angle_down)
+        fovs = [(v.fov.angle_left, v.fov.angle_right, v.fov.angle_up, v.fov.angle_down)
                 for v in self._views]
+        if not self._monoscopic:
+            return fovs
+        w, h = self._eye_size
+        tan_h = max(max(-math.tan(left), math.tan(right)) for left, right, _, _ in fovs)
+        tan_v = max(max(math.tan(up), -math.tan(down)) for _, _, up, down in fovs)
+        tan_h = max(tan_h, tan_v * w / h)
+        half_h, half_v = math.atan(tan_h), math.atan(tan_h * h / w)
+        return [(-half_h, half_h, half_v, -half_v)] * len(fovs)
 
     def compute_optical_axis_offsets(self):
         """Normalized-device x offset of each eye's optical axis.
