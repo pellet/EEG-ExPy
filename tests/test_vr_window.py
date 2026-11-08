@@ -292,5 +292,12 @@ def test_save_telemetry_writes_a_header_matching_every_row(tmp_path):
     assert sample["marker"] == "2"
 
 
+def test_save_telemetry_accepts_a_string_path(tmp_path):
+    win = _bare(QUEST2_VIEWS)
+    win.runtime_to_wallclock_offset = None
+    win.save_telemetry(str(tmp_path / "recording.csv"))
+    assert (tmp_path / "recording_timing.csv").is_file()
+
+
 def test_save_telemetry_without_a_path_writes_nothing():
     assert _bare(QUEST2_VIEWS).save_telemetry(None) is None

@@ -27,6 +27,7 @@ import os
 import re
 import sys
 import time
+from pathlib import Path
 from time import time as wall_time
 
 import numpy as np
@@ -229,98 +230,108 @@ class VR(visual.Window):
                 application_name=app_name, application_version=1,
                 engine_name='psychopy', engine_version=1),
             enabled_extension_names=sorted(self._extensions)))
-        self.system_id = xr.get_system(
-            instance=self.instance,
-            get_info=xr.SystemGetInfo(form_factor=xr.FormFactor.HEAD_MOUNTED_DISPLAY))
-        props = xr.get_instance_properties(self.instance)
-        self.runtime_name = f"{props.runtime_name.decode()} {xr.Version(props.runtime_version)}"
-        self.system_name = xr.get_system_properties(
-            self.instance, self.system_id).system_name.decode()
-        self._view_config = xr.ViewConfigurationType.PRIMARY_STEREO
-        config_views = xr.enumerate_view_configuration_views(
-            instance=self.instance, system_id=self.system_id,
-            view_configuration_type=self._view_config)
-        recommended = (config_views[0].recommended_image_rect_width,
-                       config_views[0].recommended_image_rect_height)
-        self.recommended_eye_size = recommended
-        size = tuple(int(v) for v in (size or recommended))
+        try:
+            self.system_id = xr.get_system(
+                instance=self.instance,
+                get_info=xr.SystemGetInfo(form_factor=xr.FormFactor.HEAD_MOUNTED_DISPLAY))
+            props = xr.get_instance_properties(self.instance)
+            self.runtime_name = f"{props.runtime_name.decode()} {xr.Version(props.runtime_version)}"
+            self.system_name = xr.get_system_properties(
+                self.instance, self.system_id).system_name.decode()
+            self._view_config = xr.ViewConfigurationType.PRIMARY_STEREO
+            config_views = xr.enumerate_view_configuration_views(
+                instance=self.instance, system_id=self.system_id,
+                view_configuration_type=self._view_config)
+            recommended = (config_views[0].recommended_image_rect_width,
+                           config_views[0].recommended_image_rect_height)
+            self.recommended_eye_size = recommended
+            size = tuple(int(v) for v in (size or recommended))
 
-        kwargs.setdefault('monitor', _placeholder_monitor())
-        kwargs.setdefault('units', 'norm')
-        kwargs.setdefault('color', [0, 0, 0])
-        kwargs.setdefault('checkTiming', False)
-        kwargs.setdefault('autoLog', False)
-        super().__init__(size=size, fullscr=False, winType='pyglet', useFBO=False,
-                         waitBlanking=False, allowGUI=True, **kwargs)
-        self.winHandle.switch_to()
-        self.winHandle.set_vsync(False)
-        self.winHandle.activate()
-        self._eye_size = tuple(int(v) for v in self.clientSize)
+            kwargs.setdefault('monitor', _placeholder_monitor())
+            kwargs.setdefault('units', 'norm')
+            kwargs.setdefault('color', [0, 0, 0])
+            kwargs.setdefault('checkTiming', False)
+            kwargs.setdefault('autoLog', False)
+            super().__init__(size=size, fullscr=False, winType='pyglet', useFBO=False,
+                             waitBlanking=False, allowGUI=True, **kwargs)
+            self.winHandle.switch_to()
+            self.winHandle.set_vsync(False)
+            self.winHandle.activate()
+            self._eye_size = tuple(int(v) for v in self.clientSize)
 
-        from xr.utils.gl import OpenGLGraphics
-        self._context = _PygletContext(self)
-        self._graphics = OpenGLGraphics(self.instance, self.system_id, self._context)
-        self.session = xr.create_session(
-            instance=self.instance,
-            create_info=xr.SessionCreateInfo(
-                system_id=self.system_id,
-                next=self._graphics.graphics_binding.pointer))
-        self.space = xr.create_reference_space(
-            session=self.session,
-            create_info=xr.ReferenceSpaceCreateInfo(
-                reference_space_type=xr.ReferenceSpaceType.VIEW))
-        self._draw_fbo = GL.glGenFramebuffers(1)
-        self._copy_fbo = GL.glGenFramebuffers(1)
+            from xr.utils.gl import OpenGLGraphics
+            self._context = _PygletContext(self)
+            self._graphics = OpenGLGraphics(self.instance, self.system_id, self._context)
+            self.session = xr.create_session(
+                instance=self.instance,
+                create_info=xr.SessionCreateInfo(
+                    system_id=self.system_id,
+                    next=self._graphics.graphics_binding.pointer))
+            self.space = xr.create_reference_space(
+                session=self.session,
+                create_info=xr.ReferenceSpaceCreateInfo(
+                    reference_space_type=xr.ReferenceSpaceType.VIEW))
+            self._draw_fbo = GL.glGenFramebuffers(1)
+            self._copy_fbo = GL.glGenFramebuffers(1)
 
-        formats = list(xr.enumerate_swapchain_formats(self.session))
-        preferred = [GL.GL_SRGB8_ALPHA8, GL.GL_RGBA8, GL.GL_RGB10_A2, GL.GL_RGBA16F]
-        self.swapchain_format = next((f for f in preferred if f in formats), formats[0])
-        self._swapchains = []
-        self._swapchain_images = []
-        w, h = self._eye_size
-        for _ in config_views:
-            info = xr.SwapchainCreateInfo(
-                array_size=1, format=self.swapchain_format, width=w, height=h,
-                mip_count=1, face_count=1, sample_count=1,
-                usage_flags=(xr.SwapchainUsageFlags.SAMPLED_BIT
-                             | xr.SwapchainUsageFlags.COLOR_ATTACHMENT_BIT))
-            handle = xr.create_swapchain(session=self.session, create_info=info)
-            self._swapchains.append(handle)
-            self._swapchain_images.append(xr.enumerate_swapchain_images(
-                swapchain=handle, element_type=xr.SwapchainImageOpenGLKHR))
+            formats = list(xr.enumerate_swapchain_formats(self.session))
+            preferred = [GL.GL_SRGB8_ALPHA8, GL.GL_RGBA8, GL.GL_RGB10_A2, GL.GL_RGBA16F]
+            self.swapchain_format = next((f for f in preferred if f in formats), formats[0])
+            self._swapchains = []
+            self._swapchain_images = []
+            w, h = self._eye_size
+            for _ in config_views:
+                info = xr.SwapchainCreateInfo(
+                    array_size=1, format=self.swapchain_format, width=w, height=h,
+                    mip_count=1, face_count=1, sample_count=1,
+                    usage_flags=(xr.SwapchainUsageFlags.SAMPLED_BIT
+                                 | xr.SwapchainUsageFlags.COLOR_ATTACHMENT_BIT))
+                handle = xr.create_swapchain(session=self.session, create_info=info)
+                self._swapchains.append(handle)
+                self._swapchain_images.append(xr.enumerate_swapchain_images(
+                    swapchain=handle, element_type=xr.SwapchainImageOpenGLKHR))
 
-        self._passthrough = None
-        self._passthrough_layer = None
-        self._passthrough_composition = None
-        self._passthrough_on = False
-        self._refresh_rate_hz = None
-        if xr.FB_DISPLAY_REFRESH_RATE_EXTENSION_NAME in self._extensions:
-            try:
-                rate = xr.get_display_refresh_rate_fb(self.session)
-                self._refresh_rate_hz = float(getattr(rate, 'value', rate))
-            except Exception as e:
-                logging.warning("[openxr] display refresh rate unavailable: %s", e)
-        self._qpc_freq = None
-        if sys.platform == 'win32':
-            freq = ctypes.c_longlong()
-            ctypes.windll.kernel32.QueryPerformanceFrequency(ctypes.byref(freq))
-            self._qpc_freq = float(freq.value)
+            self._passthrough = None
+            self._passthrough_layer = None
+            self._passthrough_composition = None
+            self._passthrough_on = False
+            self._refresh_rate_hz = None
+            if xr.FB_DISPLAY_REFRESH_RATE_EXTENSION_NAME in self._extensions:
+                try:
+                    rate = xr.get_display_refresh_rate_fb(self.session)
+                    self._refresh_rate_hz = float(getattr(rate, 'value', rate))
+                except Exception as e:
+                    logging.warning("[openxr] display refresh rate unavailable: %s", e)
+            self._qpc_freq = None
+            if sys.platform == 'win32' and (
+                    xr.KHR_WIN32_CONVERT_PERFORMANCE_COUNTER_TIME_EXTENSION_NAME in self._extensions):
+                freq = ctypes.c_longlong()
+                ctypes.windll.kernel32.QueryPerformanceFrequency(ctypes.byref(freq))
+                self._qpc_freq = float(freq.value)
 
-        self._action_set = xr.create_action_set(
-            instance=self.instance,
-            create_info=xr.ActionSetCreateInfo(
-                action_set_name='eegnb', localized_action_set_name='eegnb', priority=0))
-        self._setup_input()
-        xr.attach_session_action_sets(
-            session=self.session,
-            attach_info=xr.SessionActionSetsAttachInfo(
-                count_action_sets=1, action_sets=(xr.ActionSet * 1)(self._action_set)))
-        self._wait_until_running()
-        self._xr_ready = True
-        self._begin_frame()
-        logging.info("[openxr] %s on %s, %dx%d per eye, %s Hz, format 0x%x",
-                     self.runtime_name, self.system_name, w, h,
-                     self._refresh_rate_hz, self.swapchain_format)
+            self._action_set = xr.create_action_set(
+                instance=self.instance,
+                create_info=xr.ActionSetCreateInfo(
+                    action_set_name='eegnb', localized_action_set_name='eegnb', priority=0))
+            self._setup_input()
+            xr.attach_session_action_sets(
+                session=self.session,
+                attach_info=xr.SessionActionSetsAttachInfo(
+                    count_action_sets=1, action_sets=(xr.ActionSet * 1)(self._action_set)))
+            self._wait_until_running()
+            self._xr_ready = True
+            self._begin_frame()
+            logging.info("[openxr] %s on %s, %dx%d per eye, %s Hz, format 0x%x",
+                         self.runtime_name, self.system_name, w, h,
+                         self._refresh_rate_hz, self.swapchain_format)
+        except BaseException:
+            self._destroy_xr()
+            if getattr(self, 'winHandle', None) is not None:
+                try:
+                    super().close()
+                except Exception:
+                    pass
+            raise
 
     def _poll_events(self):
         xr = self._xr
@@ -759,12 +770,16 @@ class VR(visual.Window):
         return now
 
     def close(self):
-        xr = self._xr
         try:
             if self._frame_state is not None:
                 self._submit_frame()
         except Exception:
             pass
+        self._destroy_xr()
+        super().close()
+
+    def _destroy_xr(self):
+        xr = self._xr
         for handle in getattr(self, '_swapchains', None) or []:
             try:
                 xr.destroy_swapchain(handle)
@@ -784,7 +799,6 @@ class VR(visual.Window):
                 except Exception:
                     pass
                 setattr(self, attr, None)
-        super().close()
 
     @property
     def passthrough_available(self):
@@ -1027,6 +1041,7 @@ class VR(visual.Window):
     def save_telemetry(self, save_fn):
         if save_fn is None:
             return
+        save_fn = Path(save_fn)
         timing_path = save_fn.with_name(save_fn.stem + '_timing.csv')
         with open(timing_path, 'w', newline='') as f:
             writer = csv.writer(f)

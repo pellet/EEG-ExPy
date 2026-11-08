@@ -5,6 +5,7 @@ import gc
 import json
 import os
 import sys
+from types import SimpleNamespace
 
 import pytest
 
@@ -101,6 +102,101 @@ def test_failed_construction_does_not_raise_again_on_collection(installed, monke
         VR(runtime='pimax')
     gc.collect()
     assert raised == []
+
+
+class _NoHeadset(Exception):
+    pass
+
+
+def _xr_without_a_headset(destroyed):
+    def get_system(instance, get_info):
+        raise _NoHeadset
+
+    def build(**kw):
+        return kw
+
+    def destroy(handle):
+        destroyed.append(handle)
+
+    return SimpleNamespace(
+        SessionState=SimpleNamespace(IDLE=0),
+        KHR_OPENGL_ENABLE_EXTENSION_NAME='XR_KHR_opengl_enable',
+        FB_DISPLAY_REFRESH_RATE_EXTENSION_NAME='XR_FB_display_refresh_rate',
+        FB_PASSTHROUGH_EXTENSION_NAME='XR_FB_passthrough',
+        KHR_WIN32_CONVERT_PERFORMANCE_COUNTER_TIME_EXTENSION_NAME=(
+            'XR_KHR_win32_convert_performance_counter_time'),
+        KHR_CONVERT_TIMESPEC_TIME_EXTENSION_NAME='XR_KHR_convert_timespec_time',
+        enumerate_instance_extension_properties=lambda: [
+            SimpleNamespace(extension_name=b'XR_KHR_opengl_enable')],
+        ApplicationInfo=build, InstanceCreateInfo=build, SystemGetInfo=build,
+        FormFactor=SimpleNamespace(HEAD_MOUNTED_DISPLAY=1),
+        create_instance=lambda create_info: 'instance',
+        get_system=get_system,
+        destroy_swapchain=destroy, destroy_passthrough_layer_fb=destroy,
+        destroy_passthrough_fb=destroy, destroy_action_set=destroy,
+        destroy_space=destroy, destroy_session=destroy, destroy_instance=destroy)
+
+
+class _SessionFailed(Exception):
+    pass
+
+
+def _xr_failing_after_the_window(log):
+    xr = _xr_without_a_headset(log)
+
+    def create_session(instance, create_info):
+        raise _SessionFailed
+
+    xr.get_system = lambda instance, get_info: 'system'
+    xr.get_instance_properties = lambda instance: SimpleNamespace(
+        runtime_name=b'test', runtime_version=1)
+    xr.Version = str
+    xr.get_system_properties = lambda instance, system_id: SimpleNamespace(system_name=b'hmd')
+    xr.ViewConfigurationType = SimpleNamespace(PRIMARY_STEREO=2)
+    xr.enumerate_view_configuration_views = lambda **kw: [
+        SimpleNamespace(recommended_image_rect_width=64, recommended_image_rect_height=48)] * 2
+    xr.SessionCreateInfo = lambda **kw: kw
+    xr.create_session = create_session
+    return xr
+
+
+@pytest.fixture
+def desktop_window(monkeypatch):
+    log = []
+
+    def opened(self, size, **kwargs):
+        self._closed = False
+        self.clientSize = size
+        self.winHandle = SimpleNamespace(switch_to=lambda: None, set_vsync=lambda on: None,
+                                         activate=lambda: None)
+        log.append('window opened')
+
+    def closed(self):
+        self._closed = True
+        log.append('window closed')
+
+    monkeypatch.delenv('XR_RUNTIME_JSON', raising=False)
+    monkeypatch.setattr(vr.visual.Window, '__init__', opened)
+    monkeypatch.setattr(vr.visual.Window, 'close', closed)
+    monkeypatch.setitem(sys.modules, 'xr.utils.gl', SimpleNamespace(
+        OpenGLGraphics=lambda instance, system_id, context: SimpleNamespace(
+            graphics_binding=SimpleNamespace(pointer=None))))
+    return log
+
+
+def test_instance_is_destroyed_when_the_headset_is_unavailable(monkeypatch, desktop_window):
+    monkeypatch.setitem(sys.modules, 'xr', _xr_without_a_headset(desktop_window))
+    with pytest.raises(_NoHeadset):
+        VR()
+    assert desktop_window == ['instance']
+
+
+def test_failure_after_the_window_opened_closes_it_after_the_openxr_handles(
+        monkeypatch, desktop_window):
+    monkeypatch.setitem(sys.modules, 'xr', _xr_failing_after_the_window(desktop_window))
+    with pytest.raises(_SessionFailed):
+        VR()
+    assert desktop_window == ['window opened', 'instance', 'window closed']
 
 
 def test_windows_reads_the_khronos_available_runtimes_key(tmp_path, monkeypatch):
