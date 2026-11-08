@@ -203,13 +203,11 @@ class BaseExperiment(ABC):
             self._instruction_screen(False)
 
     def _instruction_screen(self, active):
-        """Enter or leave an instruction screen.
+        """Enter or leave an instruction screen (VR only).
 
-        In VR the headset may be taken off and put back on while it shows (the
-        session pauses and resumes instead of ending the run), and with
-        ``passthrough_instructions`` the room shows behind the text. Passthrough
-        stays on after the screen, through any loading before the next block,
-        until the trial loop starts. Returns whether passthrough is on.
+        Headset off while it shows pauses the session instead of ending the
+        run. Passthrough, if enabled, stays on until the trial loop starts.
+        Returns whether passthrough is on.
         """
         if not self.use_vr:
             return False
