@@ -38,8 +38,8 @@ class VisualP300(Experiment.BaseExperiment):
     def present_stimulus(self, idx: int):
 
         label = self.trials["parameter"].iloc[idx]
-        image = choice(self.targets if label == 1 else self.nontargets)
-        image.draw()
+        self._current_image = choice(self.targets if label == 1 else self.nontargets)
+        self._current_image.draw()
 
         # Push sample
         if self.eeg:
@@ -50,4 +50,8 @@ class VisualP300(Experiment.BaseExperiment):
                 marker = self.markernames[label]
             self.eeg.push_sample(marker=marker, timestamp=timestamp)
 
+        self.window.flip()
+
+    def present_soa(self, idx: int):
+        self._current_image.draw()
         self.window.flip()

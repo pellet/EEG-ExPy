@@ -177,6 +177,17 @@ class VisualPatternReversalVEP(BlockExperiment):
         self.window.flip()
 
     def present_stimulus(self, idx: int):
+        self.draw_frame(idx)
+
+        # Pushing the sample to the EEG
+        trial_idx = self.current_block_index * self.block_trial_size + idx
+        marker = self.markernames[self.parameter[trial_idx]]
+        self.eeg.push_sample(marker=marker, timestamp=time())
+
+    def present_soa(self, idx: int):
+        self.draw_frame(idx)
+
+    def draw_frame(self, idx: int):
         # Get the label of the trial
         trial_idx = self.current_block_index * self.block_trial_size + idx
         label = self.parameter[trial_idx]
@@ -201,10 +212,6 @@ class VisualPatternReversalVEP(BlockExperiment):
             self.window.setBuffer(closed_eye)
             self.black_background.draw()
         self.window.flip()
-
-        # Pushing the sample to the EEG
-        marker = self.markernames[label]
-        self.eeg.push_sample(marker=marker, timestamp=time())
 
     def present_iti(self):
         if self.use_vr:

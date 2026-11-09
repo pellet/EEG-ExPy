@@ -40,9 +40,9 @@ class VisualN170(Experiment.BaseExperiment):
         # Get the label of the trial
         label = self.trials["parameter"].iloc[idx]
         # Get the image to be presented
-        image = choice(self.faces if label == 1 else self.houses)
+        self._current_image = choice(self.faces if label == 1 else self.houses)
         # Draw the image
-        image.draw()
+        self._current_image.draw()
 
 
         # Pushing the sample to the EEG
@@ -62,6 +62,10 @@ class VisualN170(Experiment.BaseExperiment):
             self.send_triggers(marker)
 
 
+        self.window.flip()
+
+    def present_soa(self, idx: int):
+        self._current_image.draw()
         self.window.flip()
 
 
