@@ -7,10 +7,11 @@ monoscopic or per-eye stereoscopic.
 
 ``runtime=`` names the OpenXR runtime (a manifest path, or a name such as
 ``'oculus'``, ``'steamvr'`` or ``'virtualdesktop'``); ``None`` uses the
-system's active one. The runtime used, the virtual distance at which stimuli
-are placed (``stimulus_distance_m``) and each frame's predicted display time
-(``predicted_display_time_s``, on the ``time.perf_counter`` clock) are written
-to the ``_timing.csv`` sidecar.
+system's active one. Each frame's predicted display time
+(``predicted_display_time_s``, on the ``time.perf_counter`` clock) is written
+to the ``_timing.csv`` sidecar. The runtime used and the virtual distance at
+which stimuli are placed (``stimulus_distance_m``) are in
+``get_session_summary``, which the experiment writes to ``_session.json``.
 
 The Oculus runtime paces an OpenGL application at ~85 Hz unless the window is
 visible with its event queue pumped every frame and the desktop window is
@@ -40,6 +41,7 @@ from psychopy import monitors, visual
 from psychopy import logging as psy_logging
 
 SESSION_READY_TIMEOUT_S = 15.0
+EYE_SEPARATION_TOLERANCE_MM = 1.0
 EYE_INDEX = {'left': 0, 'right': 1}
 TRIGGER_DEADZONE = 0.2746
 HAND_PATHS = {'left': '/user/hand/left', 'right': '/user/hand/right',
@@ -207,6 +209,7 @@ class VR(visual.Window):
         self._frame_step_ns = None
         self._frame_state = None
         self._views = None
+        self._locked_eye_separation_mm = None
         self._layer = None
         self._layer_views = None
         self._acquired = {}
@@ -989,6 +992,22 @@ class VR(visual.Window):
             return None
         return abs(views[1].pose.position.x - views[0].pose.position.x) * 1000.0
 
+    def check_eye_separation(self):
+        """Record the eye separation on the first call, then raise ``RuntimeError`` if it moves more than 1 mm from that value.
+
+        Does nothing while the headset has not reported the eye positions.
+        """
+        current = self.eye_separation_mm()
+        if current is None:
+            return
+        locked = self._locked_eye_separation_mm
+        if locked is None:
+            self._locked_eye_separation_mm = current
+        elif abs(current - locked) > EYE_SEPARATION_TOLERANCE_MM:
+            raise RuntimeError(
+                f"Eye separation changed from {locked:.1f} mm to {current:.1f} mm during the run, "
+                "so the stimulus is no longer at the stated distance; restart the session.")
+
     def _nasal_tangent(self, view, centre, distance_m):
         return (centre - view.pose.position.x) / distance_m
 
@@ -1057,8 +1076,6 @@ class VR(visual.Window):
         logging.info("[openxr] IPD=%s mm  ppd=%d (h=%.1f v=%.1f)  eye_buf=%s",
                      f"{ipd_mm:.1f}" if ipd_mm is not None else "?",
                      ppd, ppd_h, ppd_v, self._eye_size)
-        self.timing_data.insert(0, ['# ipd_mm', ipd_mm, 'ppd', ppd,
-                                    f'ppd_h={ppd_h:.1f} ppd_v={ppd_v:.1f}'])
         return ppd, ipd_mm
 
     def sync_vr_clock(self):
@@ -1094,21 +1111,34 @@ class VR(visual.Window):
         }
 
     def get_session_summary(self):
-        summary = {
-            'app_dropped': int(self.app_dropped_max),
+        """Return this headset session's facts as a dict: runtime, headset, placement, clock offset and late frames.
+
+        The eye separation is the one the trials started with, or the current one before any trial.
+        """
+        separation_mm = self._locked_eye_separation_mm
+        if separation_mm is None:
+            separation_mm = self.eye_separation_mm()
+        ppd = self.pixels_per_degree()
+        bracket_s = self.runtime_to_wallclock_bracket
+        return {
+            'backend': 'openxr',
+            'runtime': self.runtime_name,
+            'system': self.system_name,
+            'stimulus_distance_m': self.stimulus_distance_m,
+            'eye_separation_mm': None if separation_mm is None else round(separation_mm, 2),
+            'pixels_per_degree': None if ppd[0] is None else [round(v, 1) for v in ppd],
+            'eye_size_px': list(self._eye_size),
+            'swapchain_format': int(self.swapchain_format),
+            'mirror_swap_every': int(self.mirror_swap_every),
+            'runtime_to_wallclock_offset_s': self.runtime_to_wallclock_offset,
+            'runtime_to_wallclock_bracket_ms': None if bracket_s is None else bracket_s * 1000,
             'missed_vsyncs': int(self._missed_vsyncs),
             'missed_vsync_events': int(self._missed_events),
             'longest_step_ms': round(self._longest_step_ms, 1),
             'repeated_predictions': int(self._zero_steps),
-            'mirror_swap_every': int(self.mirror_swap_every),
-            'runtime': self.runtime_name,
-            'system': self.system_name,
-            'eye_size_px': list(self._eye_size),
-            'swapchain_format': int(self.swapchain_format),
-            'stimulus_distance_m': self.stimulus_distance_m,
+            'app_dropped': int(self.app_dropped_max),
+            'session_status': self.get_session_status(),
         }
-        summary['session_status'] = self.get_session_status()
-        return summary
 
     def log_telemetry(self, trial_idx, software_time, marker=None):
         stat = {
@@ -1134,17 +1164,6 @@ class VR(visual.Window):
             writer = csv.writer(f)
             writer.writerow(['trial_idx', 'software_time', 'submitted_frame_index']
                             + list(self._DERIVED_TIMING_FIELDS))
-            writer.writerow(['# backend', 'openxr', 'runtime', self.runtime_name,
-                             'system', self.system_name,
-                             'stimulus_distance_m', self.stimulus_distance_m])
-            if self.runtime_to_wallclock_offset is not None:
-                writer.writerow(['# runtime_to_wallclock_offset_s',
-                                 self.runtime_to_wallclock_offset,
-                                 'bracket_ms', self.runtime_to_wallclock_bracket * 1000])
-            writer.writerow(['# missed_vsyncs', self._missed_vsyncs,
-                             'missed_vsync_events', self._missed_events,
-                             'longest_step_ms', round(self._longest_step_ms, 1),
-                             'repeated_predictions', self._zero_steps])
             writer.writerows(self.timing_data)
         print(f"  Saved VR timing telemetry to {timing_path}")
         print(f"  [openxr] {self._missed_events} late frames lost {self._missed_vsyncs} "

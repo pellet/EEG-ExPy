@@ -124,6 +124,7 @@ class BlockExperiment(BaseExperiment, ABC):
             self.eeg.start(self.save_fn)
             print("EEG Stream started")
         
+        completed, exception = False, None
         try:
             # Run each block
             for block_index in range(self.n_blocks):
@@ -137,13 +138,10 @@ class BlockExperiment(BaseExperiment, ABC):
                 # Run this block
                 if not self._run_trial_loop(start_time=time(), duration=self.block_duration):
                     break
+            else:
+                completed = True
+        except BaseException as exc:
+            exception = exc
+            raise
         finally:
-            # Stop EEG Stream after all blocks
-            if self.eeg:
-                self.eeg.stop()
-
-            if self.use_vr:
-                self.vr.save_telemetry(self.save_fn)
-
-            # Close window at the end of all blocks
-            self.window.close()
+            self._end_run(completed, exception)

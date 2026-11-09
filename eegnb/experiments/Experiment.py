@@ -9,6 +9,7 @@ obj.run()
 """
 
 from abc import abstractmethod, ABC
+from pathlib import Path
 from typing import Callable
 from eegnb.devices.eeg import EEG
 from eegnb.devices.vr import VR, require_distance_m
@@ -16,6 +17,8 @@ from psychopy import prefs, visual, event
 from time import time
 
 from eegnb.experiments.realtime import high_priority_section
+import logging
+import math
 import random
 import json
 
@@ -23,6 +26,33 @@ import numpy as np
 from pandas import DataFrame
 
 from eegnb import generate_save_fn
+
+USER_ABORT_REASON = "Aborted by user"
+
+
+def _json_ready(value):
+    """Return ``value`` with numpy values and paths as plain JSON types, and NaN or infinity as None."""
+    if isinstance(value, dict):
+        return {str(key): _json_ready(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple, np.ndarray)):
+        return [_json_ready(item) for item in value]
+    if isinstance(value, np.generic):
+        value = value.item()
+    if isinstance(value, float) and not math.isfinite(value):
+        return None
+    if value is None or isinstance(value, (bool, int, float, str)):
+        return value
+    return str(value)
+
+
+def _end_reason(completed, exception):
+    """Why a run ended: None if it completed, "Aborted by user" if the participant ended it, else the type and message of the exception that ended it."""
+    if isinstance(exception, KeyboardInterrupt) or (exception is None and not completed):
+        return USER_ABORT_REASON
+    if exception is None:
+        return None
+    message = str(exception)
+    return f"{type(exception).__name__}: {message}" if message else type(exception).__name__
 
 
 class BaseExperiment(ABC):
@@ -356,6 +386,8 @@ class BaseExperiment(ABC):
                 # Do not present stimulus until current trial begins(Adhere to inter-trial interval).
                 if elapsed_time > trial_end_time:
                     current_trial += 1
+                    if self.use_vr:
+                        self.vr.check_eye_separation()
 
                     # Calculate timing for this trial
                     trial_start_time = elapsed_time + iti_with_jitter()
@@ -396,21 +428,48 @@ class BaseExperiment(ABC):
         # Record experiment until a key is pressed or duration has expired.
         record_start_time = time()
 
+        completed, exception = False, None
         try:
-            self._run_trial_loop(record_start_time, self.duration)
+            completed = self._run_trial_loop(record_start_time, self.duration)
 
             # Clearing the screen for the next trial
             event.clearEvents()
+        except BaseException as exc:
+            exception = exc
+            raise
         finally:
-            # Closing the EEG stream
-            if self.eeg:
-                self.eeg.stop()
+            self._end_run(completed, exception)
 
+    def _end_run(self, completed, exception):
+        """Stop the recording, write the session and timing files, and close the window."""
+        if self.eeg:
+            self.eeg.stop()
+        self._save_session(completed, exception)
+        if self.use_vr:
+            self.vr.save_telemetry(self.save_fn)
+        self.window.close()
+
+    def _save_session(self, completed, exception):
+        """Write ``<recording>_session.json``: whether the run completed, why not, and on a VR run the headset's facts.
+
+        Does nothing when ``save_fn`` is None; a failure to write is logged, never raised.
+        """
+        if self.save_fn is None:
+            return
+        path = None
+        try:
+            save_fn = Path(self.save_fn)
+            path = save_fn.with_name(save_fn.stem + '_session.json')
+            facts = {'completed': bool(completed) and exception is None,
+                     'reason': _end_reason(completed, exception)}
             if self.use_vr:
-                self.vr.save_telemetry(self.save_fn)
-
-            # Closing the window
-            self.window.close()
+                facts['vr'] = self.vr.get_session_summary()
+            text = json.dumps(_json_ready(facts), indent=2, allow_nan=False)
+            path.write_text(text + '\n', encoding='utf-8')
+        except Exception as write_error:
+            logging.warning("Could not write the session file %s: %s", path, write_error)
+            return
+        print(f"  Saved the session file to {path}")
 
     def send_triggers(self, marker):
         """Send timing triggers to recording device[s]"""

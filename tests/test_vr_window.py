@@ -48,6 +48,7 @@ class _View:
 def _bare(views=None):
     win = VR.__new__(VR)
     win._views = views
+    win._locked_eye_separation_mm = None
     win._eye_size = (1616, 1648)
     win._frame_index = 8
     win.timing_data = []
@@ -69,6 +70,8 @@ def _bare(views=None):
     win._input_enabled = False
     win._monoscopic = False
     win.stimulus_distance_m = 1.0
+    win.runtime_to_wallclock_offset = None
+    win.runtime_to_wallclock_bracket = None
 
     class _XR:
         SessionState = _SessionState
@@ -109,7 +112,7 @@ def test_log_display_info_reports_ipd_from_the_view_poses():
     ppd, ipd_mm = win.log_display_info()
     assert ppd == 12
     assert ipd_mm == pytest.approx(63.2)
-    assert win.timing_data[0][0] == '# ipd_mm'
+    assert win.timing_data == []
 
 
 class _LayerView:
@@ -342,6 +345,7 @@ def test_summary_reports_the_missed_vsync_counts():
     assert summary["missed_vsyncs"] == 3
     assert summary["missed_vsync_events"] == 2
     assert summary["longest_step_ms"] == 16.7
+    assert summary["repeated_predictions"] == 0
     assert summary["session_status"]["is_visible"] is True
     assert summary["session_status"]["hmd_mounted"] is None
     assert "asw_activations" not in summary
@@ -476,37 +480,114 @@ def test_clock_offset_is_cached_and_matches_wall_minus_perf_counter():
     assert win.sync_vr_clock() == offset
 
 
-def test_save_telemetry_writes_a_header_matching_every_row(tmp_path):
+def test_save_telemetry_writes_only_a_header_and_one_row_per_trial(tmp_path):
     win = _bare(QUEST2_VIEWS)
-    win.runtime_to_wallclock_offset = None
+    win.sync_vr_clock()
+    win.log_display_info()
     win.log_telemetry(3, 100.0, marker=2)
+    win.log_telemetry(4, 100.5, marker=1)
     win.save_telemetry(tmp_path / "recording.csv")
 
     with (tmp_path / "recording_timing.csv").open(newline="") as handle:
-        rows = list(csv.reader(line for line in handle if not line.startswith('#')))
-    header, row = rows
-    assert len(header) == len(row)
-    assert header[:3] == ["trial_idx", "software_time", "submitted_frame_index"]
-    sample = dict(zip(header, row))
+        lines = handle.read().splitlines()
+    assert not any(line.startswith('#') for line in lines)
+    header, first, second = list(csv.reader(lines))
+    assert header == (["trial_idx", "software_time", "submitted_frame_index"]
+                      + list(win._DERIVED_TIMING_FIELDS))
+    assert len(first) == len(second) == len(header)
+    sample = dict(zip(header, first))
     assert sample["predicted_display_time_s"] == "12.5"
     assert sample["marker"] == "2"
 
 
-def test_summary_and_timing_file_record_the_stimulus_distance(tmp_path):
+def test_summary_carries_what_the_timing_file_header_rows_used_to(tmp_path):
     win = _bare(QUEST2_VIEWS)
     win.stimulus_distance_m = 2.5
-    win.runtime_to_wallclock_offset = None
-    assert win.get_session_summary()["stimulus_distance_m"] == 2.5
-    win.save_telemetry(tmp_path / "recording.csv")
-    with (tmp_path / "recording_timing.csv").open(newline="") as handle:
-        backend = next(row for row in csv.reader(handle) if row[0] == "# backend")
-    assert backend == ["# backend", "openxr", "runtime", "test 0.0", "system", "test hmd",
-                       "stimulus_distance_m", "2.5"]
+    offset = win.sync_vr_clock()
+    summary = win.get_session_summary()
+    assert summary["backend"] == "openxr"
+    assert summary["runtime"] == "test 0.0"
+    assert summary["system"] == "test hmd"
+    assert summary["stimulus_distance_m"] == 2.5
+    assert summary["runtime_to_wallclock_offset_s"] == offset
+    assert summary["runtime_to_wallclock_bracket_ms"] == win.runtime_to_wallclock_bracket * 1000
+    assert summary["missed_vsyncs"] == 3
+    assert summary["missed_vsync_events"] == 2
+    assert summary["longest_step_ms"] == 16.7
+    assert summary["repeated_predictions"] == 0
+    assert summary["eye_separation_mm"] == pytest.approx(63.2)
+    ppd_h, ppd_v = win.pixels_per_degree()
+    assert summary["pixels_per_degree"] == [round(ppd_h, 1), round(ppd_v, 1)]
+
+
+def test_summary_before_the_clock_sync_and_the_eye_positions_has_none_for_them():
+    summary = _bare(None).get_session_summary()
+    assert summary["runtime_to_wallclock_offset_s"] is None
+    assert summary["runtime_to_wallclock_bracket_ms"] is None
+    assert summary["eye_separation_mm"] is None
+    assert "eye_separation_locked_mm" not in summary
+    assert summary["pixels_per_degree"] is None
+
+
+def _views_apart(separation_mm):
+    half_m = separation_mm / 2000
+    return [_View(QUEST2_VIEWS[0].fov, -half_m), _View(QUEST2_VIEWS[1].fov, half_m)]
+
+
+def test_the_first_eye_separation_check_records_the_separation():
+    win = _bare(QUEST2_VIEWS)
+    assert win._locked_eye_separation_mm is None
+    assert win.check_eye_separation() is None
+    assert win._locked_eye_separation_mm == pytest.approx(63.2)
+
+
+@pytest.mark.parametrize("now_mm", [63.2, 62.3, 64.1])
+def test_eye_separation_check_passes_within_1_mm_of_the_first_value(now_mm):
+    win = _bare(QUEST2_VIEWS)
+    win.check_eye_separation()
+    win._views = _views_apart(now_mm)
+    assert win.check_eye_separation() is None
+    assert win._locked_eye_separation_mm == pytest.approx(63.2)
+
+
+@pytest.mark.parametrize("now_mm", [58.1, 62.1, 64.3])
+def test_eye_separation_check_raises_once_it_moved_over_1_mm(now_mm):
+    win = _bare(QUEST2_VIEWS)
+    win.check_eye_separation()
+    win._views = _views_apart(now_mm)
+    with pytest.raises(RuntimeError) as raised:
+        win.check_eye_separation()
+    assert str(raised.value) == (
+        f"Eye separation changed from 63.2 mm to {now_mm} mm during the run, so the stimulus "
+        "is no longer at the stated distance; restart the session.")
+
+
+def test_eye_separation_check_waits_while_the_eye_positions_are_unknown():
+    win = _bare(None)
+    assert win.check_eye_separation() is None
+    assert win._locked_eye_separation_mm is None
+    win._views = QUEST2_VIEWS
+    win.check_eye_separation()
+    win._views = None
+    assert win.check_eye_separation() is None
+    assert win._locked_eye_separation_mm == pytest.approx(63.2)
+
+
+def test_summary_reports_the_current_eye_separation_before_the_first_check():
+    win = _bare(QUEST2_VIEWS)
+    assert win.get_session_summary()["eye_separation_mm"] == pytest.approx(63.2)
+
+
+@pytest.mark.parametrize("views_after", [_views_apart(63.9), None], ids=["moved", "cleared"])
+def test_summary_reports_the_eye_separation_the_trials_started_with(views_after):
+    win = _bare(QUEST2_VIEWS)
+    win.check_eye_separation()
+    win._views = views_after
+    assert win.get_session_summary()["eye_separation_mm"] == 63.2
 
 
 def test_save_telemetry_accepts_a_string_path(tmp_path):
     win = _bare(QUEST2_VIEWS)
-    win.runtime_to_wallclock_offset = None
     win.save_telemetry(str(tmp_path / "recording.csv"))
     assert (tmp_path / "recording_timing.csv").is_file()
 
