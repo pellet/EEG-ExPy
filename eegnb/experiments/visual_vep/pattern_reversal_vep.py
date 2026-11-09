@@ -135,12 +135,12 @@ class VisualPatternReversalVEP(BlockExperiment):
         if self.use_vr:
             # Calculate pixel positions for stereoscopic presentation
             window_width = self.window.size[0]
-            left_pix_x_pos = self.left_eye_x_pos * (window_width / 2)
-            right_pix_x_pos = self.right_eye_x_pos * (window_width / 2)
+            left_x = self._eye_x_ndc('left')
+            right_x = self._eye_x_ndc('right')
 
             return {
-                'left': create_eye_stimuli(self.left_eye_x_pos, left_pix_x_pos),
-                'right': create_eye_stimuli(self.right_eye_x_pos, right_pix_x_pos)
+                'left': create_eye_stimuli(left_x, left_x * (window_width / 2)),
+                'right': create_eye_stimuli(right_x, right_x * (window_width / 2))
             }
         else:
             return {

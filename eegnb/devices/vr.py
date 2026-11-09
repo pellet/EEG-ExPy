@@ -7,7 +7,8 @@ monoscopic or per-eye stereoscopic.
 
 ``runtime=`` names the OpenXR runtime (a manifest path, or a name such as
 ``'oculus'``, ``'steamvr'`` or ``'virtualdesktop'``); ``None`` uses the
-system's active one. The runtime used and each frame's predicted display time
+system's active one. The runtime used, the virtual distance at which stimuli
+are placed (``stimulus_distance_m``) and each frame's predicted display time
 (``predicted_display_time_s``, on the ``time.perf_counter`` clock) are written
 to the ``_timing.csv`` sidecar.
 
@@ -23,6 +24,7 @@ import glob
 import json
 import logging
 import math
+import numbers
 import os
 import re
 import sys
@@ -123,6 +125,15 @@ def resolve_runtime(runtime):
                      f"runtimes, need exactly one. Registered: {found}")
 
 
+def require_distance_m(distance_m, name='distance_m'):
+    """Return ``distance_m`` as a float; raise ``ValueError`` if it is not a positive, finite number."""
+    if (isinstance(distance_m, bool) or not isinstance(distance_m, numbers.Real)
+            or not math.isfinite(distance_m) or distance_m <= 0):
+        raise ValueError(f"{name} must be a positive, finite distance in metres, "
+                         f"got {distance_m!r}")
+    return float(distance_m)
+
+
 class _PygletContext:
     """``GraphicsContextProvider`` over PsychoPy's pyglet window."""
 
@@ -175,6 +186,7 @@ class VR(visual.Window):
                 "the OpenXR backend needs pyopenxr: pip install pyopenxr") from e
         self._xr = xr
         self._monoscopic = monoscopic
+        self.stimulus_distance_m = 1.0
         self.buffer = None
         self.timing_data = []
         self.mirror_swap_every = 1
@@ -504,13 +516,17 @@ class VR(visual.Window):
             self._bound_size = (w, h)
         GL.glEnable(GL.GL_SCISSOR_TEST)
         if clear:
-            if self._passthrough_on:
-                GL.glClearColor(0.0, 0.0, 0.0, 0.0)
-            else:
-                r, g, b, _ = self._color.rgba1
-                GL.glClearColor(r, g, b, 1.0)
-            GL.glClear(GL.GL_COLOR_BUFFER_BIT)
+            self._clear_framebuffer()
         GL.glDisable(GL.GL_TEXTURE_2D)
+
+    def _clear_framebuffer(self):
+        """Fill the current framebuffer with the window colour, or transparent under passthrough."""
+        if self._passthrough_on:
+            GL.glClearColor(0.0, 0.0, 0.0, 0.0)
+        else:
+            r, g, b, _ = self._color.rgba1
+            GL.glClearColor(r, g, b, 1.0)
+        GL.glClear(GL.GL_COLOR_BUFFER_BIT)
 
     def _mono_source_rect(self, view):
         w, h = self._eye_size
@@ -521,7 +537,27 @@ class VR(visual.Window):
                 round((math.tan(fov.angle_right) - left) / (right - left) * w),
                 round((math.tan(fov.angle_up) - down) / (up - down) * h))
 
-    def _blit(self, src_texture, dst_fbo, dst_size, src_rect=None):
+    @property
+    def stimulus_distance_m(self):
+        """Virtual distance, in metres, at which stimuli and text appear in the headset.
+
+        The window applies it to monoscopic frames; stereoscopic callers place their own drawings with ``offsets_at_distance``.
+        """
+        return self._stimulus_distance_m
+
+    @stimulus_distance_m.setter
+    def stimulus_distance_m(self, distance_m):
+        self._stimulus_distance_m = require_distance_m(distance_m, 'stimulus_distance_m')
+
+    def _mono_shift_px(self, view):
+        """Pixels to shift this eye's copy towards the nose so both copies meet at ``stimulus_distance_m``."""
+        views = self._located_views(self.stimulus_distance_m)
+        centre = (views[0].pose.position.x + views[1].pose.position.x) / 2
+        span = math.tan(view.fov.angle_right) - math.tan(view.fov.angle_left)
+        tan_point = self._nasal_tangent(view, centre, self.stimulus_distance_m)
+        return round(tan_point * self._eye_size[0] / span)
+
+    def _blit(self, src_texture, dst_fbo, dst_size, src_rect=None, dst_x=0):
         w, h = self._eye_size
         x0, y0, x1, y1 = src_rect or (0, 0, w, h)
         GL.glBindFramebuffer(GL.GL_READ_FRAMEBUFFER, self._copy_fbo)
@@ -529,7 +565,7 @@ class VR(visual.Window):
                                   GL.GL_TEXTURE_2D, src_texture, 0)
         GL.glBindFramebuffer(GL.GL_DRAW_FRAMEBUFFER, dst_fbo)
         GL.glDisable(GL.GL_SCISSOR_TEST)
-        GL.glBlitFramebuffer(x0, y0, x1, y1, 0, 0, dst_size[0], dst_size[1],
+        GL.glBlitFramebuffer(x0, y0, x1, y1, dst_x, 0, dst_x + dst_size[0], dst_size[1],
                              GL.GL_COLOR_BUFFER_BIT, GL.GL_LINEAR)
 
     def _submit_frame(self):
@@ -542,8 +578,12 @@ class VR(visual.Window):
             if self._monoscopic:
                 for index, view in enumerate(self._views):
                     self._attach_draw_target(self._acquire_view(index))
+                    shift = self._mono_shift_px(view)
+                    if shift:
+                        GL.glDisable(GL.GL_SCISSOR_TEST)
+                        self._clear_framebuffer()
                     self._blit(self._mono_texture, self._draw_fbo, self._eye_size,
-                               self._mono_source_rect(view))
+                               self._mono_source_rect(view), shift)
             elif 1 not in self._acquired:
                 source = self._acquire_view(0)
                 target = self._acquire_view(1)
@@ -952,26 +992,25 @@ class VR(visual.Window):
     def _nasal_tangent(self, view, centre, distance_m):
         return (centre - view.pose.position.x) / distance_m
 
-    def offsets_at_distance(self, distance_m, strict=False):
-        """Normalized-device x, per eye, of a point ``distance_m`` straight ahead.
-
-        ``compute_optical_axis_offsets`` is the same at infinite distance. A
-        nearer point sits nasally of each eye's optical axis by the eye's half of
-        the interpupillary distance, taken from the view poses, so text drawn at
-        these offsets converges at ``distance_m`` instead of at infinity.
-
-        Poses exist only once a frame has been begun. Without them this falls
-        back to the infinite-distance offsets, unless ``strict`` is set, which
-        raises instead: a stimulus placed from the fallback would sit at
-        infinity while the caller believes it is at ``distance_m``.
-        """
-        fov = self.eye_fov
+    def _located_views(self, distance_m):
+        """Both eyes' positions for this frame; raises ``RuntimeError`` if the headset has not reported them."""
         views = self._views
-        if not fov or not views or len(views) < 2:
-            if strict:
-                raise RuntimeError(
-                    f"view poses are not located yet; cannot place a stimulus at {distance_m} m")
-            return self.compute_optical_axis_offsets()
+        if not views or len(views) < 2:
+            raise RuntimeError(
+                "The headset has not reported the eye positions, so a point "
+                f"{distance_m} m ahead cannot be placed.")
+        return views
+
+    def offsets_at_distance(self, distance_m):
+        """Horizontal position, in each eye's image, of a point ``distance_m`` straight ahead.
+
+        Positions run from -1 at the left edge of an eye's image to +1 at the
+        right. Raises ``RuntimeError`` if the headset has not reported the eye
+        positions.
+        """
+        distance_m = require_distance_m(distance_m)
+        views = self._located_views(distance_m)
+        fov = self.eye_fov
         centre = (views[0].pose.position.x + views[1].pose.position.x) / 2
         out = []
         for view, (left, right, _, _) in zip(views[:2], fov[:2]):
@@ -984,11 +1023,11 @@ class VR(visual.Window):
         """Signed angle, per eye, from its optical axis to a point ``distance_m`` ahead.
 
         Positive is rightwards, so the left eye is positive and the right eye
-        negative for any finite distance. Needs located poses.
+        negative. Raises ``RuntimeError`` if the headset has not reported the
+        eye positions.
         """
-        views = self._views
-        if not views or len(views) < 2:
-            raise RuntimeError("view poses are not located yet")
+        distance_m = require_distance_m(distance_m)
+        views = self._located_views(distance_m)
         centre = (views[0].pose.position.x + views[1].pose.position.x) / 2
         return tuple(math.degrees(math.atan(self._nasal_tangent(v, centre, distance_m)))
                      for v in views[:2])
@@ -1066,6 +1105,7 @@ class VR(visual.Window):
             'system': self.system_name,
             'eye_size_px': list(self._eye_size),
             'swapchain_format': int(self.swapchain_format),
+            'stimulus_distance_m': self.stimulus_distance_m,
         }
         summary['session_status'] = self.get_session_status()
         return summary
@@ -1095,7 +1135,8 @@ class VR(visual.Window):
             writer.writerow(['trial_idx', 'software_time', 'submitted_frame_index']
                             + list(self._DERIVED_TIMING_FIELDS))
             writer.writerow(['# backend', 'openxr', 'runtime', self.runtime_name,
-                             'system', self.system_name])
+                             'system', self.system_name,
+                             'stimulus_distance_m', self.stimulus_distance_m])
             if self.runtime_to_wallclock_offset is not None:
                 writer.writerow(['# runtime_to_wallclock_offset_s',
                                  self.runtime_to_wallclock_offset,

@@ -188,6 +188,7 @@ class TestSession:
         summary = win.get_session_summary()
         assert summary['session_status']['session_state'] == 'FOCUSED'
         assert 'Monado' in summary['runtime']
+        assert summary['stimulus_distance_m'] == 1.0
 
 
 def test_close_releases_the_session_and_a_new_one_can_open(monado):

@@ -11,7 +11,7 @@ obj.run()
 from abc import abstractmethod, ABC
 from typing import Callable
 from eegnb.devices.eeg import EEG
-from eegnb.devices.vr import VR
+from eegnb.devices.vr import VR, require_distance_m
 from psychopy import prefs, visual, event
 from time import time
 
@@ -69,13 +69,6 @@ class BaseExperiment(ABC):
         if use_vr:
             # VR interface accessible by specific experiment classes for customizing and using controllers.
             self.vr: VR = VR(monoscopic=not stereoscopic, headLocked=True, runtime=vr_runtime)
-
-        # Shift the display so it aligns perfectly with the center of each eye.
-        if use_vr and stereoscopic:
-            self.left_eye_x_pos, self.right_eye_x_pos = self.vr.compute_optical_axis_offsets()
-        else:
-            self.left_eye_x_pos = 0
-            self.right_eye_x_pos = 0
 
         self.use_fullscr = use_fullscr
         self.window_size = [1600,800]
@@ -141,6 +134,9 @@ class BaseExperiment(ABC):
             self.vr if self.use_vr
             else visual.Window(self.window_size, monitor="testMonitor", units="deg", 
                                screen = self.screen_num, fullscr=self.use_fullscr))
+        if self.use_vr:
+            self.vr.stimulus_distance_m = require_distance_m(
+                self.stimulus_distance_m, 'stimulus_distance_m')
         
         # Loading the stimulus from the specific experiment, throws an error if not overwritten in the specific experiment
         self.stim = self.load_stimulus()
@@ -276,49 +272,26 @@ class BaseExperiment(ABC):
         if self.use_vr and self.stereoscopic:
             for eye in ("left", "right"):
                 self.window.setBuffer(eye)
-                text.pos = self._eye_axis_pos(self._text_x_ndc(eye), text.units)
+                text.pos = self._eye_axis_pos(self._eye_x_ndc(eye), text.units)
                 text.draw()
         else:
             text.draw()
         self.window.flip()
 
-    vr_text_distance_m = 1.0
     vr_text_height = 0.03
     vr_text_wrap = 0.8
-    stimulus_distance_m = None
+    stimulus_distance_m = 1.0
     passthrough_text_color = [1, 1, -1]
 
-    def _text_distance_m(self):
-        """Virtual distance of on-screen text, or ``None`` for the optical axis.
+    def _eye_x_ndc(self, eye):
+        """Horizontal position, in one eye's image, of a point straight ahead at the stimulus distance.
 
-        ``stimulus_distance_m`` when set, so text and stimulus share one
-        vergence; otherwise the optical axis (optically at infinity), except
-        under passthrough, where text at infinity splits in two while the eyes
-        converge on nearby objects and ``vr_text_distance_m`` applies.
+        Stereoscopic experiments must place each eye's stimuli and text here; monoscopic ones are placed by the window.
         """
-        if self.stimulus_distance_m is not None:
-            return self.stimulus_distance_m
-        if self.use_vr and self.vr.passthrough_on:
-            return self.vr_text_distance_m
-        return None
-
-    def _text_x_ndc(self, eye):
-        """Normalized-device x for one eye's copy of on-screen text."""
-        distance = self._text_distance_m()
-        index = 0 if eye == 'left' else 1
-        if distance is None:
-            return self.left_eye_x_pos if eye == 'left' else self.right_eye_x_pos
-        if self.stimulus_distance_m is not None:
-            return self.vr.offsets_at_distance(distance, strict=True)[index]
-        return self.vr.offsets_at_distance(distance)[index]
+        return self.vr.offsets_at_distance(self.vr.stimulus_distance_m)[0 if eye == 'left' else 1]
 
     def _eye_axis_pos(self, x_ndc, units):
-        """Centre of one eye's optical axis, ``(x, 0)`` in ``units``.
-
-        ``left_eye_x_pos`` / ``right_eye_x_pos`` are normalised device x, so a
-        stimulus in pixel or height units needs them scaled to the eye buffer
-        before they move it at all.
-        """
+        """One eye's normalized-device ``x_ndc`` scaled to ``units``, as ``(x, 0)``."""
         width, height = self.window.size
         if units == 'pix':
             return (x_ndc * width / 2, 0)

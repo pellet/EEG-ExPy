@@ -68,6 +68,7 @@ def _bare(views=None):
     win._closed = True
     win._input_enabled = False
     win._monoscopic = False
+    win.stimulus_distance_m = 1.0
 
     class _XR:
         SessionState = _SessionState
@@ -180,9 +181,17 @@ class _GL:
     def __init__(self):
         self.attached = {}
         self.blits = []
+        self.dest_rects = []
+        self.cleared = []
 
     def glBindFramebuffer(self, target, fbo):
         pass
+
+    def glClearColor(self, *rgba):
+        pass
+
+    def glClear(self, mask):
+        self.cleared.append(self.attached[self.GL_FRAMEBUFFER])
 
     def glFramebufferTexture2D(self, target, attachment, textarget, texture, level):
         self.attached[target] = texture
@@ -193,16 +202,19 @@ class _GL:
     def glBlitFramebuffer(self, *args):
         self.blits.append((self.attached[self.GL_READ_FRAMEBUFFER],
                            self.attached[self.GL_FRAMEBUFFER], args[:4]))
+        self.dest_rects.append(args[4:8])
 
 
 class _Layer(ctypes.Structure):
     _fields_ = [('layer_flags', ctypes.c_uint64)]
 
 
-def test_monoscopic_submit_copies_the_drawn_image_into_each_eye(monkeypatch):
+def _mono_submit(monkeypatch, distance_m):
     gl = _GL()
     monkeypatch.setattr("eegnb.devices.vr.GL", gl)
     win = _located(monoscopic=True)
+    win.stimulus_distance_m = distance_m
+    win._color = SimpleNamespace(rgba1=(0.0, 0.0, 0.0, 1.0))
     win._mono_texture = 'drawn'
     win._swapchain_images = [[SimpleNamespace(image='left eye')],
                              [SimpleNamespace(image='right eye')]]
@@ -226,8 +238,41 @@ def test_monoscopic_submit_copies_the_drawn_image_into_each_eye(monkeypatch):
     win._xr.FrameEndInfo = lambda **kw: kw
     win._xr.end_frame = lambda session, frame_end_info: None
     win._submit_frame()
+    return win, gl
+
+
+def test_monoscopic_submit_copies_the_drawn_image_into_each_eye(monkeypatch):
+    win, gl = _mono_submit(monkeypatch, 1e9)
     assert gl.blits == [('drawn', 'left eye', win._mono_source_rect(QUEST2_VIEWS[0])),
                         ('drawn', 'right eye', win._mono_source_rect(QUEST2_VIEWS[1]))]
+    w, h = win._eye_size
+    assert gl.dest_rects == [(0, 0, w, h), (0, 0, w, h)]
+    assert gl.cleared == []
+
+
+def test_monoscopic_copy_moves_nasally_to_the_mono_distance_at_the_same_size(monkeypatch):
+    win, gl = _mono_submit(monkeypatch, 1.0)
+    w, h = win._eye_size
+    stereo = _bare(QUEST2_VIEWS)
+    near, axis = stereo.offsets_at_distance(1.0), stereo.compute_optical_axis_offsets()
+    shifts = [round((near[i] - axis[i]) * w / 2) for i in (0, 1)]
+    assert shifts[0] > 0 > shifts[1]
+    assert [rect for _, _, rect in gl.blits] == [win._mono_source_rect(v) for v in QUEST2_VIEWS]
+    assert gl.dest_rects == [(s, 0, s + w, h) for s in shifts]
+    assert gl.cleared == ['left eye', 'right eye']
+    sources = [rect for _, _, rect in gl.blits]
+    for view, (x0, _, x1, _), (dx, _, _, _) in zip(QUEST2_VIEWS, sources, gl.dest_rects):
+        eye_x = dx + (w / 2 - x0) * w / (x1 - x0)
+        tan_l, tan_r = math.tan(view.fov.angle_left), math.tan(view.fov.angle_right)
+        shown = tan_l + eye_x / w * (tan_r - tan_l)
+        assert shown == pytest.approx(-view.pose.position.x, abs=(tan_r - tan_l) / w)
+
+
+def test_monoscopic_shift_refuses_without_poses():
+    win = _bare(None)
+    win._monoscopic = True
+    with pytest.raises(RuntimeError, match="1.0 m ahead"):
+        win._mono_shift_px(QUEST2_VIEWS[0])
 
 
 def _teardown_log(monkeypatch, win):
@@ -445,6 +490,18 @@ def test_save_telemetry_writes_a_header_matching_every_row(tmp_path):
     sample = dict(zip(header, row))
     assert sample["predicted_display_time_s"] == "12.5"
     assert sample["marker"] == "2"
+
+
+def test_summary_and_timing_file_record_the_stimulus_distance(tmp_path):
+    win = _bare(QUEST2_VIEWS)
+    win.stimulus_distance_m = 2.5
+    win.runtime_to_wallclock_offset = None
+    assert win.get_session_summary()["stimulus_distance_m"] == 2.5
+    win.save_telemetry(tmp_path / "recording.csv")
+    with (tmp_path / "recording_timing.csv").open(newline="") as handle:
+        backend = next(row for row in csv.reader(handle) if row[0] == "# backend")
+    assert backend == ["# backend", "openxr", "runtime", "test 0.0", "system", "test hmd",
+                       "stimulus_distance_m", "2.5"]
 
 
 def test_save_telemetry_accepts_a_string_path(tmp_path):

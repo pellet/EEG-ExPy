@@ -215,21 +215,13 @@ def test_near_text_moves_nasally_by_half_the_eye_separation():
     assert near_right - axis_right == pytest.approx(-2 * 0.0316 / span)
 
 
-def test_text_follows_the_distance_only_while_passthrough_shows_the_room():
-    exp = _experiment(True)
-    exp.left_eye_x_pos, exp.right_eye_x_pos = 0.12, -0.12
-    exp.vr = SimpleNamespace(passthrough_on=False, offsets_at_distance=lambda d: (0.2, -0.2))
-    assert (exp._text_x_ndc('left'), exp._text_x_ndc('right')) == (0.12, -0.12)
-    exp.vr.passthrough_on = True
-    assert (exp._text_x_ndc('left'), exp._text_x_ndc('right')) == (0.2, -0.2)
-
-
-def test_strict_offsets_refuse_without_poses():
+def test_offsets_and_nasal_shift_refuse_without_poses():
     win = _bare(_FakeXR())
     win._views = None
-    with pytest.raises(RuntimeError, match="not located"):
-        win.offsets_at_distance(1.0, strict=True)
-    assert win.offsets_at_distance(1.0) == (0.0, 0.0)
+    with pytest.raises(RuntimeError, match="1.0 m ahead"):
+        win.offsets_at_distance(1.0)
+    with pytest.raises(RuntimeError, match="2.5 m ahead"):
+        win.nasal_shift_deg(2.5)
 
 
 def test_eye_separation_and_nasal_shift_follow_the_poses():
@@ -243,18 +235,76 @@ def test_eye_separation_and_nasal_shift_follow_the_poses():
     assert bare.eye_separation_mm() is None
 
 
-def test_stimulus_distance_sets_text_distance_with_and_without_passthrough():
+def test_stimulus_and_text_default_to_one_metre_with_and_without_passthrough():
+    assert BaseExperiment.stimulus_distance_m == 1.0
+    assert not hasattr(BaseExperiment, 'vr_text_distance_m')
     exp = _experiment(False)
-    exp.left_eye_x_pos, exp.right_eye_x_pos = 0.12, -0.12
     asked = []
-    exp.vr = SimpleNamespace(
-        passthrough_on=False,
-        offsets_at_distance=lambda d, strict=False: asked.append((d, strict)) or (0.2, -0.2))
-    exp.stimulus_distance_m = 2.0
-    assert (exp._text_x_ndc('left'), exp._text_x_ndc('right')) == (0.2, -0.2)
+    exp.vr = SimpleNamespace(passthrough_on=False,
+                             offsets_at_distance=lambda d: asked.append(d) or (0.2, -0.2))
+    exp.eeg = None
+    exp.setup(instructions=False)
+    assert (exp._eye_x_ndc('left'), exp._eye_x_ndc('right')) == (0.2, -0.2)
     exp.vr.passthrough_on = True
-    assert (exp._text_x_ndc('left'), exp._text_x_ndc('right')) == (0.2, -0.2)
-    assert {d for d, _ in asked} == {2.0} and all(strict for _, strict in asked)
-    exp.stimulus_distance_m = None
-    exp.vr.passthrough_on = False
-    assert (exp._text_x_ndc('left'), exp._text_x_ndc('right')) == (0.12, -0.12)
+    assert (exp._eye_x_ndc('left'), exp._eye_x_ndc('right')) == (0.2, -0.2)
+    assert set(asked) == {1.0}
+
+
+def test_text_without_poses_raises_instead_of_falling_back():
+    exp = _experiment(False)
+    exp.vr = _bare(_FakeXR())
+    exp.vr._views = None
+    exp.vr.stimulus_distance_m = 1.0
+    with pytest.raises(RuntimeError, match="1.0 m ahead"):
+        exp._eye_x_ndc('left')
+
+
+def test_setup_hands_the_stimulus_distance_to_the_headset_window():
+    exp = _experiment(False)
+    exp.vr = SimpleNamespace()
+    exp.eeg = None
+    assert exp.setup(instructions=False) is True
+    assert exp.vr.stimulus_distance_m == 1.0
+    exp.stimulus_distance_m = 2
+    exp.setup(instructions=False)
+    assert exp.vr.stimulus_distance_m == 2.0 and isinstance(exp.vr.stimulus_distance_m, float)
+
+
+BAD_DISTANCES = [None, 0, -1.0, float('inf'), float('nan'), '1.0', True]
+
+
+@pytest.mark.parametrize('distance_m', BAD_DISTANCES)
+def test_setup_refuses_a_stimulus_distance_that_is_not_positive_and_finite(distance_m):
+    exp = _experiment(False)
+    exp.vr = SimpleNamespace()
+    exp.eeg = None
+    exp.stimulus_distance_m = distance_m
+    with pytest.raises(ValueError, match='stimulus_distance_m'):
+        exp.setup(instructions=False)
+    assert not hasattr(exp.vr, 'stimulus_distance_m')
+
+
+@pytest.mark.parametrize('distance_m', BAD_DISTANCES)
+def test_headset_window_refuses_a_distance_that_is_not_positive_and_finite(distance_m):
+    win = _viewed()
+    with pytest.raises(ValueError, match='positive, finite'):
+        win.offsets_at_distance(distance_m)
+    with pytest.raises(ValueError, match='positive, finite'):
+        win.nasal_shift_deg(distance_m)
+    with pytest.raises(ValueError, match='stimulus_distance_m'):
+        win.stimulus_distance_m = distance_m
+    unlocated = _bare(_FakeXR())
+    unlocated._views = None
+    with pytest.raises(ValueError, match='positive, finite'):
+        unlocated.offsets_at_distance(distance_m)
+
+
+def test_placement_uses_the_distance_the_window_records_not_a_later_change():
+    exp = _experiment(False)
+    exp.vr = _viewed()
+    exp.eeg = None
+    exp.stimulus_distance_m = 2.0
+    exp.setup(instructions=False)
+    exp.stimulus_distance_m = 5.0
+    assert exp.vr.stimulus_distance_m == 2.0
+    assert (exp._eye_x_ndc('left'), exp._eye_x_ndc('right')) == exp.vr.offsets_at_distance(2.0)
