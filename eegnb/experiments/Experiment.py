@@ -446,7 +446,7 @@ class BaseExperiment(ABC):
             self.eeg.stop()
         self._save_session(completed, exception)
         if self.use_vr:
-            self.vr.save_telemetry(self.save_fn)
+            self.vr.save_timing(self.save_fn)
         self.window.close()
 
     def _save_session(self, completed, exception):

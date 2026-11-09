@@ -1,5 +1,5 @@
 """VR's runtime-free surface: geometry from the view fov, missed-vsync
-counting, clock sync, and telemetry rows that match their header."""
+counting, clock sync, and timing rows that match their header."""
 
 import csv
 import ctypes
@@ -321,14 +321,14 @@ def test_geometry_without_views_degrades_rather_than_raising():
 
 def _row():
     win = _bare(QUEST2_VIEWS)
-    win.log_telemetry(3, 100.0, marker=2)
+    win.log_timing(3, 100.0, marker=2)
     header = (["trial_idx", "software_time", "submitted_frame_index"]
               + list(win._DERIVED_TIMING_FIELDS))
     assert len(win.timing_data[0]) == len(header)
     return dict(zip(header, win.timing_data[0]))
 
 
-def test_telemetry_row_carries_the_submitted_frames_prediction():
+def test_timing_row_carries_the_submitted_frames_prediction():
     row = _row()
     assert row["submitted_frame_index"] == 7
     assert row["marker"] == 2
@@ -480,13 +480,13 @@ def test_clock_offset_is_cached_and_matches_wall_minus_perf_counter():
     assert win.sync_vr_clock() == offset
 
 
-def test_save_telemetry_writes_only_a_header_and_one_row_per_trial(tmp_path):
+def test_save_timing_writes_only_a_header_and_one_row_per_trial(tmp_path):
     win = _bare(QUEST2_VIEWS)
     win.sync_vr_clock()
     win.log_display_info()
-    win.log_telemetry(3, 100.0, marker=2)
-    win.log_telemetry(4, 100.5, marker=1)
-    win.save_telemetry(tmp_path / "recording.csv")
+    win.log_timing(3, 100.0, marker=2)
+    win.log_timing(4, 100.5, marker=1)
+    win.save_timing(tmp_path / "recording.csv")
 
     with (tmp_path / "recording_timing.csv").open(newline="") as handle:
         lines = handle.read().splitlines()
@@ -586,11 +586,11 @@ def test_summary_reports_the_eye_separation_the_trials_started_with(views_after)
     assert win.get_session_summary()["eye_separation_mm"] == 63.2
 
 
-def test_save_telemetry_accepts_a_string_path(tmp_path):
+def test_save_timing_accepts_a_string_path(tmp_path):
     win = _bare(QUEST2_VIEWS)
-    win.save_telemetry(str(tmp_path / "recording.csv"))
+    win.save_timing(str(tmp_path / "recording.csv"))
     assert (tmp_path / "recording_timing.csv").is_file()
 
 
-def test_save_telemetry_without_a_path_writes_nothing():
-    assert _bare(QUEST2_VIEWS).save_telemetry(None) is None
+def test_save_timing_without_a_path_writes_nothing():
+    assert _bare(QUEST2_VIEWS).save_timing(None) is None

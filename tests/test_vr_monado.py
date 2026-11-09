@@ -174,9 +174,9 @@ class TestSession:
         assert win.displayRefreshRate > 0
         assert win.get_session_status()['session_state'] == 'FOCUSED'
 
-    def test_telemetry_row_and_summary_carry_the_session_state(self, win):
+    def test_timing_row_and_summary_carry_the_session_state(self, win):
         win.flip()
-        win.log_telemetry(0, time.time(), marker=3)
+        win.log_timing(0, time.time(), marker=3)
         header = (['trial_idx', 'software_time', 'submitted_frame_index']
                   + list(win._DERIVED_TIMING_FIELDS))
         row = dict(zip(header, win.timing_data[-1]))

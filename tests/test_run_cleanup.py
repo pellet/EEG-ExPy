@@ -34,7 +34,7 @@ VR_SUMMARY = {"backend": "openxr", "stimulus_distance_m": 1.0, "missed_vsyncs": 
 
 def _experiment(base, fail, save_fn, use_vr=False, cancel_after=None, cancel_block=False,
                 summary=None, **kwargs):
-    state = SimpleNamespace(draws=0, closed=False, telemetry=None, eye_checks=0)
+    state = SimpleNamespace(draws=0, closed=False, timing=None, eye_checks=0)
 
     def session_summary():
         if isinstance(summary, BaseException):
@@ -54,7 +54,7 @@ def _experiment(base, fail, save_fn, use_vr=False, cancel_after=None, cancel_blo
                 sync_vr_clock=lambda: None,
                 check_eye_separation=lambda: setattr(state, "eye_checks", state.eye_checks + 1),
                 get_session_summary=session_summary,
-                save_telemetry=lambda fn: setattr(state, "telemetry", fn))
+                save_timing=lambda fn: setattr(state, "timing", fn))
             return True
 
         def _draw(self, present_stimulus):
@@ -109,13 +109,13 @@ def test_run_stops_the_recording_when_the_trial_loop_raises(tmp_path, base, kwar
 
 @pytest.mark.parametrize("base, kwargs", CASES, ids=IDS)
 @pytest.mark.parametrize("fail", FAILURES, ids=FAILURE_IDS)
-def test_run_saves_the_vr_telemetry_when_the_trial_loop_raises(tmp_path, base, kwargs, fail):
+def test_run_saves_the_vr_timing_when_the_trial_loop_raises(tmp_path, base, kwargs, fail):
     save_fn = str(tmp_path / "recording.csv")
     exp, eeg, state = _experiment(base, fail, save_fn, use_vr=True, **kwargs)
     with pytest.raises(type(fail)):
         exp.run(instructions=False)
     assert eeg.stopped
-    assert state.telemetry == save_fn
+    assert state.timing == save_fn
     assert state.closed
 
 
@@ -206,7 +206,7 @@ def test_a_failed_session_summary_does_not_hide_the_original_exception(tmp_path,
     with pytest.raises(RuntimeError, match="stimulus failed mid-run"):
         exp.run(instructions=False)
     assert eeg.stopped
-    assert state.telemetry == save_fn
+    assert state.timing == save_fn
     assert state.closed
     assert not (tmp_path / "recording_session.json").exists()
     assert "Could not write the session file" in caplog.text

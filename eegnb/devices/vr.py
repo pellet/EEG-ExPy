@@ -1140,7 +1140,7 @@ class VR(visual.Window):
             'session_status': self.get_session_status(),
         }
 
-    def log_telemetry(self, trial_idx, software_time, marker=None):
+    def log_timing(self, trial_idx, software_time, marker=None):
         stat = {
             'marker': marker,
             'predicted_display_time_s': self.last_predicted_display_time_s,
@@ -1155,7 +1155,7 @@ class VR(visual.Window):
             [trial_idx, software_time, submitted_frame_index]
             + [stat[f] for f in self._DERIVED_TIMING_FIELDS])
 
-    def save_telemetry(self, save_fn):
+    def save_timing(self, save_fn):
         if save_fn is None:
             return
         save_fn = Path(save_fn)
@@ -1165,7 +1165,7 @@ class VR(visual.Window):
             writer.writerow(['trial_idx', 'software_time', 'submitted_frame_index']
                             + list(self._DERIVED_TIMING_FIELDS))
             writer.writerows(self.timing_data)
-        print(f"  Saved VR timing telemetry to {timing_path}")
+        print(f"  Saved headset frame timing to {timing_path}")
         print(f"  [openxr] {self._missed_events} late frames lost {self._missed_vsyncs} "
               f"vsyncs (longest gap {self._longest_step_ms:.0f} ms); a stall counts "
               f"every vsync it spans, so compare the event count against the frame "
