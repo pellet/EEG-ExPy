@@ -390,7 +390,7 @@ class BaseExperiment(ABC):
                         self.vr.check_eye_separation()
 
                     # Calculate timing for this trial
-                    trial_start_time = elapsed_time + iti_with_jitter()
+                    trial_start_time = (trial_end_time if current_trial > 0 else elapsed_time) + iti_with_jitter()
                     trial_end_time = trial_start_time + self.soa
 
                 # Do not present stimulus after trial has ended(stimulus on arrival interval).
